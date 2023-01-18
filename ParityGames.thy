@@ -30,8 +30,88 @@ text \<open>
   A play is an infinite sequence \<pi>\<in>V\<omega> of moves along the edges of the graph in the arena.
   A winning play for player 0 is a play where the maximum priority seen infinitely often is even.
 \<close>
-(*text \<open>We represent paths with an infinite coinductive list. Still testing how this works. A lazy list might work better?\<close>
-codatatype (infset: 'a) inflist = InfCons (head: 'a) (tail: "'a inflist")*)
+
+datatype ('a) l = N | C "'a l" 'a "'a l"
+print_theorems
+term set_l
+term map_l
+term rel_l
+term pred_l
+
+lemma "pred_l P l \<longleftrightarrow> (\<forall>x\<in>set_l l. P x)"
+  apply (induction l) apply auto done
+
+
+lemma "(\<forall>x\<in>set_l l. R x (f x)) \<Longrightarrow> rel_l R l (map_l f l)"
+  apply (induction l) apply auto done
+
+
+term rec_l
+
+
+text \<open>We represent paths with an infinite coinductive list. 
+  Still testing how this works. A lazy list might work better?\<close>
+codatatype (infset: 'a) inflist = InfCons (head: 'a) (tail: "'a inflist")
+
+definition iappend :: "'a list \<Rightarrow> 'a inflist \<Rightarrow> 'a inflist" where "iappend = foldr InfCons"
+
+lemma [simp]: "iappend [] xs = xs" unfolding iappend_def by simp
+lemma [simp]: "iappend (x#xs) ys = InfCons x (iappend xs ys)" unfolding iappend_def by simp
+
+lemma "iappend (xs@ys) zs = iappend xs (iappend ys zs)"
+  by (induction xs) auto
+
+
+primcorec ireplicate :: "'a \<Rightarrow> 'a inflist" where
+  "ireplicate x = InfCons x (ireplicate x)"
+  
+    
+
+context 
+  fixes R :: "'a \<Rightarrow> 'a \<Rightarrow> bool"
+begin
+
+  (*
+  
+    v\<^sub>0 v\<^sub>1 v\<^sub>2 \<dots>
+    
+    R v\<^sub>i v\<^sub>i\<^sub>+\<^sub>1
+    
+    path u (v#vs) \<longleftrightarrow> R u v \<and> path v vs
+  *)
+
+  coinductive is_ipath :: "'a \<Rightarrow> 'a inflist \<Rightarrow> bool" where
+    "R u v \<Longrightarrow> is_ipath v vs \<Longrightarrow> is_ipath u (InfCons v vs)"
+
+    
+
+  lemma "R x x \<Longrightarrow> is_ipath x (ireplicate x)"  
+      
+  
+  primcorec pathmap :: "('b \<Rightarrow> nat \<Rightarrow> nat) \<Rightarrow> 'b inflist \<Rightarrow> nat" where
+    "pathmap f vs = f (head vs) (pathmap f (tail vs))"
+  
+  
+  primcorec path :: "'a inflist \<Rightarrow> bool" where
+    "path vs \<longleftrightarrow> undefined (path (tail vs))"
+
+  
+  
+  primcorec path :: "'a \<Rightarrow> 'a inflist \<Rightarrow> bool" where
+    "path u vs \<longleftrightarrow> R u (head vs) \<and> path (head vs) (tail vs)"
+  
+    
+  primcorec path :: "'a \<Rightarrow> 'a inflist \<Rightarrow> bool" where
+    "path u (InfCons v vs) \<longleftrightarrow> R u v \<and> path v vs"
+  
+
+
+end
+
+
+
+
+
 text \<open>We can use a coinductive list to represent paths. This definition is taken from the datypes documentation of Isabelle.\<close>
 codatatype (lset: 'a) llist =
   lnull: LNil
@@ -74,9 +154,16 @@ lemma conn: "v\<in>V \<Longrightarrow> connected v v' \<Longrightarrow> v'\<in>V
   unfolding connected_def V_def
   by (metis Range.RangeI Range_snd UnCI rtranclE)
 
+term "\<forall>x\<in>lset vs. x\<in>V"  
+  
 primcorec a_path :: "'v path \<Rightarrow> bool" where
-  "a_path LNil \<longleftrightarrow> false"
-| "a_path (LCons _ LNil) \<longleftrightarrow> false"
+  "a_path LNil \<longleftrightarrow> False"
+| "a_path (LCons v vs) \<longleftrightarrow> (v\<in>V \<and> (a_path vs))"
+  
+  
+primcorec a_path :: "'v path \<Rightarrow> bool" where
+  "a_path LNil \<longleftrightarrow> False"
+| "a_path (LCons _ LNil) \<longleftrightarrow> False"
 | "a_path (LCons v vs) \<longleftrightarrow> (v\<in>V \<and> (a_path vs))"
 
 coinductive is_path :: "'v path \<Rightarrow> bool" where
