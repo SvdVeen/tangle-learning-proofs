@@ -83,9 +83,19 @@ begin
   coinductive is_ipath :: "'a \<Rightarrow> 'a inflist \<Rightarrow> bool" where
     "R u v \<Longrightarrow> is_ipath v vs \<Longrightarrow> is_ipath u (InfCons v vs)"
 
+  find_theorems is_ipath  
     
 
-  lemma "R x x \<Longrightarrow> is_ipath x (ireplicate x)"  
+  lemma "R x x \<Longrightarrow> vs=ireplicate x \<Longrightarrow> is_ipath x vs"
+    apply (rule is_ipath.coinduct[where X="\<lambda>x vs. R x x \<and> vs=ireplicate x"])
+    apply simp
+    apply simp
+    subgoal for xx
+      apply (rule exI[where x=xx])
+      apply (rule exI[where x="ireplicate xx"])
+      apply simp
+      by (rule ireplicate.ctr)
+    done
       
   
   primcorec pathmap :: "('b \<Rightarrow> nat \<Rightarrow> nat) \<Rightarrow> 'b inflist \<Rightarrow> nat" where
