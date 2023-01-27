@@ -92,7 +92,6 @@ lemma [simp]: "iappend (x#xs) ys = InfCons x (iappend xs ys)" unfolding iappend_
 lemma "iappend (xs@ys) zs = iappend xs (iappend ys zs)"
   by (induction xs) auto
 
-
 primcorec ireplicate :: "'a \<Rightarrow> 'a inflist" where
   "ireplicate x = InfCons x (ireplicate x)"
 
@@ -111,8 +110,6 @@ begin
 
   coinductive is_ipath :: "'a \<Rightarrow> 'a inflist \<Rightarrow> bool" where
     "R u v \<Longrightarrow> is_ipath v vs \<Longrightarrow> is_ipath u (InfCons v vs)"
-
-  find_theorems is_ipath  
 
 lemma "R x x \<Longrightarrow> vs=ireplicate x \<Longrightarrow> is_ipath x vs"
   apply (coinduction)
@@ -149,9 +146,6 @@ lemma "R x x \<Longrightarrow> vs=ireplicate x \<Longrightarrow> is_ipath x vs"
 
 end
 
-
-
-
 (*
 text \<open>We can use a coinductive list to represent paths. This definition is taken from the datypes documentation of Isabelle.\<close>
 codatatype (lset: 'a) llist =
@@ -186,8 +180,7 @@ begin
 
 text \<open>Wholly unnecessary but allows me to not have to unfold V1_def all the time.\<close>
 lemma V1_ss[simp]: "V\<^sub>1 \<subseteq> V"
-  unfolding V\<^sub>1_def
-  by auto
+  unfolding V\<^sub>1_def by auto
 
 definition connected where "connected v v' \<longleftrightarrow> (v,v')\<in>E\<^sup>*"
   
@@ -198,8 +191,6 @@ lemma conn: "v\<in>V \<Longrightarrow> connected v v' \<Longrightarrow> v'\<in>V
 (* An attempt to translate the is_ipath from above into the context of the arena *)
 coinductive is_play :: "'v \<Rightarrow> 'v inflist \<Rightarrow> bool" where
   "v \<in> succs E u \<Longrightarrow> is_play v vs \<Longrightarrow> is_play u (InfCons v vs)"
-
-find_theorems is_play
 
 lemma "is_play u vs \<Longrightarrow> u\<in>V"
   using is_play.simps unfolding succs_def V_def
@@ -220,12 +211,11 @@ lemma "is_play_2 (InfCons v vs) \<Longrightarrow> v\<in>V"
   using is_play_2.simps unfolding V_def by blast
 
 lemma "is_play_2 (InfCons u (InfCons v vs)) \<Longrightarrow> v\<in>V"
-  using is_play_2.simps unfolding V_def
-  apply simp
+  using is_play_2.simps unfolding V_def apply simp
   by (metis image_eqI snd_conv)
 
 (* A play contains no dead ends. *)
-lemma no_dead_ends[simp]:"is_play_2 vs \<Longrightarrow> \<forall>v\<in>infset vs. succs E v \<noteq> {}"
+lemma no_dead_ends:"is_play_2 vs \<Longrightarrow> \<forall>v\<in>infset vs. succs E v \<noteq> {}"
   using succ unfolding succs_def by auto
 
 (* This one is very obvious but I'm just trying things here *)
@@ -237,6 +227,19 @@ lemma "is_play_2 vs \<Longrightarrow> \<forall>v\<in>infset vs. v\<in>V"
   using is_play_2.simps unfolding V_def
   by (metis Image_singleton_iff Un_iff equals0I fst_conv imageI succ)
   
+definition all_plays :: "'v inflist set" where
+  "all_plays \<equiv> {p | p. is_play_2 p}"
+
+lemma "p \<in> all_plays \<Longrightarrow> is_play_2 p"
+  unfolding all_plays_def by auto
+
+(* Of course, this does not terminate, but primcorec wants me to build a codatatype; I just want a set *)
+(*fun inflist_edge :: "'v inflist \<Rightarrow> ('v\<times>'v) set \<Rightarrow> ('v\<times>'v) set" where
+  "inflist_edge (InfCons u (InfCons v vs)) S = inflist_edge (InfCons v vs) (S\<union>{(u,v)})"*)
+
+(* I need some way to remove all plays that do not follow the given edge *)
+definition induced_plays :: "'v inflist set \<Rightarrow> ('v\<times>'v) \<Rightarrow> 'v inflist set" where
+  "induced_plays P e \<equiv> P"
 
 text \<open>
   A winning play for the even player is a play in which the highest priority that occurs
@@ -247,7 +250,8 @@ text \<open>
 
 text \<open>A positional strategy for a player i is a function \<sigma>:Vi\<rightarrow>V\<close>
 type_synonym 'a strat = "'a \<Rightarrow> 'a"
-(*A set of pairs might also work?*)
+(* A set of pairs might also work? *)
+(* How do I link a strategy to a player? *)
 
 primcorec induced_play :: "'v \<Rightarrow> 'v strat \<Rightarrow> 'v inflist" where
   "induced_play v s = InfCons v (induced_play (s v) s)"
