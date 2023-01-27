@@ -36,6 +36,9 @@ definition subgraph_edge :: "'v dgraph \<Rightarrow> ('v\<times>'v) \<Rightarrow
 lemma "e \<notin> subgraph_edge E e"
   unfolding subgraph_edge_def by auto
 
+definition restrict_graph :: "'v dgraph \<Rightarrow> 'v set \<Rightarrow> 'v dgraph" where
+  "restrict_graph E V \<equiv> E \<inter> V\<times>V"
+
 definition induced_subgraph_node :: "'v dgraph \<Rightarrow> 'v \<Rightarrow> 'v dgraph" where
   "induced_subgraph_node E v \<equiv> E-{e | e. snd e \<notin> E\<^sup>*``{v}}"
 
@@ -48,6 +51,26 @@ lemma "E' = induced_subgraph_node E v \<Longrightarrow> w \<in> (fst`E' \<union>
 definition induced_subgraph_edge :: "'v dgraph \<Rightarrow> ('v\<times>'v) \<Rightarrow> 'v dgraph" where
   "induced_subgraph_edge E e \<equiv> induced_subgraph_node E (snd e)"
 
+context
+  fixes E :: "'v dgraph"
+begin
+  fun path :: "'v \<Rightarrow> 'v list \<Rightarrow> 'v \<Rightarrow> bool" where
+     "path v [] v' \<longleftrightarrow> v = v'"
+  |  "path v (x#xs) v' \<longleftrightarrow> (v,x) \<in> E \<and> path x xs v'"
+
+  definition cycle_node :: "'v \<Rightarrow> 'v list \<Rightarrow> bool" where
+    "cycle_node v xs \<equiv> path v xs v \<and> xs \<noteq> []"
+
+  definition cycle_from_node :: "'v \<Rightarrow> 'v list \<Rightarrow> bool" where
+    "cycle_from_node v xs \<equiv> \<exists>v'. (v,v')\<in>E\<^sup>* \<and> cycle_node v' xs"
+
+  text \<open>A positional strategy for a player i is a function \<sigma>:Vi\<rightarrow>V\<close>
+  type_synonym 'a strat = "'a \<Rightarrow> 'a option"
+
+  definition E_of_strat :: "'a strat \<Rightarrow> 'a dgraph" where
+    "E_of_strat \<sigma> = {(u,v). \<sigma> u = Some v}"
+end
+
 locale arena_defs =
   fixes E :: "'v dgraph"
   fixes V\<^sub>0 :: "'v set"
@@ -55,6 +78,41 @@ locale arena_defs =
 begin  
   definition V where "V = fst`E \<union> snd`E"
   definition V\<^sub>1 where "V\<^sub>1 = V-V\<^sub>0"
+
+  definition top_priority :: "'v list \<Rightarrow> nat" where
+    "top_priority xs \<equiv> MAX v \<in> set xs. prio v"
+
+  abbreviation winning_even :: "'v list \<Rightarrow> bool" where
+    "winning_even xs \<equiv> even (top_priority xs)"
+
+  abbreviation winning_odd :: "'v list \<Rightarrow> bool" where
+    "winning_odd xs \<equiv> odd (top_priority xs)"
+
+  definition strategy_of :: "'v set \<Rightarrow> 'v strat \<Rightarrow> bool" where
+    "strategy_of S \<sigma> \<equiv> dom \<sigma> \<subseteq> S"
+
+  definition induced_by_strategy :: "'v strat \<Rightarrow> 'v dgraph" where
+    "induced_by_strategy \<sigma> = E \<inter> ((-dom \<sigma>) \<times> UNIV \<union> E_of_strat \<sigma>)"
+
+  lemma "induced_by_strategy \<sigma> \<subseteq> E"
+    unfolding induced_by_strategy_def by auto
+
+  definition won_by_even :: "'v \<Rightarrow> bool" where
+    "won_by_even v \<equiv> \<exists>\<sigma>. strategy_of V\<^sub>0 \<sigma> \<and> 
+(\<forall>xs. cycle_from_node (induced_by_strategy \<sigma>) v xs \<longrightarrow> winning_even xs)"
+
+  definition won_by_odd :: "'v \<Rightarrow> bool" where
+    "won_by_odd v \<equiv> \<exists>\<sigma>. strategy_of V\<^sub>1 \<sigma> \<and> 
+(\<forall>xs. cycle_from_node (induced_by_strategy \<sigma>) v xs \<longrightarrow> winning_odd xs)"
+
+lemma w1: "won_by_even v \<Longrightarrow> \<not>won_by_odd v"
+  unfolding won_by_even_def won_by_odd_def apply auto sorry
+
+lemma w2: "won_by_even v \<or> won_by_odd v" sorry
+
+lemma "won_by_even v \<noteq> won_by_odd v" using w1 w2 by blast 
+
+
 end
 
 text \<open>
@@ -67,6 +125,7 @@ codatatype (infset: 'a) inflist = InfCons (head: 'a) (tail: "'a inflist")
 
 primcorec iedges :: "'a inflist \<Rightarrow> ('a\<times>'a) inflist" where
   "iedges l = InfCons (head l, head (tail l)) (iedges (tail l))"
+(* Just some shorthand *)
 definition iedgeset :: "'a inflist \<Rightarrow> ('a\<times>'a) set" where
   "iedgeset l \<equiv> infset (iedges l)"
 
@@ -101,6 +160,9 @@ begin
 
 lemma "R x x \<Longrightarrow> vs=ireplicate x \<Longrightarrow> is_ipath x vs"
   apply (coinduction)
+  using ireplicate.code by fastforce
+lemma "R x x \<Longrightarrow> is_ipath x (ireplicate x)"
+  apply coinduction
   using ireplicate.code by fastforce
 (*
     apply (rule is_ipath.coinduct[where X="\<lambda>x vs. R x x \<and> vs=ireplicate x"])
@@ -232,10 +294,7 @@ text \<open>
 
 (*TO DO*)
 
-text \<open>A positional strategy for a player i is a function \<sigma>:Vi\<rightarrow>V\<close>
-type_synonym 'a strat = "'a \<Rightarrow> 'a"
-(* A set of pairs might also work? *)
-(* How do I link a strategy to a player? *)
+
 
 primcorec induced_play :: "'v \<Rightarrow> 'v strat \<Rightarrow> 'v inflist" where
   "induced_play v s = InfCons v (induced_play (s v) s)"
