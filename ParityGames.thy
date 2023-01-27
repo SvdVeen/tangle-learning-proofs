@@ -23,6 +23,13 @@ lemma "\<forall>w \<in> succs E v. is_succ E v w"
   unfolding is_succ_def succs_def
   by auto
 
+definition subgraph :: "'v dgraph \<Rightarrow> ('v\<times>'v) \<Rightarrow> 'v dgraph" where
+  "subgraph E e \<equiv> E-{e}"
+
+lemma "e \<notin> subgraph E e"
+  unfolding subgraph_def by auto
+
+
 locale arena_defs =
   fixes E :: "'v dgraph"
   fixes V\<^sub>0 :: "'v set"
@@ -127,7 +134,7 @@ end
 
 
 
-
+(*
 text \<open>We can use a coinductive list to represent paths. This definition is taken from the datypes documentation of Isabelle.\<close>
 codatatype (lset: 'a) llist =
   lnull: LNil
@@ -139,7 +146,7 @@ for
 where
   "ltl LNil = LNil"
 
-type_synonym 'v path = "'v llist"
+type_synonym 'v path = "'v llist" *)
 
 text \<open>
   A strategy for player i is a function \<sigma>:V*Vi\<rightarrow>V that selects a successor for every history of the
@@ -223,6 +230,17 @@ text \<open>
 text \<open>A positional strategy for a player i is a function \<sigma>:Vi\<rightarrow>V\<close>
 type_synonym 'a strat = "'a \<Rightarrow> 'a"
 (*A set of pairs might also work?*)
+
+primcorec induced_play :: "'v \<Rightarrow> 'v strat \<Rightarrow> 'v inflist" where
+  "induced_play v s = InfCons v (induced_play (s v) s)"
+
+(*
+  If a strategy always gives successors from E, then the induced play is a valid one.
+  BUT: this also assumes the strategy gives moves for both players, which is not quite right.
+*)
+lemma "\<forall>v\<in>V. (s::'v strat) v\<in>V \<and> (v, s v)\<in>E \<Longrightarrow> u\<in>V \<Longrightarrow> is_play_2 (induced_play u s)"
+  apply (coinduction)
+  by (metis induced_play.ctr)
 (*TO DO*)
 
 end
