@@ -19,16 +19,34 @@ definition succs :: "'v dgraph \<Rightarrow> 'v \<Rightarrow> 'v set" where
 definition is_succ :: "'v dgraph \<Rightarrow> 'v \<Rightarrow> 'v \<Rightarrow> bool" where
   "is_succ E v w \<equiv> w \<in> succs E v"
 
-lemma "\<forall>w \<in> succs E v. is_succ E v w"
-  unfolding is_succ_def succs_def
-  by auto
+lemma "w \<in> succs E v \<Longrightarrow> is_succ E v w"
+  unfolding is_succ_def succs_def by auto
 
-definition subgraph :: "'v dgraph \<Rightarrow> ('v\<times>'v) \<Rightarrow> 'v dgraph" where
-  "subgraph E e \<equiv> E-{e}"
+definition subgraph_node :: "'v dgraph \<Rightarrow> 'v \<Rightarrow> 'v dgraph" where
+  "subgraph_node E v \<equiv> E-{e | e. fst e = v \<or> snd e = v}"
 
-lemma "e \<notin> subgraph E e"
-  unfolding subgraph_def by auto
+(* Obvious lemma to show this definition is right*)
+lemma "E' = subgraph_node E v \<Longrightarrow> v \<notin> fst`E' \<union> snd`E'"
+  unfolding subgraph_node_def by auto
 
+definition subgraph_edge :: "'v dgraph \<Rightarrow> ('v\<times>'v) \<Rightarrow> 'v dgraph" where
+  "subgraph_edge E e \<equiv> E-{e}"
+
+(* Obvious lemma to show this definition is right*)
+lemma "e \<notin> subgraph_edge E e"
+  unfolding subgraph_edge_def by auto
+
+definition induced_subgraph_node :: "'v dgraph \<Rightarrow> 'v \<Rightarrow> 'v dgraph" where
+  "induced_subgraph_node E v \<equiv> E-{e | e. snd e \<notin> E\<^sup>*``{v}}"
+
+(* Probably not phrased right, applying auto gives a step that wants me to prove false *)
+lemma "E' = induced_subgraph_node E v \<Longrightarrow> w \<in> (fst`E' \<union> snd`E') \<Longrightarrow> w \<in> E\<^sup>*``{v}"
+  unfolding induced_subgraph_node_def
+  apply auto
+  oops
+
+definition induced_subgraph_edge :: "'v dgraph \<Rightarrow> ('v\<times>'v) \<Rightarrow> 'v dgraph" where
+  "induced_subgraph_edge E e \<equiv> induced_subgraph_node E (snd e)"
 
 locale arena_defs =
   fixes E :: "'v dgraph"
@@ -183,11 +201,11 @@ coinductive is_play :: "'v \<Rightarrow> 'v inflist \<Rightarrow> bool" where
 
 find_theorems is_play
 
-lemma [simp]: "is_play u vs \<Longrightarrow> u\<in>V"
+lemma "is_play u vs \<Longrightarrow> u\<in>V"
   using is_play.simps unfolding succs_def V_def
   by (metis Image_singleton_iff UnI1 fst_conv imageI)
 
-lemma [simp]: "is_play u (InfCons v vs) \<Longrightarrow> v\<in>V"
+lemma "is_play u (InfCons v vs) \<Longrightarrow> v\<in>V"
   using is_play.simps unfolding succs_def V_def
   by (metis ImageE UnI2 imageI inflist.inject snd_conv)
 
@@ -198,10 +216,10 @@ coinductive is_play_2 :: "'v inflist \<Rightarrow> bool" where
 find_theorems is_play_2
 
 (* These are just the same lemmas as above, translated for is_play_2 *)
-lemma [simp]:"is_play_2 (InfCons v vs) \<Longrightarrow> v\<in>V"
+lemma "is_play_2 (InfCons v vs) \<Longrightarrow> v\<in>V"
   using is_play_2.simps unfolding V_def by blast
 
-lemma [simp]:"is_play_2 (InfCons u (InfCons v vs)) \<Longrightarrow> v\<in>V"
+lemma "is_play_2 (InfCons u (InfCons v vs)) \<Longrightarrow> v\<in>V"
   using is_play_2.simps unfolding V_def
   apply simp
   by (metis image_eqI snd_conv)
