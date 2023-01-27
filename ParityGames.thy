@@ -237,9 +237,17 @@ lemma "p \<in> all_plays \<Longrightarrow> is_play_2 p"
 (*fun inflist_edge :: "'v inflist \<Rightarrow> ('v\<times>'v) set \<Rightarrow> ('v\<times>'v) set" where
   "inflist_edge (InfCons u (InfCons v vs)) S = inflist_edge (InfCons v vs) (S\<union>{(u,v)})"*)
 
-(* I need some way to remove all plays that do not follow the given edge *)
+(* This one is a little messy *)
+primcorec inflist_edges :: "'a inflist \<Rightarrow> ('a\<times>'a) inflist" where
+  "inflist_edges vs = InfCons (head vs,(head (tail vs))) (inflist_edges (tail vs))"
+
+(* Useful shorthand, perhaps *)
+definition edge_set :: "'a inflist \<Rightarrow> ('a\<times>'a) set" where
+ "edge_set vs \<equiv> infset (inflist_edges vs)"
+
+(* Hopefully limits a set of plays to the plays induced by an edge. *)
 definition induced_plays :: "'v inflist set \<Rightarrow> ('v\<times>'v) \<Rightarrow> 'v inflist set" where
-  "induced_plays P e \<equiv> P"
+  "induced_plays P e \<equiv> P-{p | p. p \<in> P \<and> e \<notin> edge_set p}"
 
 text \<open>
   A winning play for the even player is a play in which the highest priority that occurs
