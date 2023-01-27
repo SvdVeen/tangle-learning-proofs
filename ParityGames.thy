@@ -61,28 +61,16 @@ text \<open>
   A play is an infinite sequence \<pi>\<in>V\<omega> of moves along the edges of the graph in the arena.
   A winning play for player 0 is a play where the maximum priority seen infinitely often is even.
 \<close>
-(*
-datatype ('a) l = N | C "'a l" 'a "'a l"
-print_theorems
-term set_l
-term map_l
-term rel_l
-term pred_l
-
-lemma "pred_l P l \<longleftrightarrow> (\<forall>x\<in>set_l l. P x)"
-  apply (induction l) apply auto done
-
-
-lemma "(\<forall>x\<in>set_l l. R x (f x)) \<Longrightarrow> rel_l R l (map_l f l)"
-  apply (induction l) apply auto done
-
-
-term rec_l
-
-*)
-text \<open>We represent paths with an infinite coinductive list. 
+text \<open>We represent paths with an infinite co-inductive list. 
   Still testing how this works. A lazy list might work better?\<close>
 codatatype (infset: 'a) inflist = InfCons (head: 'a) (tail: "'a inflist")
+
+primcorec iedges :: "'a inflist \<Rightarrow> ('a\<times>'a) inflist" where
+  "iedges l = InfCons (head l, head (tail l)) (iedges (tail l))"
+definition iedgeset :: "'a inflist \<Rightarrow> ('a\<times>'a) set" where
+  "iedgeset l \<equiv> infset (iedges l)"
+
+(* TO DO: sanity check lemmas for the above two definitions *)
 
 definition iappend :: "'a list \<Rightarrow> 'a inflist \<Rightarrow> 'a inflist" where "iappend = foldr InfCons"
 
@@ -233,21 +221,9 @@ definition all_plays :: "'v inflist set" where
 lemma "p \<in> all_plays \<Longrightarrow> is_play_2 p"
   unfolding all_plays_def by auto
 
-(* Of course, this does not terminate, but primcorec wants me to build a codatatype; I just want a set *)
-(*fun inflist_edge :: "'v inflist \<Rightarrow> ('v\<times>'v) set \<Rightarrow> ('v\<times>'v) set" where
-  "inflist_edge (InfCons u (InfCons v vs)) S = inflist_edge (InfCons v vs) (S\<union>{(u,v)})"*)
-
-(* This one is a little messy *)
-primcorec inflist_edges :: "'a inflist \<Rightarrow> ('a\<times>'a) inflist" where
-  "inflist_edges vs = InfCons (head vs,(head (tail vs))) (inflist_edges (tail vs))"
-
-(* Useful shorthand, perhaps *)
-definition edge_set :: "'a inflist \<Rightarrow> ('a\<times>'a) set" where
- "edge_set vs \<equiv> infset (inflist_edges vs)"
-
 (* Hopefully limits a set of plays to the plays induced by an edge. *)
 definition induced_plays :: "'v inflist set \<Rightarrow> ('v\<times>'v) \<Rightarrow> 'v inflist set" where
-  "induced_plays P e \<equiv> P-{p | p. p \<in> P \<and> e \<notin> edge_set p}"
+  "induced_plays P e \<equiv> P-{p | p. p \<in> P \<and> e \<notin> iedgeset p}"
 
 text \<open>
   A winning play for the even player is a play in which the highest priority that occurs
