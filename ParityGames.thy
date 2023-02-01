@@ -58,6 +58,15 @@ begin
      "path v [] v' \<longleftrightarrow> v = v'"
   |  "path v (x#xs) v' \<longleftrightarrow> (v,x) \<in> E \<and> path x xs v'"
 
+  lemma path_is_rtrancl: "path v xs v' \<Longrightarrow> (v,v')\<in>E\<^sup>*"
+    apply (induction xs arbitrary: v)
+    apply auto by fastforce
+
+  lemma rtrancl_is_path: "(v,v')\<in>E\<^sup>* \<Longrightarrow> \<exists>xs. path v xs v'"
+    apply (induction rule: converse_rtrancl_induct)
+    using path.simps(1) apply blast
+    using path.simps(2) by blast
+
   definition cycle_node :: "'v \<Rightarrow> 'v list \<Rightarrow> bool" where
     "cycle_node v xs \<equiv> path v xs v \<and> xs \<noteq> []"
 
@@ -71,10 +80,35 @@ begin
     "E_of_strat \<sigma> = {(u,v). \<sigma> u = Some v}"
 end
 
+lemma subgraph_path: "E' \<subseteq> E \<Longrightarrow> path E' v vs v' \<Longrightarrow> path E v vs v'"
+  apply (induction vs arbitrary: v) by auto
+
+lemma subgraph_cycle: "E' \<subseteq> E \<Longrightarrow> cycle_node E' v vs \<Longrightarrow> cycle_node E v vs"
+  unfolding cycle_node_def
+  apply (induction vs arbitrary: v)
+  by (auto simp: subgraph_path)
+
+lemma subgraph_lasso: "E' \<subseteq> E \<Longrightarrow> cycle_from_node E' v vs \<Longrightarrow> cycle_from_node E v vs"
+  unfolding cycle_from_node_def
+  proof (induction vs arbitrary: v)
+    case Nil
+    then show ?case by (simp add: cycle_node_def)
+  next
+    case (Cons a vs)
+    then obtain v' where v_v'_sub: "(v,v')\<in>E'\<^sup>*"
+      and cycle_v'_sub: "cycle_node E' v' (a # vs)" by fast
+    from v_v'_sub Cons.prems(1) have v_v': "(v,v')\<in>E\<^sup>*"
+      using rtrancl_mono by auto
+    from cycle_v'_sub Cons.prems(1) have cycle_v': "cycle_node E v' (a # vs)"
+      by (auto simp: subgraph_cycle)
+    with v_v' show ?case by auto
+  qed
+
 locale arena_defs =
   fixes E :: "'v dgraph"
   fixes V\<^sub>0 :: "'v set"
   fixes prio :: "'v \<Rightarrow> nat"
+  assumes succ : "E``{v}\<noteq>{}"
 begin  
   definition V where "V = fst`E \<union> snd`E"
   definition V\<^sub>1 where "V\<^sub>1 = V-V\<^sub>0"
@@ -94,21 +128,40 @@ begin
   definition induced_by_strategy :: "'v strat \<Rightarrow> 'v dgraph" where
     "induced_by_strategy \<sigma> = E \<inter> ((-dom \<sigma>) \<times> UNIV \<union> E_of_strat \<sigma>)"
 
-  lemma "induced_by_strategy \<sigma> \<subseteq> E"
+  lemma ind_subgraph: "induced_by_strategy \<sigma> \<subseteq> E"
     unfolding induced_by_strategy_def by auto
+
+  lemma ind_subgraph_cycle: "cycle_node (induced_by_strategy \<sigma>) v xs \<Longrightarrow> cycle_node E v xs"
+  proof -
+    assume 0: "cycle_node (induced_by_strategy \<sigma>) v xs"
+    from ind_subgraph have 1: "induced_by_strategy \<sigma> \<subseteq> E" by simp
+    hence "cycle_node (induced_by_strategy \<sigma>) v xs \<Longrightarrow> cycle_node E v xs"
+      by (simp add:subgraph_cycle)
+    with 0 1 show ?thesis by simp
+  qed
+
+  lemma ind_subgraph_lasso: "cycle_from_node (induced_by_strategy \<sigma>) v xs \<Longrightarrow> cycle_from_node E v xs"
+  proof -
+    assume 0: "cycle_from_node (induced_by_strategy \<sigma>) v xs"
+    from ind_subgraph have 1: "induced_by_strategy \<sigma> \<subseteq> E" by simp
+    hence "cycle_from_node (induced_by_strategy \<sigma>) v xs \<Longrightarrow> cycle_from_node E v xs"
+      by (simp add:subgraph_lasso)
+    with 0 1 show ?thesis by simp
+  qed
 
   definition won_by_even :: "'v \<Rightarrow> bool" where
     "won_by_even v \<equiv> \<exists>\<sigma>. strategy_of V\<^sub>0 \<sigma> \<and> 
-(\<forall>xs. cycle_from_node (induced_by_strategy \<sigma>) v xs \<longrightarrow> winning_even xs)"
+    (\<forall>xs. cycle_from_node (induced_by_strategy \<sigma>) v xs \<longrightarrow> winning_even xs)"
 
   definition won_by_odd :: "'v \<Rightarrow> bool" where
     "won_by_odd v \<equiv> \<exists>\<sigma>. strategy_of V\<^sub>1 \<sigma> \<and> 
-(\<forall>xs. cycle_from_node (induced_by_strategy \<sigma>) v xs \<longrightarrow> winning_odd xs)"
+    (\<forall>xs. cycle_from_node (induced_by_strategy \<sigma>) v xs \<longrightarrow> winning_odd xs)"
 
 lemma w1: "won_by_even v \<Longrightarrow> \<not>won_by_odd v"
-  unfolding won_by_even_def won_by_odd_def apply auto sorry
+  unfolding won_by_even_def won_by_odd_def
+  apply auto sorry
 
-lemma w2: "won_by_even v \<or> won_by_odd v" sorry
+lemma w2:"won_by_even v \<or> won_by_odd v" sorry
 
 lemma "won_by_even v \<noteq> won_by_odd v" using w1 w2 by blast 
 
@@ -196,20 +249,6 @@ lemma "R x x \<Longrightarrow> is_ipath x (ireplicate x)"
 
 end
 
-(*
-text \<open>We can use a coinductive list to represent paths. This definition is taken from the datypes documentation of Isabelle.\<close>
-codatatype (lset: 'a) llist =
-  lnull: LNil
-| LCons (lhd: 'a) (ltl: "'a llist")
-for
-  map: lmap
-  rel: llist_all2
-  pred: llist_all
-where
-  "ltl LNil = LNil"
-
-type_synonym 'v path = "'v llist" *)
-
 text \<open>
   A strategy for player i is a function \<sigma>:V*Vi\<rightarrow>V that selects a successor for every history of the
   play ending in a vertex of player i.
@@ -237,7 +276,7 @@ definition connected where "connected v v' \<longleftrightarrow> (v,v')\<in>E\<^
 lemma conn: "v\<in>V \<Longrightarrow> connected v v' \<Longrightarrow> v'\<in>V"
   unfolding connected_def V_def
   by (metis Range.RangeI Range_snd UnCI rtranclE)
-
+(*
 (* An attempt to translate the is_ipath from above into the context of the arena *)
 coinductive is_play :: "'v \<Rightarrow> 'v inflist \<Rightarrow> bool" where
   "v \<in> succs E u \<Longrightarrow> is_play v vs \<Longrightarrow> is_play u (InfCons v vs)"
@@ -294,8 +333,6 @@ text \<open>
 
 (*TO DO*)
 
-
-
 primcorec induced_play :: "'v \<Rightarrow> 'v strat \<Rightarrow> 'v inflist" where
   "induced_play v s = InfCons v (induced_play (s v) s)"
 
@@ -307,7 +344,7 @@ lemma "\<forall>v\<in>V. (s::'v strat) v\<in>V \<and> (v, s v)\<in>E \<Longright
   apply (coinduction)
   by (metis induced_play.ctr)
 (*TO DO*)
-
+*)
 end
   
 end
