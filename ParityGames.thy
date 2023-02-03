@@ -73,11 +73,34 @@ begin
   definition cycle_from_node :: "'v \<Rightarrow> 'v list \<Rightarrow> bool" where
     "cycle_from_node v xs \<equiv> \<exists>v'. (v,v')\<in>E\<^sup>* \<and> cycle_node v' xs"
 
+  (* First auxiliary lemma: find a path of any length that holds *)
+  lemma "finite E \<Longrightarrow> \<forall>v. E``{v} \<noteq> {} \<Longrightarrow> \<exists>xs v'. length xs = n \<and> path v xs v'"
+    apply (induction n) sorry
+
+  (*
+   obtain xs v'. length xs = card(V)+1 \<and> path ...
+   set xs \<subseteq> V
+   distinct xs \<Longrightarrow> length xs = card (set xs)
+   length xs > card (set xs) \<Longrightarrow> \<not>distinct xs
+   xs = xs1 v xs2 v xs3
+  *)
+
+  lemma "finite E \<Longrightarrow> \<forall>v. E``{v} \<noteq> {} \<Longrightarrow> \<exists>x xs. cycle_from_node x xs"
+
   text \<open>A positional strategy for a player i is a function \<sigma>:Vi\<rightarrow>V\<close>
   type_synonym 'a strat = "'a \<Rightarrow> 'a option"
 
   definition E_of_strat :: "'a strat \<Rightarrow> 'a dgraph" where
     "E_of_strat \<sigma> = {(u,v). \<sigma> u = Some v}"
+
+(* In a finite graph where every vertex has at least one successor, there must exist at least one cycle *)
+lemma "finite E \<Longrightarrow> \<forall>v. E``{v} \<noteq> {} \<Longrightarrow> \<exists>v vs. cycle_node v vs"
+  unfolding cycle_node_def
+proof (rule ccontr)
+  assume "\<nexists>v vs. path v vs v \<and> vs \<noteq> []"
+  hence "\<forall>v vs v'. path v vs v' \<and> vs \<noteq> [] \<longrightarrow> v \<noteq> v'" by auto
+  then show "False" sorry
+  oops
 end
 
 lemma subgraph_path: "E' \<subseteq> E \<Longrightarrow> path E' v vs v' \<Longrightarrow> path E v vs v'"
@@ -108,7 +131,6 @@ locale arena_defs =
   fixes E :: "'v dgraph"
   fixes V\<^sub>0 :: "'v set"
   fixes prio :: "'v \<Rightarrow> nat"
-  assumes succ : "E``{v}\<noteq>{}"
 begin  
   definition V where "V = fst`E \<union> snd`E"
   definition V\<^sub>1 where "V\<^sub>1 = V-V\<^sub>0"
@@ -153,13 +175,20 @@ begin
     "won_by_even v \<equiv> \<exists>\<sigma>. strategy_of V\<^sub>0 \<sigma> \<and> 
     (\<forall>xs. cycle_from_node (induced_by_strategy \<sigma>) v xs \<longrightarrow> winning_even xs)"
 
+  lemma "won_by_even v \<Longrightarrow> \<exists>\<sigma>. strategy_of V\<^sub>0 \<sigma> \<and>
+    (\<forall>xs. cycle_from_node (induced_by_strategy \<sigma>) v xs \<longrightarrow> \<not>winning_odd xs)"
+    unfolding won_by_even_def by auto
+
   definition won_by_odd :: "'v \<Rightarrow> bool" where
     "won_by_odd v \<equiv> \<exists>\<sigma>. strategy_of V\<^sub>1 \<sigma> \<and> 
     (\<forall>xs. cycle_from_node (induced_by_strategy \<sigma>) v xs \<longrightarrow> winning_odd xs)"
 
+  lemma "won_by_odd v \<Longrightarrow> \<exists>\<sigma>. strategy_of V\<^sub>1 \<sigma> \<and>
+    (\<forall>xs. cycle_from_node (induced_by_strategy \<sigma>) v xs \<longrightarrow> \<not>winning_even xs)"
+    unfolding won_by_odd_def by auto
+
 lemma w1: "won_by_even v \<Longrightarrow> \<not>won_by_odd v"
-  unfolding won_by_even_def won_by_odd_def
-  apply auto sorry
+  unfolding won_by_even_def won_by_odd_def sorry
 
 lemma w2:"won_by_even v \<or> won_by_odd v" sorry
 
