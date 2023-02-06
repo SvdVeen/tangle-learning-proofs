@@ -250,14 +250,53 @@ begin
     (\<forall>xs. cycle_from_node (induced_by_strategy \<sigma>) v xs \<longrightarrow> \<not>winning_even xs)"
     unfolding won_by_odd_def by auto
 
+    
+  lemma w1: "won_by_even v \<Longrightarrow> \<not>won_by_odd v"
+    unfolding won_by_even_def won_by_odd_def
+  proof clarsimp
+    fix \<sigma> \<sigma>'
+    
+    (** Use define, instead of obtain. Define is unfolded automatically when you make assumptions, 
+      and in show! *)
+    define G\<sigma> where "G\<sigma> = induced_by_strategy \<sigma>"
+    define G\<sigma>' where "G\<sigma>' = induced_by_strategy \<sigma>'"
+    
+    assume \<sigma>_even: "strategy_of V\<^sub>0 \<sigma>"
+      and \<sigma>_win: "\<forall>xs. cycle_from_node G\<sigma> v xs \<longrightarrow> even (top_priority xs)"
+      and \<sigma>'_odd: "strategy_of V\<^sub>1 \<sigma>'"
+
+    (** I think you want to show that:  *)
+    interpret Ginter: arena_defs "G\<sigma> \<inter> G\<sigma>'" V\<^sub>0 prio 
+      apply unfold_locales 
+      (** proof obligations about induced_by_strategy. 
+        In particular G\<sigma>``{v}\<noteq>{}, which means that not too many edges have been eliminated
+      *)
+      unfolding G\<sigma>_def
+      sorry
+
+    (** At this point, you have available the theorems of arena, for G\<sigma> \<inter> G\<sigma>'! *)  
+    thm Ginter.ind_subgraph_cycle  
+      
+    (** and then obtain your path \<dots> *)
+    thm path_any_length[OF Ginter.fin ] Ginter.succ 
+            
+    (** Put a show in as a test early. If it fails, your assumptions are wrong. *)  
+    show "\<exists>xs. cycle_from_node (G\<sigma>') v xs \<and> even (top_priority xs)"
+      
+  oops    
+    
   lemma w1: "won_by_even v \<Longrightarrow> \<not>won_by_odd v"
   unfolding won_by_even_def won_by_odd_def
   proof simp
+    (** Always look at the subgoals! What you fix does not match! See above^^*)
     fix \<sigma> \<sigma>'
     assume \<sigma>_even: "strategy_of V\<^sub>0 \<sigma>"
       and \<sigma>_win: "\<forall>xs. cycle_from_node (induced_by_strategy \<sigma>) v xs \<longrightarrow> even (top_priority xs)"
       and \<sigma>'_odd: "strategy_of V\<^sub>1 \<sigma>'"
     then obtain G\<sigma> G\<sigma>' where "G\<sigma> = induced_by_strategy \<sigma>" and "G\<sigma>' = induced_by_strategy \<sigma>'" by simp
+    
+      
+    
   qed
   
   lemma w2:"won_by_even v \<or> won_by_odd v" sorry
