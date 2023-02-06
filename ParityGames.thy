@@ -2,7 +2,8 @@ chapter \<open>Parity Games\<close>
 theory ParityGames
 imports Main
 begin
-subsection \<open>Parity Game Definitions\<close>
+section \<open>Parity Game Definitions\<close>
+subsection \<open>Directed Graphs\<close>
 text \<open>
   An arena \<A> in parity games consists of a directed graph and sets of vertices with owners.
   It is defined as \<A> = (V,V0,V1,E) where
@@ -22,38 +23,15 @@ definition is_succ :: "'v dgraph \<Rightarrow> 'v \<Rightarrow> 'v \<Rightarrow>
 lemma "w \<in> succs E v \<Longrightarrow> is_succ E v w"
   unfolding is_succ_def succs_def by auto
 
-definition subgraph_node :: "'v dgraph \<Rightarrow> 'v \<Rightarrow> 'v dgraph" where
-  "subgraph_node E v \<equiv> E-{e | e. fst e = v \<or> snd e = v}"
-
-(* Obvious lemma to show this definition is right*)
-lemma "E' = subgraph_node E v \<Longrightarrow> v \<notin> fst`E' \<union> snd`E'"
-  unfolding subgraph_node_def by auto
-
-definition subgraph_edge :: "'v dgraph \<Rightarrow> ('v\<times>'v) \<Rightarrow> 'v dgraph" where
-  "subgraph_edge E e \<equiv> E-{e}"
-
-(* Obvious lemma to show this definition is right*)
-lemma "e \<notin> subgraph_edge E e"
-  unfolding subgraph_edge_def by auto
-
-definition restrict_graph :: "'v dgraph \<Rightarrow> 'v set \<Rightarrow> 'v dgraph" where
-  "restrict_graph E V \<equiv> E \<inter> V\<times>V"
-
-definition induced_subgraph_node :: "'v dgraph \<Rightarrow> 'v \<Rightarrow> 'v dgraph" where
-  "induced_subgraph_node E v \<equiv> E-{e | e. snd e \<notin> E\<^sup>*``{v}}"
-
-(* Probably not phrased right, applying auto gives a step that wants me to prove false *)
-lemma "E' = induced_subgraph_node E v \<Longrightarrow> w \<in> (fst`E' \<union> snd`E') \<Longrightarrow> w \<in> E\<^sup>*``{v}"
-  unfolding induced_subgraph_node_def
-  apply auto
-  oops
-
-definition induced_subgraph_edge :: "'v dgraph \<Rightarrow> ('v\<times>'v) \<Rightarrow> 'v dgraph" where
-  "induced_subgraph_edge E e \<equiv> induced_subgraph_node E (snd e)"
-
+subsection \<open>Paths and Cycles\<close>
 context
   fixes E :: "'v dgraph"
 begin
+  definition V where "V = fst`E \<union> snd`E"
+
+  lemma "finite E \<Longrightarrow> finite V"
+  unfolding V_def by simp
+
   fun path :: "'v \<Rightarrow> 'v list \<Rightarrow> 'v \<Rightarrow> bool" where
      "path v [] v' \<longleftrightarrow> v = v'"
   |  "path v (x#xs) v' \<longleftrightarrow> (v,x) \<in> E \<and> path x xs v'"
@@ -67,15 +45,73 @@ begin
     using path.simps(1) apply blast
     using path.simps(2) by blast
 
+  lemma path_append: "path u xs v \<Longrightarrow> path v ys w \<Longrightarrow> path u (xs@ys) w"
+    apply (induction xs arbitrary: u) by auto
+    
+  lemma path_subset: "path v xs v' \<Longrightarrow> set xs \<subseteq> V"
+  unfolding V_def
+  proof (induction xs arbitrary: v)
+    case Nil
+    then show ?case by simp
+  next
+    case (Cons a xs)
+    hence "(v,a) \<in> E" by simp
+    hence "a \<in> snd ` E" by force
+    with Cons show ?case by auto
+  qed
+
+  lemma path_decomp_1: "path u (xs@[v]@ys) w \<Longrightarrow> path u (xs@[v]) v"
+    apply (induction xs arbitrary: u) by auto
+
+  lemma path_decomp_2: "path u (xs@[v]@ys@[w]@zs) x \<Longrightarrow> path v (ys@[w]) w"
+    apply (induction xs arbitrary: u)
+    using path_decomp_1 apply fastforce
+    by fastforce
+
+  lemma distinct_length: "distinct xs \<Longrightarrow> length xs = card (set xs)"
+    apply (induction xs) by auto
+
+  lemma not_distinct_length: "length xs > card (set xs) \<Longrightarrow> \<not>distinct xs"
+    apply (induction xs) by auto
+
+  lemma finite_subset_not_distinct: "finite S \<Longrightarrow> set xs \<subseteq> S \<Longrightarrow> length xs > card S \<Longrightarrow> \<not>distinct xs"
+  proof (rule ccontr; simp)
+    assume finite: "finite S"
+      and subset: "set xs \<subseteq> S"
+      and len: "length xs > card S"
+      and distinct: "distinct xs"
+    hence "card (set xs) = length xs" by (simp add: distinct_length)
+    with len have card_gt: "card (set xs) > card S" by simp
+    also from subset finite have card_lt_eq: "card (set xs) \<le> card S"
+      using card_mono by blast
+    finally show "False" by auto
+  qed
+  
   definition cycle_node :: "'v \<Rightarrow> 'v list \<Rightarrow> bool" where
     "cycle_node v xs \<equiv> path v xs v \<and> xs \<noteq> []"
 
   definition cycle_from_node :: "'v \<Rightarrow> 'v list \<Rightarrow> bool" where
     "cycle_from_node v xs \<equiv> \<exists>v'. (v,v')\<in>E\<^sup>* \<and> cycle_node v' xs"
 
+  lemma lasso_decomp: "path u xs v \<Longrightarrow> cycle_node v ys \<Longrightarrow> cycle_from_node u ys"
+    unfolding cycle_from_node_def using path_is_rtrancl by auto
+
   (* First auxiliary lemma: find a path of any length that holds *)
-  lemma "finite E \<Longrightarrow> \<forall>v. E``{v} \<noteq> {} \<Longrightarrow> \<exists>xs v'. length xs = n \<and> path v xs v'"
-    apply (induction n) sorry
+  lemma path_any_length: "finite E \<Longrightarrow> \<forall>v. E``{v} \<noteq> {} \<Longrightarrow> \<exists>xs v'. length xs = n \<and> path v xs v'"
+  proof (induction n)
+    case 0
+    then obtain xs v' where "xs=([]::'v list)" and "v' = v" by simp
+    then show ?case by auto
+  next
+    case (Suc n)
+    then obtain xs v' w
+      where path: "length xs = n \<and> path v xs v'"
+      and succ: "w \<in> E``{v'}" by fast
+    then obtain ys where append: "ys = xs@[w]" by fast
+    with path have length: "length ys = Suc n" by simp
+    from append path succ have "path v ys w" by (auto simp: path_append)
+    with length show ?case by auto
+  qed
 
   (*
    obtain xs v'. length xs = card(V)+1 \<and> path ...
@@ -86,23 +122,27 @@ begin
   *)
 
   lemma "finite E \<Longrightarrow> \<forall>v. E``{v} \<noteq> {} \<Longrightarrow> \<exists>x xs. cycle_from_node x xs"
-
-  text \<open>A positional strategy for a player i is a function \<sigma>:Vi\<rightarrow>V\<close>
-  type_synonym 'a strat = "'a \<Rightarrow> 'a option"
-
-  definition E_of_strat :: "'a strat \<Rightarrow> 'a dgraph" where
-    "E_of_strat \<sigma> = {(u,v). \<sigma> u = Some v}"
-
-(* In a finite graph where every vertex has at least one successor, there must exist at least one cycle *)
-lemma "finite E \<Longrightarrow> \<forall>v. E``{v} \<noteq> {} \<Longrightarrow> \<exists>v vs. cycle_node v vs"
-  unfolding cycle_node_def
-proof (rule ccontr)
-  assume "\<nexists>v vs. path v vs v \<and> vs \<noteq> []"
-  hence "\<forall>v vs v'. path v vs v' \<and> vs \<noteq> [] \<longrightarrow> v \<noteq> v'" by auto
-  then show "False" sorry
-  oops
+  proof -
+    assume fin: "finite E" and succ: "\<forall>v. E``{v} \<noteq> {}"
+    then obtain v xs v' where xs: "length (xs::'v list) = (card V) + 1 \<and> path v xs v'"
+      using path_any_length by blast
+    have "\<not>distinct xs" proof -
+      from xs have "set xs \<subseteq> V" using path_subset by auto
+      moreover from xs have "length xs > card V" by auto
+      moreover from fin have "finite V" unfolding V_def by simp
+      ultimately show ?thesis by (simp add: finite_subset_not_distinct)
+    qed
+    hence "\<exists>x xs1 xs2 xs3. xs = xs1 @ [x] @ xs2 @ [x] @ xs3" using not_distinct_decomp by blast
+    then obtain x xs1 xs2 xs3 where decomp: "xs = xs1 @ [x] @ xs2 @ [x] @ xs3" by blast
+    with xs have "path v (xs1@[x]) x" using path_decomp_1 by auto
+    moreover from decomp xs have "path x (xs2@[x]) x" using path_decomp_2 by auto
+    hence "cycle_node x (xs2@[x])" by (simp add: cycle_node_def)
+    ultimately have "cycle_from_node v (xs2@[x])" by (simp add: lasso_decomp)
+    then show ?thesis by auto
+  qed
 end
 
+subsection \<open>Paths in Subgraphs\<close>
 lemma subgraph_path: "E' \<subseteq> E \<Longrightarrow> path E' v vs v' \<Longrightarrow> path E v vs v'"
   apply (induction vs arbitrary: v) by auto
 
@@ -127,13 +167,27 @@ lemma subgraph_lasso: "E' \<subseteq> E \<Longrightarrow> cycle_from_node E' v v
     with v_v' show ?case by auto
   qed
 
+subsection \<open>Winning strategies\<close>
+
 locale arena_defs =
   fixes E :: "'v dgraph"
   fixes V\<^sub>0 :: "'v set"
   fixes prio :: "'v \<Rightarrow> nat"
+  assumes fin: "finite E"
+  assumes succ: "E``{v} \<noteq> {}"
+  assumes V\<^sub>0_ss: "V\<^sub>0 \<subseteq> fst`E \<union> snd`E"
 begin  
   definition V where "V = fst`E \<union> snd`E"
   definition V\<^sub>1 where "V\<^sub>1 = V-V\<^sub>0"
+
+  lemma players_disjoint: "V\<^sub>0 \<inter> V\<^sub>1 = {}"
+    unfolding V_def V\<^sub>1_def by auto
+
+  text \<open>A positional strategy for a player i is a function \<sigma>:Vi\<rightarrow>V\<close>
+  type_synonym 'a strat = "'a \<Rightarrow> 'a option"
+
+  definition E_of_strat :: "'a strat \<Rightarrow> 'a dgraph" where
+    "E_of_strat \<sigma> = {(u,v). \<sigma> u = Some v}"
 
   definition top_priority :: "'v list \<Rightarrow> nat" where
     "top_priority xs \<equiv> MAX v \<in> set xs. prio v"
@@ -146,6 +200,9 @@ begin
 
   definition strategy_of :: "'v set \<Rightarrow> 'v strat \<Rightarrow> bool" where
     "strategy_of S \<sigma> \<equiv> dom \<sigma> \<subseteq> S"
+
+  lemma strats_disjoint: "\<forall>\<sigma> \<tau>. strategy_of V\<^sub>0 \<sigma> \<and> strategy_of V\<^sub>1 \<tau> \<longrightarrow> (dom \<sigma> \<inter> dom \<tau>) = {}"
+    unfolding strategy_of_def using players_disjoint by blast
 
   definition induced_by_strategy :: "'v strat \<Rightarrow> 'v dgraph" where
     "induced_by_strategy \<sigma> = E \<inter> ((-dom \<sigma>) \<times> UNIV \<union> E_of_strat \<sigma>)"
@@ -194,89 +251,9 @@ lemma w2:"won_by_even v \<or> won_by_odd v" sorry
 
 lemma "won_by_even v \<noteq> won_by_odd v" using w1 w2 by blast 
 
-
 end
 
-text \<open>
-  A play is an infinite sequence \<pi>\<in>V\<omega> of moves along the edges of the graph in the arena.
-  A winning play for player 0 is a play where the maximum priority seen infinitely often is even.
-\<close>
-text \<open>We represent paths with an infinite co-inductive list. 
-  Still testing how this works. A lazy list might work better?\<close>
-codatatype (infset: 'a) inflist = InfCons (head: 'a) (tail: "'a inflist")
-
-primcorec iedges :: "'a inflist \<Rightarrow> ('a\<times>'a) inflist" where
-  "iedges l = InfCons (head l, head (tail l)) (iedges (tail l))"
-(* Just some shorthand *)
-definition iedgeset :: "'a inflist \<Rightarrow> ('a\<times>'a) set" where
-  "iedgeset l \<equiv> infset (iedges l)"
-
-(* TO DO: sanity check lemmas for the above two definitions *)
-
-definition iappend :: "'a list \<Rightarrow> 'a inflist \<Rightarrow> 'a inflist" where "iappend = foldr InfCons"
-
-lemma [simp]: "iappend [] xs = xs" unfolding iappend_def by simp
-lemma [simp]: "iappend (x#xs) ys = InfCons x (iappend xs ys)" unfolding iappend_def by simp
-
-lemma "iappend (xs@ys) zs = iappend xs (iappend ys zs)"
-  by (induction xs) auto
-
-primcorec ireplicate :: "'a \<Rightarrow> 'a inflist" where
-  "ireplicate x = InfCons x (ireplicate x)"
-
-context 
-  fixes R :: "'a \<Rightarrow> 'a \<Rightarrow> bool"
-begin
-
-  (*
-  
-    v\<^sub>0 v\<^sub>1 v\<^sub>2 \<dots>
-    
-    R v\<^sub>i v\<^sub>i\<^sub>+\<^sub>1
-    
-    path u (v#vs) \<longleftrightarrow> R u v \<and> path v vs
-  *)
-
-  coinductive is_ipath :: "'a \<Rightarrow> 'a inflist \<Rightarrow> bool" where
-    "R u v \<Longrightarrow> is_ipath v vs \<Longrightarrow> is_ipath u (InfCons v vs)"
-
-lemma "R x x \<Longrightarrow> vs=ireplicate x \<Longrightarrow> is_ipath x vs"
-  apply (coinduction)
-  using ireplicate.code by fastforce
-lemma "R x x \<Longrightarrow> is_ipath x (ireplicate x)"
-  apply coinduction
-  using ireplicate.code by fastforce
-(*
-    apply (rule is_ipath.coinduct[where X="\<lambda>x vs. R x x \<and> vs=ireplicate x"])
-    apply simp
-    apply simp
-    subgoal for xx
-      apply (rule exI[where x=xx])
-      apply (rule exI[where x="ireplicate xx"])
-      apply simp
-      by (rule ireplicate.ctr)
-    done
-*)
-(*
-  primcorec pathmap :: "('b \<Rightarrow> nat \<Rightarrow> nat) \<Rightarrow> 'b inflist \<Rightarrow> nat" where
-    "pathmap f vs = f (head vs) (pathmap f (tail vs))"
-  
-  
-  primcorec path :: "'a inflist \<Rightarrow> bool" where
-    "path vs \<longleftrightarrow> undefined (path (tail vs))"
-
-  
-  
-  primcorec path :: "'a \<Rightarrow> 'a inflist \<Rightarrow> bool" where
-    "path u vs \<longleftrightarrow> R u (head vs) \<and> path (head vs) (tail vs)"
-  
-    
-  primcorec path :: "'a \<Rightarrow> 'a inflist \<Rightarrow> bool" where
-    "path u (InfCons v vs) \<longleftrightarrow> R u v \<and> path v vs"
-*)  
-
-
-end
+subsection \<open>Miscellaneous\<close>
 
 text \<open>
   A strategy for player i is a function \<sigma>:V*Vi\<rightarrow>V that selects a successor for every history of the
@@ -305,75 +282,6 @@ definition connected where "connected v v' \<longleftrightarrow> (v,v')\<in>E\<^
 lemma conn: "v\<in>V \<Longrightarrow> connected v v' \<Longrightarrow> v'\<in>V"
   unfolding connected_def V_def
   by (metis Range.RangeI Range_snd UnCI rtranclE)
-(*
-(* An attempt to translate the is_ipath from above into the context of the arena *)
-coinductive is_play :: "'v \<Rightarrow> 'v inflist \<Rightarrow> bool" where
-  "v \<in> succs E u \<Longrightarrow> is_play v vs \<Longrightarrow> is_play u (InfCons v vs)"
-
-lemma "is_play u vs \<Longrightarrow> u\<in>V"
-  using is_play.simps unfolding succs_def V_def
-  by (metis Image_singleton_iff UnI1 fst_conv imageI)
-
-lemma "is_play u (InfCons v vs) \<Longrightarrow> v\<in>V"
-  using is_play.simps unfolding succs_def V_def
-  by (metis ImageE UnI2 imageI inflist.inject snd_conv)
-
-(* Wouldn't it be nice to have a definition that shows whether any path is a valid play?  *)
-coinductive is_play_2 :: "'v inflist \<Rightarrow> bool" where
-  "v\<in>V \<Longrightarrow> (v,w) \<in> E \<Longrightarrow> is_play_2 (InfCons v (InfCons w vs))"
-
-find_theorems is_play_2
-
-(* These are just the same lemmas as above, translated for is_play_2 *)
-lemma "is_play_2 (InfCons v vs) \<Longrightarrow> v\<in>V"
-  using is_play_2.simps unfolding V_def by blast
-
-lemma "is_play_2 (InfCons u (InfCons v vs)) \<Longrightarrow> v\<in>V"
-  using is_play_2.simps unfolding V_def apply simp
-  by (metis image_eqI snd_conv)
-
-(* A play contains no dead ends. *)
-lemma no_dead_ends:"is_play_2 vs \<Longrightarrow> \<forall>v\<in>infset vs. succs E v \<noteq> {}"
-  using succ unfolding succs_def by auto
-
-(* This one is very obvious but I'm just trying things here *)
-lemma "is_play_2 (InfCons u (InfCons v vs)) \<Longrightarrow> (u,v)\<in>E"
-  using is_play_2.simps by blast
-
-(* Not sure if this is actually useful at all, and the proof is clearly a huge mess. *)
-lemma "is_play_2 vs \<Longrightarrow> \<forall>v\<in>infset vs. v\<in>V"
-  using is_play_2.simps unfolding V_def
-  by (metis Image_singleton_iff Un_iff equals0I fst_conv imageI succ)
-  
-definition all_plays :: "'v inflist set" where
-  "all_plays \<equiv> {p | p. is_play_2 p}"
-
-lemma "p \<in> all_plays \<Longrightarrow> is_play_2 p"
-  unfolding all_plays_def by auto
-
-(* Hopefully limits a set of plays to the plays induced by an edge. *)
-definition induced_plays :: "'v inflist set \<Rightarrow> ('v\<times>'v) \<Rightarrow> 'v inflist set" where
-  "induced_plays P e \<equiv> P-{p | p. p \<in> P \<and> e \<notin> iedgeset p}"
-
-text \<open>
-  A winning play for the even player is a play in which the highest priority that occurs
-  infinitely often is even
-\<close>
-
-(*TO DO*)
-
-primcorec induced_play :: "'v \<Rightarrow> 'v strat \<Rightarrow> 'v inflist" where
-  "induced_play v s = InfCons v (induced_play (s v) s)"
-
-(*
-  If a strategy always gives successors from E, then the induced play is a valid one.
-  BUT: this also assumes the strategy gives moves for both players, which is not quite right.
-*)
-lemma "\<forall>v\<in>V. (s::'v strat) v\<in>V \<and> (v, s v)\<in>E \<Longrightarrow> u\<in>V \<Longrightarrow> is_play_2 (induced_play u s)"
-  apply (coinduction)
-  by (metis induced_play.ctr)
-(*TO DO*)
-*)
 end
   
 end
