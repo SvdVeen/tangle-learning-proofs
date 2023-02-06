@@ -244,12 +244,19 @@ begin
     (\<forall>xs. cycle_from_node (induced_by_strategy \<sigma>) v xs \<longrightarrow> \<not>winning_even xs)"
     unfolding won_by_odd_def by auto
 
-lemma w1: "won_by_even v \<Longrightarrow> \<not>won_by_odd v"
-  unfolding won_by_even_def won_by_odd_def sorry
-
-lemma w2:"won_by_even v \<or> won_by_odd v" sorry
-
-lemma "won_by_even v \<noteq> won_by_odd v" using w1 w2 by blast 
+  lemma w1: "won_by_even v \<Longrightarrow> \<not>won_by_odd v"
+  unfolding won_by_even_def won_by_odd_def
+  proof simp
+    fix \<sigma> \<sigma>'
+    assume \<sigma>_even: "strategy_of V\<^sub>0 \<sigma>"
+      and \<sigma>_win: "\<forall>xs. cycle_from_node (induced_by_strategy \<sigma>) v xs \<longrightarrow> even (top_priority xs)"
+      and \<sigma>'_odd: "strategy_of V\<^sub>1 \<sigma>'"
+    then obtain G\<sigma> G\<sigma>' where "G\<sigma> = induced_by_strategy \<sigma>" and "G\<sigma>' = induced_by_strategy \<sigma>'" by simp
+  qed
+  
+  lemma w2:"won_by_even v \<or> won_by_odd v" sorry
+  
+  lemma "won_by_even v \<noteq> won_by_odd v" using w1 w2 by blast 
 
 end
 
