@@ -175,11 +175,17 @@ locale arena_defs =
   fixes prio :: "'v \<Rightarrow> nat"
   assumes fin: "finite E"
   assumes succ: "E``{v} \<noteq> {}"
-  assumes V\<^sub>0_ss: "V\<^sub>0 \<subseteq> fst`E \<union> snd`E"
+  (* assumes V\<^sub>0_ss: "V\<^sub>0 \<subseteq> fst`E \<union> snd`E" trivially holds, see lemma below *)
 begin  
   definition V where "V = fst`E \<union> snd`E"
   definition V\<^sub>1 where "V\<^sub>1 = V-V\<^sub>0"
 
+  (** Peter: as every node (element of type 'v) has a successor, your V will always be the set of everything
+    in the type! Actually, no need to define that explicitly! *)
+  lemma "V=UNIV"
+    unfolding V_def using succ by force
+  
+  
   lemma players_disjoint: "V\<^sub>0 \<inter> V\<^sub>1 = {}"
     unfolding V_def V\<^sub>1_def by auto
 
