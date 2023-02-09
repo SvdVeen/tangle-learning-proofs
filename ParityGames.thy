@@ -121,7 +121,7 @@ begin
    xs = xs1 v xs2 v xs3
   *)
 
-  lemma "finite E \<Longrightarrow> \<forall>v. E``{v} \<noteq> {} \<Longrightarrow> \<exists>x xs. cycle_from_node x xs"
+  lemma finite_graph_lasso:  "finite E \<Longrightarrow> \<forall>v. E``{v} \<noteq> {} \<Longrightarrow> \<exists>x xs. cycle_from_node x xs"
   proof -
     assume fin: "finite E" and succ: "\<forall>v. E``{v} \<noteq> {}"
     then obtain v xs v' where xs: "length (xs::'v list) = (card V) + 1 \<and> path v xs v'"
@@ -185,7 +185,6 @@ begin
   lemma "V=UNIV"
     unfolding V_def using succ by force
   
-  
   lemma players_disjoint: "V\<^sub>0 \<inter> V\<^sub>1 = {}"
     unfolding V_def V\<^sub>1_def by auto
 
@@ -215,6 +214,9 @@ begin
 
   lemma ind_subgraph: "induced_by_strategy \<sigma> \<subseteq> E"
     unfolding induced_by_strategy_def by auto
+
+  lemma ind_subgraph_finite: "finite (induced_by_strategy \<sigma>)"
+    using ind_subgraph fin finite_subset by blast
 
   lemma ind_subgraph_cycle: "cycle_node (induced_by_strategy \<sigma>) v xs \<Longrightarrow> cycle_node E v xs"
   proof -
@@ -272,32 +274,37 @@ begin
         In particular G\<sigma>``{v}\<noteq>{}, which means that not too many edges have been eliminated
       *)
       unfolding G\<sigma>_def
+      apply (simp add: ind_subgraph_finite)
       sorry
-
+    
     (** At this point, you have available the theorems of arena, for G\<sigma> \<inter> G\<sigma>'! *)  
     thm Ginter.ind_subgraph_cycle  
       
     (** and then obtain your path \<dots> *)
-    thm path_any_length[OF Ginter.fin ] Ginter.succ 
-            
-    (** Put a show in as a test early. If it fails, your assumptions are wrong. *)  
-    show "\<exists>xs. cycle_from_node (G\<sigma>') v xs \<and> even (top_priority xs)"
-      
-  oops    
+    thm finite_graph_lasso[OF Ginter.fin] Ginter.succ
+
+    from finite_graph_lasso[OF Ginter.fin] Ginter.succ
+    have "\<exists>x xs. cycle_from_node (G\<sigma> \<inter> G\<sigma>') x xs" by blast
+    from \<sigma>_win have "\<exists>xs. cycle_from_node G\<sigma> v xs" sorry
+    then obtain xs where xs: "cycle_from_node G\<sigma> v xs" by auto
     
-  lemma w1: "won_by_even v \<Longrightarrow> \<not>won_by_odd v"
-  unfolding won_by_even_def won_by_odd_def
-  proof simp
+    then obtain xs where xs: "cycle_from_node (G\<sigma>\<inter>G\<sigma>') v xs" sorry
+    hence 1: "cycle_from_node G\<sigma>' v xs" sorry
+    from xs have 2: "even (top_priority xs)"  sorry
+    (** Put a show in as a test early. If it fails, your assumptions are wrong. *)  
+    with 1 2 show "\<exists>xs. cycle_from_node (G\<sigma>') v xs \<and> even (top_priority xs)" by blast
+  qed    
+    
+(*  lemma w1: "won_by_even v \<Longrightarrow> \<not>won_by_odd v"
+    unfolding won_by_even_def won_by_odd_def sorry *)
+(*  proof simp
     (** Always look at the subgoals! What you fix does not match! See above^^*)
     fix \<sigma> \<sigma>'
     assume \<sigma>_even: "strategy_of V\<^sub>0 \<sigma>"
       and \<sigma>_win: "\<forall>xs. cycle_from_node (induced_by_strategy \<sigma>) v xs \<longrightarrow> even (top_priority xs)"
       and \<sigma>'_odd: "strategy_of V\<^sub>1 \<sigma>'"
     then obtain G\<sigma> G\<sigma>' where "G\<sigma> = induced_by_strategy \<sigma>" and "G\<sigma>' = induced_by_strategy \<sigma>'" by simp
-    
-      
-    
-  qed
+  qed*)
   
   lemma w2:"won_by_even v \<or> won_by_odd v" sorry
   
