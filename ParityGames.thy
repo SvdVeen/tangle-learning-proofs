@@ -140,6 +140,27 @@ begin
     ultimately have "cycle_from_node v (xs2@[x])" by (simp add: lasso_decomp)
     then show ?thesis by auto
   qed
+
+  lemma finite_graph_lasso_always:  "finite E \<Longrightarrow> \<forall>v. E``{v} \<noteq> {} \<Longrightarrow> \<forall>x. \<exists>xs. cycle_from_node x xs"
+  proof auto
+    fix x
+    assume fin: "finite E" and succ: "\<forall>v. E``{v} \<noteq> {}"
+    then obtain xs x' where xs: "length (xs::'v list) = (card V) + 1 \<and> path x xs x'"
+      using path_any_length by blast
+    have "\<not>distinct xs" proof -
+      from xs have "set xs \<subseteq> V" using path_subset by auto
+      moreover from xs have "length xs > card V" by auto
+      moreover from fin have "finite V" unfolding V_def by simp
+      ultimately show ?thesis by (simp add: finite_subset_not_distinct)
+    qed
+    hence "\<exists>y xs1 xs2 xs3. xs = xs1 @ [y] @ xs2 @ [y] @ xs3" using not_distinct_decomp by blast
+    then obtain y xs1 xs2 xs3 where decomp: "xs = xs1 @ [y] @ xs2 @ [y] @ xs3" by blast
+    with xs have "path x (xs1@[y]) y" using path_decomp_1 by auto
+    moreover from decomp xs have "path y (xs2@[y]) y" using path_decomp_2 by auto
+    hence "cycle_node y (xs2@[y])" by (simp add: cycle_node_def)
+    ultimately have "cycle_from_node x (xs2@[y])" by (simp add: lasso_decomp)
+    then show "\<exists>xs. cycle_from_node x xs" by auto
+  qed
 end
 
 subsection \<open>Paths in Subgraphs\<close>
@@ -165,6 +186,20 @@ lemma subgraph_lasso: "E' \<subseteq> E \<Longrightarrow> cycle_from_node E' v v
     from cycle_v'_sub Cons.prems(1) have cycle_v': "cycle_node E v' (a # vs)"
       by (auto simp: subgraph_cycle)
     with v_v' show ?case by auto
+  qed
+
+lemma lasso_inter_1: "cycle_from_node (E1 \<inter> E2) v vs \<Longrightarrow> cycle_from_node E1 v vs"
+  proof -
+    assume "cycle_from_node (E1 \<inter> E2) v vs"
+    moreover have "(E1 \<inter> E2) \<subseteq> E1" by fast
+    ultimately show "cycle_from_node E1 v vs" using subgraph_lasso by metis
+  qed
+
+lemma lasso_inter_2: "cycle_from_node (E1 \<inter> E2) v vs \<Longrightarrow> cycle_from_node E2 v vs"
+  proof -
+    assume "cycle_from_node (E1 \<inter> E2) v vs"
+    moreover have "(E1 \<inter> E2) \<subseteq> E2" by fast
+    ultimately show "cycle_from_node E2 v vs" using subgraph_lasso by metis
   qed
 
 subsection \<open>Winning strategies\<close>
@@ -274,25 +309,14 @@ begin
         In particular G\<sigma>``{v}\<noteq>{}, which means that not too many edges have been eliminated
       *)
       unfolding G\<sigma>_def
-      apply (simp add: ind_subgraph_finite)
+      apply (auto simp: ind_subgraph_finite)
       sorry
-    
-    (** At this point, you have available the theorems of arena, for G\<sigma> \<inter> G\<sigma>'! *)  
-    thm Ginter.ind_subgraph_cycle  
-      
-    (** and then obtain your path \<dots> *)
-    thm finite_graph_lasso[OF Ginter.fin] Ginter.succ
-
-    from finite_graph_lasso[OF Ginter.fin] Ginter.succ
-    have "\<exists>x xs. cycle_from_node (G\<sigma> \<inter> G\<sigma>') x xs" by blast
-    from \<sigma>_win have "\<exists>xs. cycle_from_node G\<sigma> v xs" sorry
-    then obtain xs where xs: "cycle_from_node G\<sigma> v xs" by auto
-    
-    then obtain xs where xs: "cycle_from_node (G\<sigma>\<inter>G\<sigma>') v xs" sorry
-    hence 1: "cycle_from_node G\<sigma>' v xs" sorry
-    from xs have 2: "even (top_priority xs)"  sorry
-    (** Put a show in as a test early. If it fails, your assumptions are wrong. *)  
-    with 1 2 show "\<exists>xs. cycle_from_node (G\<sigma>') v xs \<and> even (top_priority xs)" by blast
+    from finite_graph_lasso_always[OF Ginter.fin] Ginter.succ
+    obtain xs where xs: "cycle_from_node (G\<sigma> \<inter> G\<sigma>') v xs" by blast
+    moreover from xs have "cycle_from_node G\<sigma>' v xs" using lasso_inter_2 by fastforce
+    moreover from xs have "cycle_from_node G\<sigma> v xs" using lasso_inter_1 by fastforce
+    with \<sigma>_win have "even (top_priority xs)" by blast
+    ultimately show "\<exists>xs. cycle_from_node (G\<sigma>') v xs \<and> even (top_priority xs)" by blast
   qed    
     
 (*  lemma w1: "won_by_even v \<Longrightarrow> \<not>won_by_odd v"
