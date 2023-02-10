@@ -217,11 +217,14 @@ begin
 
   (** Peter: as every node (element of type 'v) has a successor, your V will always be the set of everything
     in the type! Actually, no need to define that explicitly! *)
-  lemma "V=UNIV"
+  lemma V_universe[simp]: "V=UNIV"
     unfolding V_def using succ by force
   
   lemma players_disjoint: "V\<^sub>0 \<inter> V\<^sub>1 = {}"
     unfolding V_def V\<^sub>1_def by auto
+
+  lemma in_V\<^sub>1_notin_V\<^sub>0: "v\<notin>V\<^sub>0 \<longleftrightarrow> v\<in>V\<^sub>1"
+    unfolding V\<^sub>1_def by simp
 
   text \<open>A positional strategy for a player i is a function \<sigma>:Vi\<rightarrow>V\<close>
   type_synonym 'a strat = "'a \<Rightarrow> 'a option"
@@ -239,7 +242,7 @@ begin
     "winning_odd xs \<equiv> odd (top_priority xs)"
 
   definition strategy_of :: "'v set \<Rightarrow> 'v strat \<Rightarrow> bool" where
-    "strategy_of S \<sigma> \<equiv> dom \<sigma> \<subseteq> S"
+    "strategy_of S \<sigma> \<equiv> dom \<sigma> \<subseteq> S \<and> E_of_strat \<sigma> \<subseteq> E"
 
   lemma strats_disjoint: "\<forall>\<sigma> \<tau>. strategy_of V\<^sub>0 \<sigma> \<and> strategy_of V\<^sub>1 \<tau> \<longrightarrow> (dom \<sigma> \<inter> dom \<tau>) = {}"
     unfolding strategy_of_def using players_disjoint by blast
@@ -287,52 +290,68 @@ begin
     (\<forall>xs. cycle_from_node (induced_by_strategy \<sigma>) v xs \<longrightarrow> \<not>winning_even xs)"
     unfolding won_by_odd_def by auto
 
-    
+lemma V\<^sub>0_induced_succs_1: "v\<in>V\<^sub>0 \<Longrightarrow> strategy_of V\<^sub>1 \<sigma>' \<Longrightarrow> induced_by_strategy \<sigma>' `` {v} = E `` {v}"
+  unfolding induced_by_strategy_def E_of_strat_def strategy_of_def V\<^sub>1_def by auto
+
+lemma V\<^sub>0_induced_succs_2: "v\<in>V\<^sub>0 \<Longrightarrow> strategy_of V\<^sub>0 \<sigma> \<Longrightarrow> induced_by_strategy \<sigma> `` {v} \<noteq> {}"
+  unfolding induced_by_strategy_def E_of_strat_def strategy_of_def V\<^sub>1_def
+  using succ[of v] apply (cases "v\<in>dom \<sigma>") by auto
+
+lemma V\<^sub>1_induced_succs_1: "v\<in>V\<^sub>1 \<Longrightarrow> strategy_of V\<^sub>0 \<sigma>' \<Longrightarrow> induced_by_strategy \<sigma>' `` {v} = E `` {v}"
+  unfolding induced_by_strategy_def E_of_strat_def strategy_of_def V\<^sub>1_def by auto
+
+lemma V\<^sub>1_induced_succs_2: "v\<in>V\<^sub>1 \<Longrightarrow> strategy_of V\<^sub>1 \<sigma> \<Longrightarrow> induced_by_strategy \<sigma> `` {v} \<noteq> {}"
+  unfolding induced_by_strategy_def E_of_strat_def strategy_of_def V\<^sub>1_def
+  using succ[of v] apply (cases "v\<in>dom \<sigma>") by auto
+
   lemma w1: "won_by_even v \<Longrightarrow> \<not>won_by_odd v"
     unfolding won_by_even_def won_by_odd_def
   proof clarsimp
     fix \<sigma> \<sigma>'
-    
-    (** Use define, instead of obtain. Define is unfolded automatically when you make assumptions, 
-      and in show! *)
     define G\<sigma> where "G\<sigma> = induced_by_strategy \<sigma>"
     define G\<sigma>' where "G\<sigma>' = induced_by_strategy \<sigma>'"
-    
     assume \<sigma>_even: "strategy_of V\<^sub>0 \<sigma>"
       and \<sigma>_win: "\<forall>xs. cycle_from_node G\<sigma> v xs \<longrightarrow> even (top_priority xs)"
       and \<sigma>'_odd: "strategy_of V\<^sub>1 \<sigma>'"
-
-    (** I think you want to show that:  *)
     interpret Ginter: arena_defs "G\<sigma> \<inter> G\<sigma>'" V\<^sub>0 prio 
-      apply unfold_locales 
-      (** proof obligations about induced_by_strategy. 
-        In particular G\<sigma>``{v}\<noteq>{}, which means that not too many edges have been eliminated
-      *)
-      unfolding G\<sigma>_def
-      apply (auto simp: ind_subgraph_finite)
-      sorry
+      apply unfold_locales
+      subgoal  unfolding G\<sigma>_def by (auto simp: ind_subgraph_finite)
+      proof cases
+        fix v
+        assume v_in_V\<^sub>0: "v\<in>V\<^sub>0"
+        with \<sigma>'_odd have "G\<sigma>' `` {v} = E `` {v}"
+          unfolding G\<sigma>'_def by (simp add: V\<^sub>0_induced_succs_1)
+        moreover from v_in_V\<^sub>0 \<sigma>_even  have "G\<sigma> `` {v} \<noteq> {}"
+          unfolding G\<sigma>_def by (simp add: V\<^sub>0_induced_succs_2)
+        moreover note succ[of v] 
+        moreover have "G\<sigma> \<subseteq> E" by (simp add: G\<sigma>_def ind_subgraph)
+        ultimately show "(G\<sigma> \<inter> G\<sigma>') `` {v} \<noteq> {}" by fast
+      next
+        fix v
+        assume "v\<notin>V\<^sub>0"
+        hence v_in_V\<^sub>1: "v\<in>V\<^sub>1" by (simp add: in_V\<^sub>1_notin_V\<^sub>0)
+        with \<sigma>_even have "G\<sigma> `` {v} = E `` {v}"
+          unfolding G\<sigma>_def by (simp add: V\<^sub>1_induced_succs_1)
+        moreover from v_in_V\<^sub>1 \<sigma>'_odd have "G\<sigma>' `` {v} \<noteq> {}"
+          unfolding G\<sigma>'_def by (simp add: V\<^sub>1_induced_succs_2)
+        moreover note succ[of v] 
+        moreover have "G\<sigma>' \<subseteq> E" by (simp add: G\<sigma>'_def ind_subgraph)
+        ultimately show "(G\<sigma> \<inter> G\<sigma>') `` {v} \<noteq> {}" by fast
+      qed
     from finite_graph_lasso_always[OF Ginter.fin] Ginter.succ
     obtain xs where xs: "cycle_from_node (G\<sigma> \<inter> G\<sigma>') v xs" by blast
     moreover from xs have "cycle_from_node G\<sigma>' v xs" using lasso_inter_2 by fastforce
     moreover from xs have "cycle_from_node G\<sigma> v xs" using lasso_inter_1 by fastforce
     with \<sigma>_win have "even (top_priority xs)" by blast
     ultimately show "\<exists>xs. cycle_from_node (G\<sigma>') v xs \<and> even (top_priority xs)" by blast
-  qed    
-    
-(*  lemma w1: "won_by_even v \<Longrightarrow> \<not>won_by_odd v"
-    unfolding won_by_even_def won_by_odd_def sorry *)
-(*  proof simp
-    (** Always look at the subgoals! What you fix does not match! See above^^*)
-    fix \<sigma> \<sigma>'
-    assume \<sigma>_even: "strategy_of V\<^sub>0 \<sigma>"
-      and \<sigma>_win: "\<forall>xs. cycle_from_node (induced_by_strategy \<sigma>) v xs \<longrightarrow> even (top_priority xs)"
-      and \<sigma>'_odd: "strategy_of V\<^sub>1 \<sigma>'"
-    then obtain G\<sigma> G\<sigma>' where "G\<sigma> = induced_by_strategy \<sigma>" and "G\<sigma>' = induced_by_strategy \<sigma>'" by simp
-  qed*)
-  
+  qed
+
+  lemma w': "\<not>won_by_odd v \<Longrightarrow> won_by_even v" unfolding won_by_odd_def won_by_even_def apply clarsimp
+  apply (drule spec[where x=\<sigma>1]) apply (subgoal_tac "strategy_of V\<^sub>1 \<sigma>1") apply clarsimp sorry
+
   lemma w2:"won_by_even v \<or> won_by_odd v" sorry
   
-  lemma "won_by_even v \<noteq> won_by_odd v" using w1 w2 by blast 
+  lemma "won_by_even v \<noteq> won_by_odd v" using w1 w' by blast
 
 end
 
