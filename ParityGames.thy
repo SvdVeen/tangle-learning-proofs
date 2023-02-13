@@ -202,7 +202,7 @@ lemma lasso_inter_2: "cycle_from_node (E1 \<inter> E2) v vs \<Longrightarrow> cy
     ultimately show "cycle_from_node E2 v vs" using subgraph_lasso by metis
   qed
 
-subsection \<open>Winning strategies\<close>
+subsection \<open>Winning Strategies\<close>
 
 locale arena_defs =
   fixes E :: "'v dgraph"
@@ -273,6 +273,13 @@ begin
       by (simp add:subgraph_lasso)
     with 0 1 show ?thesis by simp
   qed
+
+  inductive attr_even :: "'v set \<Rightarrow> 'v set \<Rightarrow> bool" where
+  base: "attr_even X X" |
+  step: "attr_even X Y \<Longrightarrow> Y' = Y \<union> {v|v. v\<in>V\<^sub>0 \<and>  E``{v} \<inter> Y \<noteq> {}} \<union> {v|v. v\<in>V\<^sub>1 \<and> E``{v} \<subseteq> Y} \<Longrightarrow>  attr_even X Y'"
+
+  lemma "attr_even {a,b} {a,b}"
+    by (rule attr_even.base)
 
   definition won_by_even :: "'v \<Rightarrow> bool" where
     "won_by_even v \<equiv> \<exists>\<sigma>. strategy_of V\<^sub>0 \<sigma> \<and> 
