@@ -93,10 +93,12 @@ begin
   definition cycle_from_node :: "'v \<Rightarrow> 'v list \<Rightarrow> bool" where
     "cycle_from_node v xs \<equiv> \<exists>v'. (v,v')\<in>E\<^sup>* \<and> cycle_node v' xs"
 
-  lemma lasso_decomp: "path u xs v \<Longrightarrow> cycle_node v ys \<Longrightarrow> cycle_from_node u ys"
+  lemma lasso_comp: "path u xs v \<Longrightarrow> cycle_node v ys \<Longrightarrow> cycle_from_node u ys"
     unfolding cycle_from_node_def using path_is_rtrancl by auto
 
-  (* First auxiliary lemma: find a path of any length that holds *)
+  lemma lasso_decomp: "cycle_from_node u ys \<Longrightarrow> \<exists>xs v. cycle_node v ys \<and> path u xs v"
+    unfolding cycle_from_node_def using rtrancl_is_path by blast
+
   lemma path_any_length: "finite E \<Longrightarrow> \<forall>v. E``{v} \<noteq> {} \<Longrightarrow> \<exists>xs v'. length xs = n \<and> path v xs v'"
   proof (induction n)
     case 0
@@ -112,14 +114,6 @@ begin
     from append path succ have "path v ys w" by (auto simp: path_append)
     with length show ?case by auto
   qed
-
-  (*
-   obtain xs v'. length xs = card(V)+1 \<and> path ...
-   set xs \<subseteq> V
-   distinct xs \<Longrightarrow> length xs = card (set xs)
-   length xs > card (set xs) \<Longrightarrow> \<not>distinct xs
-   xs = xs1 v xs2 v xs3
-  *)
 
   lemma finite_graph_lasso:  "finite E \<Longrightarrow> \<forall>v. E``{v} \<noteq> {} \<Longrightarrow> \<exists>x xs. cycle_from_node x xs"
   proof -
@@ -137,7 +131,7 @@ begin
     with xs have "path v (xs1@[x]) x" using path_decomp_1 by auto
     moreover from decomp xs have "path x (xs2@[x]) x" using path_decomp_2 by auto
     hence "cycle_node x (xs2@[x])" by (simp add: cycle_node_def)
-    ultimately have "cycle_from_node v (xs2@[x])" by (simp add: lasso_decomp)
+    ultimately have "cycle_from_node v (xs2@[x])" by (simp add: lasso_comp)
     then show ?thesis by auto
   qed
 
@@ -158,7 +152,7 @@ begin
     with xs have "path x (xs1@[y]) y" using path_decomp_1 by auto
     moreover from decomp xs have "path y (xs2@[y]) y" using path_decomp_2 by auto
     hence "cycle_node y (xs2@[y])" by (simp add: cycle_node_def)
-    ultimately have "cycle_from_node x (xs2@[y])" by (simp add: lasso_decomp)
+    ultimately have "cycle_from_node x (xs2@[y])" by (simp add: lasso_comp)
     then show "\<exists>xs. cycle_from_node x xs" by auto
   qed
 end
@@ -210,13 +204,10 @@ locale arena_defs =
   fixes prio :: "'v \<Rightarrow> nat"
   assumes fin: "finite E"
   assumes succ: "E``{v} \<noteq> {}"
-  (* assumes V\<^sub>0_ss: "V\<^sub>0 \<subseteq> fst`E \<union> snd`E" trivially holds, see lemma below *)
 begin  
   definition V where "V = fst`E \<union> snd`E"
   definition V\<^sub>1 where "V\<^sub>1 = V-V\<^sub>0"
 
-  (** Peter: as every node (element of type 'v) has a successor, your V will always be the set of everything
-    in the type! Actually, no need to define that explicitly! *)
   lemma V_universe[simp]: "V=UNIV"
     unfolding V_def using succ by force
   
@@ -278,9 +269,16 @@ begin
   base: "attr_even X X" |
   step: "attr_even X Y \<Longrightarrow> Y' = Y \<union> {v|v. v\<in>V\<^sub>0 \<and>  E``{v} \<inter> Y \<noteq> {}} \<union> {v|v. v\<in>V\<^sub>1 \<and> E``{v} \<subseteq> Y} \<Longrightarrow>  attr_even X Y'"
 
-  lemma "attr_even X Y \<Longrightarrow> \<exists>\<sigma>. strategy_of V\<^sub>0 \<sigma> \<and> X \<subseteq> (induced_by_strategy \<sigma>)\<^sup>* `` Y"
-    sorry
-
+  lemma "attr_even X Y \<Longrightarrow> \<forall>y\<in>Y. \<exists>\<sigma>. \<forall>z zs. cycle_from_node (induced_by_strategy \<sigma>) y (z#zs) \<longrightarrow>
+          (X \<subseteq> set zs \<or> (\<forall>ys. path (induced_by_strategy \<sigma>) y ys z \<longrightarrow> X \<subseteq> set ys))"
+  proof (induction rule: attr_even.induct)
+    case base
+    then show ?case sorry
+  next
+    case (step Y Y')
+    then show ?case sorry
+  qed
+  
   definition won_by_even :: "'v \<Rightarrow> bool" where
     "won_by_even v \<equiv> \<exists>\<sigma>. strategy_of V\<^sub>0 \<sigma> \<and> 
     (\<forall>xs. cycle_from_node (induced_by_strategy \<sigma>) v xs \<longrightarrow> winning_even xs)"
@@ -297,19 +295,19 @@ begin
     (\<forall>xs. cycle_from_node (induced_by_strategy \<sigma>) v xs \<longrightarrow> \<not>winning_even xs)"
     unfolding won_by_odd_def by auto
 
-lemma V\<^sub>0_induced_succs_1: "v\<in>V\<^sub>0 \<Longrightarrow> strategy_of V\<^sub>1 \<sigma>' \<Longrightarrow> induced_by_strategy \<sigma>' `` {v} = E `` {v}"
-  unfolding induced_by_strategy_def E_of_strat_def strategy_of_def V\<^sub>1_def by auto
-
-lemma V\<^sub>0_induced_succs_2: "v\<in>V\<^sub>0 \<Longrightarrow> strategy_of V\<^sub>0 \<sigma> \<Longrightarrow> induced_by_strategy \<sigma> `` {v} \<noteq> {}"
-  unfolding induced_by_strategy_def E_of_strat_def strategy_of_def V\<^sub>1_def
-  using succ[of v] apply (cases "v\<in>dom \<sigma>") by auto
-
-lemma V\<^sub>1_induced_succs_1: "v\<in>V\<^sub>1 \<Longrightarrow> strategy_of V\<^sub>0 \<sigma>' \<Longrightarrow> induced_by_strategy \<sigma>' `` {v} = E `` {v}"
-  unfolding induced_by_strategy_def E_of_strat_def strategy_of_def V\<^sub>1_def by auto
-
-lemma V\<^sub>1_induced_succs_2: "v\<in>V\<^sub>1 \<Longrightarrow> strategy_of V\<^sub>1 \<sigma> \<Longrightarrow> induced_by_strategy \<sigma> `` {v} \<noteq> {}"
-  unfolding induced_by_strategy_def E_of_strat_def strategy_of_def V\<^sub>1_def
-  using succ[of v] apply (cases "v\<in>dom \<sigma>") by auto
+  lemma V\<^sub>0_induced_succs_1: "v\<in>V\<^sub>0 \<Longrightarrow> strategy_of V\<^sub>1 \<sigma>' \<Longrightarrow> induced_by_strategy \<sigma>' `` {v} = E `` {v}"
+    unfolding induced_by_strategy_def E_of_strat_def strategy_of_def V\<^sub>1_def by auto
+  
+  lemma V\<^sub>0_induced_succs_2: "v\<in>V\<^sub>0 \<Longrightarrow> strategy_of V\<^sub>0 \<sigma> \<Longrightarrow> induced_by_strategy \<sigma> `` {v} \<noteq> {}"
+    unfolding induced_by_strategy_def E_of_strat_def strategy_of_def V\<^sub>1_def
+    using succ[of v] apply (cases "v\<in>dom \<sigma>") by auto
+  
+  lemma V\<^sub>1_induced_succs_1: "v\<in>V\<^sub>1 \<Longrightarrow> strategy_of V\<^sub>0 \<sigma>' \<Longrightarrow> induced_by_strategy \<sigma>' `` {v} = E `` {v}"
+    unfolding induced_by_strategy_def E_of_strat_def strategy_of_def V\<^sub>1_def by auto
+  
+  lemma V\<^sub>1_induced_succs_2: "v\<in>V\<^sub>1 \<Longrightarrow> strategy_of V\<^sub>1 \<sigma> \<Longrightarrow> induced_by_strategy \<sigma> `` {v} \<noteq> {}"
+    unfolding induced_by_strategy_def E_of_strat_def strategy_of_def V\<^sub>1_def
+    using succ[of v] apply (cases "v\<in>dom \<sigma>") by auto
 
   lemma w1: "won_by_even v \<Longrightarrow> \<not>won_by_odd v"
     unfolding won_by_even_def won_by_odd_def
