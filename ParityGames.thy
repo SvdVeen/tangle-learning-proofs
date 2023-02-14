@@ -274,7 +274,7 @@ begin
     with 0 1 show ?thesis by simp
   qed
 
-  inductive attr_even :: "'v set \<Rightarrow> 'v set \<Rightarrow> bool" where
+  inductive attr_even :: "'v set \<Rightarrow> 'v set \<Rightarrow> bool" for X where
   base: "attr_even X X" |
   step: "attr_even X Y \<Longrightarrow> Y' = Y \<union> {v|v. v\<in>V\<^sub>0 \<and>  E``{v} \<inter> Y \<noteq> {}} \<union> {v|v. v\<in>V\<^sub>1 \<and> E``{v} \<subseteq> Y} \<Longrightarrow>  attr_even X Y'"
 
