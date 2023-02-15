@@ -27,6 +27,85 @@ subsection \<open>Paths and Cycles\<close>
 context
   fixes E :: "'v dgraph"
 begin
+
+  fun epath :: "'v \<Rightarrow> ('v\<times>'v) list \<Rightarrow> 'v \<Rightarrow> bool" where
+    "epath v [] v' \<longleftrightarrow> v=v'"
+  | "epath v ((x,y)#es) v' \<longleftrightarrow> x=v \<and> (x,y)\<in>E \<and> epath y es v'"
+
+  fun path :: "'v \<Rightarrow> 'v list \<Rightarrow> 'v \<Rightarrow> bool" where
+     "path v [] v' \<longleftrightarrow> v = v'"
+  |  "path v (x#xs) v' \<longleftrightarrow> (v,x) \<in> E \<and> path x xs v'"
+
+  fun path' :: "'v \<Rightarrow> 'v list \<Rightarrow> 'v \<Rightarrow> bool" where
+     "path' v [] v' \<longleftrightarrow> v = v'"
+  |  "path' v (x#xs) v' \<longleftrightarrow> (\<exists>y. x=v \<and> (v,y) \<in> E \<and> path' y xs v')"
+
+  
+  lemma path_alt: "path u xs v \<longleftrightarrow> (\<exists>es. epath u es v \<and> xs=map snd es)"
+    apply (induction xs arbitrary: u) 
+    subgoal by auto
+    subgoal for a xs u apply auto
+      by (metis ParityGames.epath.simps(2) list.simps(9) snd_conv)
+    done 
+  
+  lemma path'_alt: "path' u xs v \<longleftrightarrow> (\<exists>es. epath u es v \<and> xs=map fst es)"
+    apply (induction u xs v rule: path'.induct)
+    subgoal by auto
+    apply (auto simp: Cons_eq_map_conv)
+    using epath.simps(2) apply blast
+    using epath.simps(2) apply blast
+    done
+
+  lemma  
+    "path' v [] v' \<longleftrightarrow> v = v'" (** We still want reflexivity. *)
+    "path' v [x] v' \<longleftrightarrow> v = x \<and> (x,v') \<in> E"
+    "path' v (x#(x'#xs)) v' \<longleftrightarrow> v = x \<and> (x,x') \<in> E \<and> path' x'(x'#xs) v'"
+    by auto
+
+    
+  lemma epath_append[simp]: "epath u (es\<^sub>1@es\<^sub>2) v \<longleftrightarrow> (\<exists>u'. epath u es\<^sub>1 u' \<and> epath u' es\<^sub>2 v)"  
+    apply (induction es\<^sub>1 arbitrary: u)
+    by auto
+          
+  lemma path_append[simp]: "path u (xs\<^sub>1@xs\<^sub>2) v \<longleftrightarrow> (\<exists>u'. path u xs\<^sub>1 u' \<and> path u' xs\<^sub>2 v)"  
+    apply (induction xs\<^sub>1 arbitrary: u)
+    by auto
+
+  lemma path'_append[simp]: "path' u (xs\<^sub>1@xs\<^sub>2) v \<longleftrightarrow> (\<exists>u'. path' u xs\<^sub>1 u' \<and> path' u' xs\<^sub>2 v)"  
+    apply (induction xs\<^sub>1 arbitrary: u)
+    by auto
+    
+        
+  lemma path_decomp_1: "path u (xs@[v]@ys) w \<Longrightarrow> path u (xs@[v]) v" by auto
+
+  lemma path_decomp_2: "path u (xs@[v]@ys@[w]@zs) x \<Longrightarrow> path v (ys@[w]) w" by auto
+      
+  
+  lemma "(u,v)\<in>E\<^sup>* \<longleftrightarrow> (\<exists>es. epath u es v)"
+  proof 
+    oops
+  
+  
+    
+  fun path' :: "'v \<Rightarrow> 'v list \<Rightarrow> 'v \<Rightarrow> bool" where
+    "path' v [] v' \<longleftrightarrow> v = v'" (** We still want reflexivity. *)
+  | "path' v [x] v' \<longleftrightarrow> v = x \<and> (x,v') \<in> E"
+  | "path' v (x#(x'#xs)) v' \<longleftrightarrow> v = x \<and> (x,x') \<in> E \<and> path' x'(x'#xs) v'"
+
+
+  lemma "path' u xs v \<longleftrightarrow> (\<exists>es. epath u es v \<and> xs=map fst es)"
+    apply (induction u xs v rule: path'.induct)
+    apply (auto simp: Cons_eq_map_conv)
+    apply for ce
+    by (metis epath.simps(2))+
+    
+    
+    
+end  
+  
+
+
+
   definition V where "V = fst`E \<union> snd`E"
 
   lemma "finite E \<Longrightarrow> finite V"
