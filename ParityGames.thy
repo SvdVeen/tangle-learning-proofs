@@ -36,6 +36,11 @@ begin
      "path v [] v' \<longleftrightarrow> v = v'"
   |  "path v (x#xs) v' \<longleftrightarrow> (v,x) \<in> E \<and> path x xs v'"
 
+  lemma "path v vs v' \<Longrightarrow> vs \<noteq> [] \<Longrightarrow> v' \<in> set vs"
+    apply (induction vs arbitrary: v)
+    apply simp
+    by fastforce
+  
   lemma path_is_rtrancl: "path v xs v' \<Longrightarrow> (v,v')\<in>E\<^sup>*"
     apply (induction xs arbitrary: v)
     apply auto by fastforce
@@ -67,6 +72,31 @@ begin
     apply (induction xs arbitrary: u)
     using path_decomp_1 apply fastforce
     by fastforce
+
+  fun path' :: "'v \<Rightarrow> 'v list \<Rightarrow> 'v \<Rightarrow> bool" where
+    "path' v [] v' \<longleftrightarrow> v = v'" (** We still want reflexivity. *)
+  | "path' v [x] v' \<longleftrightarrow> v = x \<and> (x,v') \<in> E"
+  | "path' v (x#(x'#xs)) v' \<longleftrightarrow> v = x \<and> (x,x') \<in> E \<and> path' x'(x'#xs) v'"
+
+  lemma path_equiv_path': "path v (xs@[v']) v' \<Longrightarrow> path' v (v#xs) v'"
+    apply (induction xs arbitrary: v) by auto
+
+  lemma path'_equiv_path: "path' v (v#xs) v' \<Longrightarrow> xs \<noteq> [] \<Longrightarrow> path v (xs@[v']) v'"
+    apply (induction xs arbitrary: v) apply auto by fastforce
+  
+  lemma path'_is_rtrancl: "path' v xs v' \<Longrightarrow> (v,v') \<in> E\<^sup>*"
+    apply (induction rule: path'.induct) by auto
+  
+  lemma rtrancl_is_path': "(v,v')\<in>E\<^sup>* \<Longrightarrow> \<exists>xs. path' v xs v'"
+    apply (induction rule: converse_rtrancl_induct)
+    using path'.simps(1) apply blast
+  proof -
+    fix y z
+    assume assm_1: "(y,z)\<in>E" and assm_2: "(z,v')\<in>E\<^sup>*" and assm_3: "\<exists>xs. path' z xs v'"
+    then obtain xs where "path' z xs v'" by blast
+    with assm_1 have "path' y (y#xs) v'" using path'.elims(2) by force
+    then show "\<exists>xs. path' y xs v'" by blast
+  qed
 
   lemma distinct_length: "distinct xs \<Longrightarrow> length xs = card (set xs)"
     apply (induction xs) by auto
