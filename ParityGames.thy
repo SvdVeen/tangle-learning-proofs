@@ -27,20 +27,38 @@ subsection \<open>Paths and Cycles\<close>
 context
   fixes E :: "'v dgraph"
 begin
+  definition V where "V = fst`E \<union> snd`E"
 
+  lemma "finite E \<Longrightarrow> finite V"
+    unfolding V_def by simp
+
+  (** A path consisting of the edges of a graph *)
   fun epath :: "'v \<Rightarrow> ('v\<times>'v) list \<Rightarrow> 'v \<Rightarrow> bool" where
     "epath v [] v' \<longleftrightarrow> v=v'"
   | "epath v ((x,y)#es) v' \<longleftrightarrow> x=v \<and> (x,y)\<in>E \<and> epath y es v'"
 
+  (** A path consisting of the second node of each edge of a graph *)
   fun path :: "'v \<Rightarrow> 'v list \<Rightarrow> 'v \<Rightarrow> bool" where
      "path v [] v' \<longleftrightarrow> v = v'"
   |  "path v (x#xs) v' \<longleftrightarrow> (v,x) \<in> E \<and> path x xs v'"
 
+  (** Quick check whether the path definition does in fact hold the second node of each edge *)
+  lemma "path v vs v' \<Longrightarrow> vs \<noteq> [] \<Longrightarrow> v' \<in> set vs"
+    apply (induction vs arbitrary: v)
+    apply simp by fastforce
+
+  (** A path consisting of the first node of each edge of a graph  *)
   fun path' :: "'v \<Rightarrow> 'v list \<Rightarrow> 'v \<Rightarrow> bool" where
      "path' v [] v' \<longleftrightarrow> v = v'"
   |  "path' v (x#xs) v' \<longleftrightarrow> (\<exists>y. x=v \<and> (v,y) \<in> E \<and> path' y xs v')"
 
-  
+  lemma  
+    "path' v [] v' \<longleftrightarrow> v = v'"
+    "path' v [x] v' \<longleftrightarrow> v = x \<and> (x,v') \<in> E"
+    "path' v (x#(x'#xs)) v' \<longleftrightarrow> v = x \<and> (x,x') \<in> E \<and> path' x'(x'#xs) v'"
+    by auto
+
+  (** These lemmas show that the two path definitions are alternative definitions for the edge paths *)
   lemma path_alt: "path u xs v \<longleftrightarrow> (\<exists>es. epath u es v \<and> xs=map snd es)"
     apply (induction xs arbitrary: u) 
     subgoal by auto
@@ -50,76 +68,48 @@ begin
   
   lemma path'_alt: "path' u xs v \<longleftrightarrow> (\<exists>es. epath u es v \<and> xs=map fst es)"
     apply (induction u xs v rule: path'.induct)
-    subgoal by auto
     apply (auto simp: Cons_eq_map_conv)
-    using epath.simps(2) apply blast
-    using epath.simps(2) apply blast
-    done
+    using epath.simps(2) by blast+
 
-  lemma  
-    "path' v [] v' \<longleftrightarrow> v = v'" (** We still want reflexivity. *)
-    "path' v [x] v' \<longleftrightarrow> v = x \<and> (x,v') \<in> E"
-    "path' v (x#(x'#xs)) v' \<longleftrightarrow> v = x \<and> (x,x') \<in> E \<and> path' x'(x'#xs) v'"
-    by auto
-
-    
+  (** These lemmas show that the paths can be composed by appending multiple paths *)
   lemma epath_append[simp]: "epath u (es\<^sub>1@es\<^sub>2) v \<longleftrightarrow> (\<exists>u'. epath u es\<^sub>1 u' \<and> epath u' es\<^sub>2 v)"  
-    apply (induction es\<^sub>1 arbitrary: u)
-    by auto
+    apply (induction es\<^sub>1 arbitrary: u) by auto
           
   lemma path_append[simp]: "path u (xs\<^sub>1@xs\<^sub>2) v \<longleftrightarrow> (\<exists>u'. path u xs\<^sub>1 u' \<and> path u' xs\<^sub>2 v)"  
-    apply (induction xs\<^sub>1 arbitrary: u)
-    by auto
+    apply (induction xs\<^sub>1 arbitrary: u) by auto
 
   lemma path'_append[simp]: "path' u (xs\<^sub>1@xs\<^sub>2) v \<longleftrightarrow> (\<exists>u'. path' u xs\<^sub>1 u' \<and> path' u' xs\<^sub>2 v)"  
-    apply (induction xs\<^sub>1 arbitrary: u)
-    by auto
-    
-        
+    apply (induction xs\<^sub>1 arbitrary: u) by auto
+
+  (** These lemmas show that paths can be decomposed in various ways *)
   lemma path_decomp_1: "path u (xs@[v]@ys) w \<Longrightarrow> path u (xs@[v]) v" by auto
 
   lemma path_decomp_2: "path u (xs@[v]@ys@[w]@zs) x \<Longrightarrow> path v (ys@[w]) w" by auto
-      
-  
-  lemma "(u,v)\<in>E\<^sup>* \<longleftrightarrow> (\<exists>es. epath u es v)"
-  proof 
-    oops
-  
-  
-    
-  fun path' :: "'v \<Rightarrow> 'v list \<Rightarrow> 'v \<Rightarrow> bool" where
-    "path' v [] v' \<longleftrightarrow> v = v'" (** We still want reflexivity. *)
-  | "path' v [x] v' \<longleftrightarrow> v = x \<and> (x,v') \<in> E"
-  | "path' v (x#(x'#xs)) v' \<longleftrightarrow> v = x \<and> (x,x') \<in> E \<and> path' x'(x'#xs) v'"
 
+  lemma path'_decomp_1: "path' u (xs@[v]@ys) w \<Longrightarrow> path' u (xs) v" by auto
 
-  lemma "path' u xs v \<longleftrightarrow> (\<exists>es. epath u es v \<and> xs=map fst es)"
-    apply (induction u xs v rule: path'.induct)
-    apply (auto simp: Cons_eq_map_conv)
-    apply for ce
-    by (metis epath.simps(2))+
-    
-    
-    
-end  
-  
+  lemma path'_decomp_2: "path' u (xs@[v]@ys@[w]@zs) x \<Longrightarrow> path' v (v#ys) w" by auto
 
+  (** These lemmas show that paths are equivalent to the reflexive transitive closure *)
+  lemma epath_is_rtrancl: "epath v es v' \<Longrightarrow> (v,v')\<in>E\<^sup>*"
+  proof (induction es arbitrary: v)
+    case Nil
+    then show ?case by simp
+  next
+    case (Cons a es)
+    then show ?case sorry
+  qed
 
+  lemma rtrancl_is_epath: "(v,v')\<in>E\<^sup>* \<Longrightarrow> \<exists>es. epath v es v'"
+    apply (induction rule: converse_rtrancl_induct)
+    using epath.simps(1) apply blast
+    using epath.simps(2) by blast
 
-  definition V where "V = fst`E \<union> snd`E"
+  lemma epath_equiv_rtrancl: "(u,v)\<in>E\<^sup>* \<longleftrightarrow> (\<exists>es. epath u es v)"
+    apply auto
+    apply (simp add: rtrancl_is_epath)
+    by (simp add: epath_is_rtrancl)
 
-  lemma "finite E \<Longrightarrow> finite V"
-  unfolding V_def by simp
-
-  fun path :: "'v \<Rightarrow> 'v list \<Rightarrow> 'v \<Rightarrow> bool" where
-     "path v [] v' \<longleftrightarrow> v = v'"
-  |  "path v (x#xs) v' \<longleftrightarrow> (v,x) \<in> E \<and> path x xs v'"
-
-  lemma "path v vs v' \<Longrightarrow> vs \<noteq> [] \<Longrightarrow> v' \<in> set vs"
-    apply (induction vs arbitrary: v)
-    apply simp
-    by fastforce
-  
   lemma path_is_rtrancl: "path v xs v' \<Longrightarrow> (v,v')\<in>E\<^sup>*"
     apply (induction xs arbitrary: v)
     apply auto by fastforce
@@ -129,8 +119,24 @@ end
     using path.simps(1) apply blast
     using path.simps(2) by blast
 
-  lemma path_append: "path u xs v \<Longrightarrow> path v ys w \<Longrightarrow> path u (xs@ys) w"
-    apply (induction xs arbitrary: u) by auto
+  lemma path_equiv_rtrancl: "(v,v') \<in> E\<^sup>* \<longleftrightarrow> (\<exists>xs. path v xs v')"
+    apply auto
+    apply (simp add: rtrancl_is_path)
+    by (simp add: path_is_rtrancl)
+
+  lemma path'_is_rtrancl: "path' v xs v' \<Longrightarrow> (v,v')\<in>E\<^sup>*"
+    apply (induction xs arbitrary: v)
+     apply auto by fastforce
+
+  lemma rtrancl_is_path': "(v,v')\<in>E\<^sup>* \<Longrightarrow> \<exists>xs. path' v xs v'"
+    apply (induction rule: converse_rtrancl_induct)
+    using path'.simps(1) apply blast
+    using path'.simps(2) by blast
+
+  lemma path'_equiv_rtrancl: "(v,v') \<in> E\<^sup>* \<longleftrightarrow> (\<exists>xs. path' v xs v')"
+    apply auto
+    apply (simp add: rtrancl_is_path')
+    by (simp add: path'_is_rtrancl)
     
   lemma path_subset: "path v xs v' \<Longrightarrow> set xs \<subseteq> V"
   unfolding V_def
@@ -144,38 +150,11 @@ end
     with Cons show ?case by auto
   qed
 
-  lemma path_decomp_1: "path u (xs@[v]@ys) w \<Longrightarrow> path u (xs@[v]) v"
-    apply (induction xs arbitrary: u) by auto
-
-  lemma path_decomp_2: "path u (xs@[v]@ys@[w]@zs) x \<Longrightarrow> path v (ys@[w]) w"
-    apply (induction xs arbitrary: u)
-    using path_decomp_1 apply fastforce
-    by fastforce
-
-  fun path' :: "'v \<Rightarrow> 'v list \<Rightarrow> 'v \<Rightarrow> bool" where
-    "path' v [] v' \<longleftrightarrow> v = v'" (** We still want reflexivity. *)
-  | "path' v [x] v' \<longleftrightarrow> v = x \<and> (x,v') \<in> E"
-  | "path' v (x#(x'#xs)) v' \<longleftrightarrow> v = x \<and> (x,x') \<in> E \<and> path' x'(x'#xs) v'"
-
   lemma path_equiv_path': "path v (xs@[v']) v' \<Longrightarrow> path' v (v#xs) v'"
     apply (induction xs arbitrary: v) by auto
 
   lemma path'_equiv_path: "path' v (v#xs) v' \<Longrightarrow> xs \<noteq> [] \<Longrightarrow> path v (xs@[v']) v'"
     apply (induction xs arbitrary: v) apply auto by fastforce
-  
-  lemma path'_is_rtrancl: "path' v xs v' \<Longrightarrow> (v,v') \<in> E\<^sup>*"
-    apply (induction rule: path'.induct) by auto
-  
-  lemma rtrancl_is_path': "(v,v')\<in>E\<^sup>* \<Longrightarrow> \<exists>xs. path' v xs v'"
-    apply (induction rule: converse_rtrancl_induct)
-    using path'.simps(1) apply blast
-  proof -
-    fix y z
-    assume assm_1: "(y,z)\<in>E" and assm_2: "(z,v')\<in>E\<^sup>*" and assm_3: "\<exists>xs. path' z xs v'"
-    then obtain xs where "path' z xs v'" by blast
-    with assm_1 have "path' y (y#xs) v'" using path'.elims(2) by force
-    then show "\<exists>xs. path' y xs v'" by blast
-  qed
 
   lemma distinct_length: "distinct xs \<Longrightarrow> length xs = card (set xs)"
     apply (induction xs) by auto
