@@ -99,6 +99,21 @@ begin
   lemma lasso_decomp: "cycle_from_node u ys \<Longrightarrow> \<exists>xs v. cycle_node v ys \<and> path u xs v"
     unfolding cycle_from_node_def using rtrancl_is_path by blast
 
+  definition lasso_from_node :: "'v \<Rightarrow> 'v list \<Rightarrow> 'v list \<Rightarrow> bool" where
+    "lasso_from_node v xs ys \<equiv> \<exists>v'. path v xs v' \<and> cycle_node v' ys"
+
+  lemma lasso_from_equiv_cycle_from: "(\<exists>xs. lasso_from_node v xs ys) \<longleftrightarrow> cycle_from_node v ys"
+    unfolding lasso_from_node_def cycle_from_node_def cycle_node_def
+  proof
+    assume "\<exists>xs. \<exists>v'. path v xs v' \<and> path v' ys v' \<and> ys \<noteq> []"
+    then show "(\<exists>v'. (v,v') \<in> E\<^sup>* \<and> path v' ys v' \<and> ys \<noteq> [])"
+      using path_is_rtrancl by blast
+  next
+    assume "(\<exists>v'. (v,v') \<in> E\<^sup>* \<and> path v' ys v' \<and> ys \<noteq> [])"
+    then show "(\<exists>xs. \<exists>v'. path v xs v' \<and> path v' ys v' \<and> ys \<noteq> [])"
+      using rtrancl_is_path by blast
+  qed
+
   lemma path_any_length: "finite E \<Longrightarrow> \<forall>v. E``{v} \<noteq> {} \<Longrightarrow> \<exists>xs v'. length xs = n \<and> path v xs v'"
   proof (induction n)
     case 0
