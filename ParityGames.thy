@@ -92,12 +92,13 @@ begin
 
   (** These lemmas show that paths are equivalent to the reflexive transitive closure *)
   lemma epath_is_rtrancl: "epath v es v' \<Longrightarrow> (v,v')\<in>E\<^sup>*"
-  proof (induction es arbitrary: v)
-    case Nil
+  proof (induction es v' rule: epath.induct)
+    case (1 v v')
     then show ?case by simp
   next
-    case (Cons a es)
-    then show ?case sorry
+    case (2 v x y es v')
+    hence "(v,y) \<in> E" by auto
+    with 2 show ?case by simp
   qed
 
   lemma rtrancl_is_epath: "(v,v')\<in>E\<^sup>* \<Longrightarrow> \<exists>es. epath v es v'"
@@ -137,7 +138,11 @@ begin
     apply auto
     apply (simp add: rtrancl_is_path')
     by (simp add: path'_is_rtrancl)
-    
+
+  (** These lemmas show that paths are a subset of the graph *)
+  lemma epath_subset: "epath v es v' \<Longrightarrow> set es \<subseteq> E"
+    using split_list by fastforce
+
   lemma path_subset: "path v xs v' \<Longrightarrow> set xs \<subseteq> V"
   unfolding V_def
   proof (induction xs arbitrary: v)
@@ -147,6 +152,19 @@ begin
     case (Cons a xs)
     hence "(v,a) \<in> E" by simp
     hence "a \<in> snd ` E" by force
+    with Cons show ?case by auto
+  qed
+
+  lemma path'_subset: "path' v xs v' \<Longrightarrow> set xs \<subseteq> V"
+  unfolding V_def
+  proof (induction xs arbitrary: v)
+    case Nil
+    then show ?case by simp
+  next
+    case (Cons a xs)
+    hence "v = a" by auto
+    moreover from this Cons have "\<exists>y. (v,y)\<in>E" by auto
+    ultimately have "a \<in> fst ` E" by force
     with Cons show ?case by auto
   qed
 
@@ -176,33 +194,33 @@ begin
   qed
   
   definition cycle_node :: "'v \<Rightarrow> 'v list \<Rightarrow> bool" where
-    "cycle_node v xs \<equiv> path v xs v \<and> xs \<noteq> []"
+    "cycle_node v xs \<equiv> path' v xs v \<and> xs \<noteq> []"
 
   definition cycle_from_node :: "'v \<Rightarrow> 'v list \<Rightarrow> bool" where
     "cycle_from_node v xs \<equiv> \<exists>v'. (v,v')\<in>E\<^sup>* \<and> cycle_node v' xs"
 
-  lemma lasso_comp: "path u xs v \<Longrightarrow> cycle_node v ys \<Longrightarrow> cycle_from_node u ys"
-    unfolding cycle_from_node_def using path_is_rtrancl by auto
+  lemma lasso_comp: "path' u xs v \<Longrightarrow> cycle_node v ys \<Longrightarrow> cycle_from_node u ys"
+    unfolding cycle_from_node_def using path'_is_rtrancl by blast
 
-  lemma lasso_decomp: "cycle_from_node u ys \<Longrightarrow> \<exists>xs v. cycle_node v ys \<and> path u xs v"
-    unfolding cycle_from_node_def using rtrancl_is_path by blast
+  lemma lasso_decomp: "cycle_from_node u ys \<Longrightarrow> \<exists>xs v. cycle_node v ys \<and> path' u xs v"
+    unfolding cycle_from_node_def using rtrancl_is_path' by blast
 
   definition lasso_from_node :: "'v \<Rightarrow> 'v list \<Rightarrow> 'v list \<Rightarrow> bool" where
-    "lasso_from_node v xs ys \<equiv> \<exists>v'. path v xs v' \<and> cycle_node v' ys"
+    "lasso_from_node v xs ys \<equiv> \<exists>v'. path' v xs v' \<and> path' v' ys v' \<and> ys \<noteq> []"
 
   lemma lasso_from_equiv_cycle_from: "(\<exists>xs. lasso_from_node v xs ys) \<longleftrightarrow> cycle_from_node v ys"
     unfolding lasso_from_node_def cycle_from_node_def cycle_node_def
   proof
-    assume "\<exists>xs. \<exists>v'. path v xs v' \<and> path v' ys v' \<and> ys \<noteq> []"
-    then show "(\<exists>v'. (v,v') \<in> E\<^sup>* \<and> path v' ys v' \<and> ys \<noteq> [])"
-      using path_is_rtrancl by blast
+    assume "\<exists>xs v'. path' v xs v' \<and> path' v' ys v' \<and> ys \<noteq> []"
+    then show "\<exists>v'. (v,v') \<in> E\<^sup>* \<and> path' v' ys v' \<and> ys \<noteq> []"
+      using path'_is_rtrancl by auto
   next
-    assume "(\<exists>v'. (v,v') \<in> E\<^sup>* \<and> path v' ys v' \<and> ys \<noteq> [])"
-    then show "(\<exists>xs. \<exists>v'. path v xs v' \<and> path v' ys v' \<and> ys \<noteq> [])"
-      using rtrancl_is_path by blast
+    assume "\<exists>v'. (v,v') \<in> E\<^sup>* \<and> path' v' ys v' \<and> ys \<noteq> []"
+    then show "\<exists>xs v'. local.path' v xs v' \<and> local.path' v' ys v' \<and> ys \<noteq> []"
+      using path'_equiv_rtrancl by auto
   qed
 
-  lemma path_any_length: "finite E \<Longrightarrow> \<forall>v. E``{v} \<noteq> {} \<Longrightarrow> \<exists>xs v'. length xs = n \<and> path v xs v'"
+  lemma path_any_length: "finite E \<Longrightarrow> \<forall>v. E``{v} \<noteq> {} \<Longrightarrow> \<exists>xs v'. length xs = n \<and> path' v xs v'"
   proof (induction n)
     case 0
     then obtain xs v' where "xs=([]::'v list)" and "v' = v" by simp
@@ -210,31 +228,31 @@ begin
   next
     case (Suc n)
     then obtain xs v' w
-      where path: "length xs = n \<and> path v xs v'"
+      where path: "length xs = n \<and> path' v xs v'"
       and succ: "w \<in> E``{v'}" by fast
-    then obtain ys where append: "ys = xs@[w]" by fast
+    then obtain ys where append: "ys = xs@[v']" by fast
     with path have length: "length ys = Suc n" by simp
-    from append path succ have "path v ys w" by (auto simp: path_append)
+    from append path succ have "path' v ys w" by auto
     with length show ?case by auto
   qed
 
   lemma finite_graph_lasso:  "finite E \<Longrightarrow> \<forall>v. E``{v} \<noteq> {} \<Longrightarrow> \<exists>x xs. cycle_from_node x xs"
   proof -
     assume fin: "finite E" and succ: "\<forall>v. E``{v} \<noteq> {}"
-    then obtain v xs v' where xs: "length (xs::'v list) = (card V) + 1 \<and> path v xs v'"
+    then obtain v xs v' where xs: "length (xs::'v list) = (card V) + 1 \<and> path' v xs v'"
       using path_any_length by blast
     have "\<not>distinct xs" proof -
-      from xs have "set xs \<subseteq> V" using path_subset by auto
+      from xs have "set xs \<subseteq> V" using path'_subset by auto
       moreover from xs have "length xs > card V" by auto
       moreover from fin have "finite V" unfolding V_def by simp
       ultimately show ?thesis by (simp add: finite_subset_not_distinct)
     qed
     hence "\<exists>x xs1 xs2 xs3. xs = xs1 @ [x] @ xs2 @ [x] @ xs3" using not_distinct_decomp by blast
     then obtain x xs1 xs2 xs3 where decomp: "xs = xs1 @ [x] @ xs2 @ [x] @ xs3" by blast
-    with xs have "path v (xs1@[x]) x" using path_decomp_1 by auto
-    moreover from decomp xs have "path x (xs2@[x]) x" using path_decomp_2 by auto
-    hence "cycle_node x (xs2@[x])" by (simp add: cycle_node_def)
-    ultimately have "cycle_from_node v (xs2@[x])" by (simp add: lasso_comp)
+    with xs have "path' v (xs1) x" using path'_decomp_1 by blast
+    moreover from decomp xs have "path' x (x#xs2) x" using path'_decomp_2 by blast
+    hence "cycle_node x (x#xs2)" by (simp add: cycle_node_def)
+    ultimately have "cycle_from_node v (x#xs2)" using lasso_comp by simp
     then show ?thesis by auto
   qed
 
@@ -242,26 +260,26 @@ begin
   proof auto
     fix x
     assume fin: "finite E" and succ: "\<forall>v. E``{v} \<noteq> {}"
-    then obtain xs x' where xs: "length (xs::'v list) = (card V) + 1 \<and> path x xs x'"
+    then obtain xs x' where xs: "length (xs::'v list) = (card V) + 1 \<and> path' x xs x'"
       using path_any_length by blast
     have "\<not>distinct xs" proof -
-      from xs have "set xs \<subseteq> V" using path_subset by auto
+      from xs have "set xs \<subseteq> V" using path'_subset by auto
       moreover from xs have "length xs > card V" by auto
       moreover from fin have "finite V" unfolding V_def by simp
       ultimately show ?thesis by (simp add: finite_subset_not_distinct)
     qed
     hence "\<exists>y xs1 xs2 xs3. xs = xs1 @ [y] @ xs2 @ [y] @ xs3" using not_distinct_decomp by blast
     then obtain y xs1 xs2 xs3 where decomp: "xs = xs1 @ [y] @ xs2 @ [y] @ xs3" by blast
-    with xs have "path x (xs1@[y]) y" using path_decomp_1 by auto
-    moreover from decomp xs have "path y (xs2@[y]) y" using path_decomp_2 by auto
-    hence "cycle_node y (xs2@[y])" by (simp add: cycle_node_def)
-    ultimately have "cycle_from_node x (xs2@[y])" by (simp add: lasso_comp)
+    with xs have "path' x (xs1) y" using path'_decomp_1 by blast
+    moreover from decomp xs have "path' y (y#xs2) y" using path'_decomp_2 by blast
+    hence "cycle_node y (y#xs2)" by (simp add: cycle_node_def)
+    ultimately have "cycle_from_node x (y#xs2)" using lasso_comp by blast
     then show "\<exists>xs. cycle_from_node x xs" by auto
   qed
 end
 
 subsection \<open>Paths in Subgraphs\<close>
-lemma subgraph_path: "E' \<subseteq> E \<Longrightarrow> path E' v vs v' \<Longrightarrow> path E v vs v'"
+lemma subgraph_path: "E' \<subseteq> E \<Longrightarrow> path' E' v vs v' \<Longrightarrow> path' E v vs v'"
   apply (induction vs arbitrary: v) by auto
 
 lemma subgraph_cycle: "E' \<subseteq> E \<Longrightarrow> cycle_node E' v vs \<Longrightarrow> cycle_node E v vs"
@@ -372,8 +390,8 @@ begin
   base: "attr_even X X" |
   step: "attr_even X Y \<Longrightarrow> Y' = Y \<union> {v|v. v\<in>V\<^sub>0 \<and>  E``{v} \<inter> Y \<noteq> {}} \<union> {v|v. v\<in>V\<^sub>1 \<and> E``{v} \<subseteq> Y} \<Longrightarrow>  attr_even X Y'"
 
-  lemma "attr_even X Y \<Longrightarrow> \<forall>y\<in>Y. \<exists>\<sigma>. \<forall>z zs. cycle_from_node (induced_by_strategy \<sigma>) y (z#zs) \<longrightarrow>
-          (X \<subseteq> set zs \<or> (\<forall>ys. path (induced_by_strategy \<sigma>) y ys z \<longrightarrow> X \<subseteq> set ys))"
+lemma "attr_even X Y \<Longrightarrow> \<forall>y\<in>Y. \<exists>\<sigma>. strategy_of V\<^sub>0 \<sigma> \<and> (\<forall>xs ys. lasso_from_node (induced_by_strategy \<sigma>) y xs ys \<longrightarrow>
+        (X \<subseteq> set xs \<or> X \<subseteq> set ys))"
   proof (induction rule: attr_even.induct)
     case base
     then show ?case sorry
