@@ -381,15 +381,93 @@ begin
   base: "attr_even X X" |
   step: "attr_even X Y \<Longrightarrow> Y' = Y \<union> {v|v. v\<in>V\<^sub>0 \<and>  E``{v} \<inter> Y \<noteq> {}} \<union> {v|v. v\<in>V\<^sub>1 \<and> E``{v} \<subseteq> Y} \<Longrightarrow>  attr_even X Y'"
 
-lemma "attr_even X Y \<Longrightarrow> \<forall>y\<in>Y. \<exists>\<sigma>. strategy_of V\<^sub>0 \<sigma> \<and> (\<forall>xs ys. lasso_from_node (induced_by_strategy \<sigma>) y xs ys \<longrightarrow>
-        (X \<subseteq> set xs \<or> X \<subseteq> set ys))"
-  proof (induction rule: attr_even.induct)
-    case base
-    then show ?case sorry
-  next
-    case (step Y Y')
-    then show ?case sorry
-  qed
+  
+lemma "(\<exists>x. P x) \<Longrightarrow> P (SOME x. P x)" by (rule someI_ex) 
+
+lemma "(\<exists>!x. P x) \<Longrightarrow> P (THE x. P x)" by (rule theI') 
+
+term Ex1
+
+  
+lemma "attr_even X Y \<Longrightarrow> \<exists>\<sigma>. 
+     strategy_of V\<^sub>0 \<sigma> \<and> dom \<sigma> \<subseteq> Y 
+  \<and> (\<forall>y\<in>Y. \<forall>xs ys. lasso_from_node (induced_by_strategy \<sigma>) y xs ys \<longrightarrow> (X \<inter> (set xs \<union> set ys) \<noteq> {}))"
+proof (induction rule: attr_even.induct)
+  case base
+  then show ?case
+    apply (rule exI[where x=Map.empty])
+    apply auto
+    subgoal unfolding strategy_of_def E_of_strat_def by auto
+    subgoal for y xs ys
+      unfolding lasso_from_node_def
+      apply (cases xs; cases ys; auto)
+      done
+    done  
+   
+next
+  case (step Y Y')
+  
+  from step.IH obtain \<sigma> where 
+    "strategy_of V\<^sub>0 \<sigma>" 
+    "dom \<sigma> \<subseteq> Y" 
+    "(\<forall>y\<in>Y. \<forall>xs ys. lasso_from_node (induced_by_strategy \<sigma>) y xs ys \<longrightarrow> X \<inter> (set xs \<union> set ys) \<noteq> {})"
+    by blast
+    
+  thm step.hyps  
+  
+  note Y'_def = step.hyps
+  
+  fix \<sigma>' :: "'v \<rightharpoonup> 'v"
+  
+  let ?dom' = "{v |v. v \<in> V\<^sub>0 \<and> E `` {v} \<inter> Y \<noteq> {}} - Y"
+  
+  define \<sigma>' where "\<sigma>' = (\<lambda>v. (
+    if v\<in>?dom' then Some (SOME v'. v'\<in>E``{v} \<inter> Y)
+    else None))"
+  
+  
+  have EDGE_\<sigma>': "\<forall>u v. \<sigma>' u = Some v \<longrightarrow> (u,v)\<in>E"
+    unfolding \<sigma>'_def apply (auto) by (metis (no_types, lifting) someI)
+  have DOM_\<sigma>': "dom \<sigma>' = {v |v. v \<in> V\<^sub>0 \<and> E `` {v} \<inter> Y \<noteq> {}} - Y"
+    unfolding \<sigma>'_def by (auto split: if_splits)
+  have RAN_\<sigma>': "ran \<sigma>' \<subseteq> Y" 
+    unfolding \<sigma>'_def apply (auto simp: ran_def) by (metis (no_types, lifting) someI)
+  
+  have [simp]: "strategy_of V\<^sub>0 (\<sigma> ++ \<sigma>')"
+    using \<open>strategy_of V\<^sub>0 \<sigma>\<close> DOM_\<sigma>' EDGE_\<sigma>' unfolding strategy_of_def E_of_strat_def
+    by auto
+    
+
+  
+  {
+    fix y xs ys
+    assume "y \<in> Y'" and "lasso_from_node (induced_by_strategy (\<sigma> ++ \<sigma>')) y xs ys"
+    
+    from \<open>y \<in> Y'\<close> consider "y\<in>Y" | "y\<in>?dom'" | "y\<in>{v |v. v \<in> V\<^sub>1 \<and> E `` {v} \<subseteq> Y}" unfolding Y'_def by blast
+    then have "X \<inter> (set xs \<union> set ys) \<noteq> {}" proof cases
+      case 1
+      then show ?thesis sorry
+    next
+      case 2
+      then show ?thesis sorry
+    next
+      case 3
+      then show ?thesis sorry
+    qed
+    
+    
+  } note aux = this
+  
+    
+  show ?case
+    apply (rule exI[where x="\<sigma> ++ \<sigma>'"])
+    apply (auto simp: aux)
+    subgoal using DOM_\<sigma>' by (auto simp: Y'_def) 
+    subgoal using \<open>dom \<sigma> \<subseteq> Y\<close> by (auto simp: Y'_def)
+    done
+  
+  
+qed
   
   definition won_by_even :: "'v \<Rightarrow> bool" where
     "won_by_even v \<equiv> \<exists>\<sigma>. strategy_of V\<^sub>0 \<sigma> \<and> 
