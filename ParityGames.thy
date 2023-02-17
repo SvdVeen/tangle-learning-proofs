@@ -63,7 +63,7 @@ begin
     apply (induction xs arbitrary: u) 
     subgoal by auto
     subgoal for a xs u apply auto
-      by (metis ParityGames.epath.simps(2) list.simps(9) snd_conv)
+      by (metis epath.simps(2) list.simps(9) snd_conv)
     done 
   
   lemma path'_alt: "path' u xs v \<longleftrightarrow> (\<exists>es. epath u es v \<and> xs=map fst es)"
@@ -103,13 +103,10 @@ begin
 
   lemma rtrancl_is_epath: "(v,v')\<in>E\<^sup>* \<Longrightarrow> \<exists>es. epath v es v'"
     apply (induction rule: converse_rtrancl_induct)
-    using epath.simps(1) apply blast
-    using epath.simps(2) by blast
+    using epath.simps(1) epath.simps(2) by blast+
 
   lemma epath_equiv_rtrancl: "(u,v)\<in>E\<^sup>* \<longleftrightarrow> (\<exists>es. epath u es v)"
-    apply auto
-    apply (simp add: rtrancl_is_epath)
-    by (simp add: epath_is_rtrancl)
+    apply auto by (simp add: rtrancl_is_epath epath_is_rtrancl)+
 
   lemma path_is_rtrancl: "path v xs v' \<Longrightarrow> (v,v')\<in>E\<^sup>*"
     apply (induction xs arbitrary: v)
@@ -117,27 +114,21 @@ begin
 
   lemma rtrancl_is_path: "(v,v')\<in>E\<^sup>* \<Longrightarrow> \<exists>xs. path v xs v'"
     apply (induction rule: converse_rtrancl_induct)
-    using path.simps(1) apply blast
-    using path.simps(2) by blast
+    using path.simps(1) path.simps(2) by blast+
 
   lemma path_equiv_rtrancl: "(v,v') \<in> E\<^sup>* \<longleftrightarrow> (\<exists>xs. path v xs v')"
-    apply auto
-    apply (simp add: rtrancl_is_path)
-    by (simp add: path_is_rtrancl)
+    apply auto by (simp add: rtrancl_is_path path_is_rtrancl)+
 
   lemma path'_is_rtrancl: "path' v xs v' \<Longrightarrow> (v,v')\<in>E\<^sup>*"
     apply (induction xs arbitrary: v)
-     apply auto by fastforce
+    apply auto by fastforce
 
   lemma rtrancl_is_path': "(v,v')\<in>E\<^sup>* \<Longrightarrow> \<exists>xs. path' v xs v'"
     apply (induction rule: converse_rtrancl_induct)
-    using path'.simps(1) apply blast
-    using path'.simps(2) by blast
+    using path'.simps(1) path'.simps(2) by blast+
 
   lemma path'_equiv_rtrancl: "(v,v') \<in> E\<^sup>* \<longleftrightarrow> (\<exists>xs. path' v xs v')"
-    apply auto
-    apply (simp add: rtrancl_is_path')
-    by (simp add: path'_is_rtrancl)
+    apply auto by (simp add: rtrancl_is_path' path'_is_rtrancl)+
 
   (** These lemmas show that paths are a subset of the graph *)
   lemma epath_subset: "epath v es v' \<Longrightarrow> set es \<subseteq> E"
