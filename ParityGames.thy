@@ -44,8 +44,7 @@ begin
 
   (** Quick check whether the path definition does in fact hold the second node of each edge *)
   lemma "path v vs v' \<Longrightarrow> vs \<noteq> [] \<Longrightarrow> v' \<in> set vs"
-    apply (induction vs arbitrary: v)
-    apply simp by fastforce
+    apply (induction vs arbitrary: v) by fastforce+
 
   (** A path consisting of the first node of each edge of a graph  *)
   fun path' :: "'v \<Rightarrow> 'v list \<Rightarrow> 'v \<Rightarrow> bool" where
@@ -109,8 +108,7 @@ begin
     apply auto by (simp add: rtrancl_is_epath epath_is_rtrancl)+
 
   lemma path_is_rtrancl: "path v xs v' \<Longrightarrow> (v,v')\<in>E\<^sup>*"
-    apply (induction xs arbitrary: v)
-    apply simp by fastforce
+    apply (induction xs arbitrary: v) by fastforce+
 
   lemma rtrancl_is_path: "(v,v')\<in>E\<^sup>* \<Longrightarrow> \<exists>xs. path v xs v'"
     apply (induction rule: converse_rtrancl_induct)
@@ -120,8 +118,7 @@ begin
     apply auto by (simp add: rtrancl_is_path path_is_rtrancl)+
 
   lemma path'_is_rtrancl: "path' v xs v' \<Longrightarrow> (v,v')\<in>E\<^sup>*"
-    apply (induction xs arbitrary: v)
-    apply simp by fastforce
+    apply (induction xs arbitrary: v) by fastforce+
 
   lemma rtrancl_is_path': "(v,v')\<in>E\<^sup>* \<Longrightarrow> \<exists>xs. path' v xs v'"
     apply (induction rule: converse_rtrancl_induct)
@@ -163,7 +160,13 @@ begin
     apply (induction xs arbitrary: v) by auto
 
   lemma path'_equiv_path: "path' v (v#xs) v' \<Longrightarrow> xs \<noteq> [] \<Longrightarrow> path v (xs@[v']) v'"
-    apply (induction xs arbitrary: v) apply simp by fastforce
+    apply (induction xs arbitrary: v) by fastforce+
+
+  lemma origin_in_path':  "path' v vs v' \<and> vs \<noteq> [] \<Longrightarrow> v \<in> set vs"
+    apply (induction vs arbitrary: v) by simp+
+
+  lemma path'D: "path' v vs v' \<and> vs \<noteq> [] \<Longrightarrow> \<exists>y vs'. vs = v#(vs') \<and> (v,y) \<in> E \<and> path' y vs' v'"
+    apply (induction vs arbitrary: v) by simp+
 
   lemma distinct_length: "distinct xs \<Longrightarrow> length xs = card (set xs)"
     apply (induction xs) by auto
@@ -202,8 +205,8 @@ begin
   lemma origin_in_lasso: "lasso_from_node x xs ys \<Longrightarrow> (x \<in> set xs \<or> x \<in> set ys)"
     unfolding lasso_from_node_def
     apply (induction xs arbitrary: x)
-    apply simp_all
-    using ParityGames.path'.elims(1) by force
+    apply simp
+    using origin_in_path' by auto
 
   definition lasso_from_node' :: "'v \<Rightarrow> 'v list \<Rightarrow> bool" where
     "lasso_from_node' v xs \<equiv> \<exists>v' xs1 xs2. xs=xs1@xs2 \<and>  path' v xs1 v' \<and> path' v' xs2 v' \<and> xs2 \<noteq> []"
@@ -218,6 +221,18 @@ begin
     unfolding lasso_from_node'_def lasso_from_node_def
     apply (induction xs arbitrary: v)
     by auto
+
+  lemma lasso'_impl_path: "lasso_from_node' v xs \<Longrightarrow> \<exists>v'. path' v xs v'"
+    unfolding lasso_from_node'_def by force
+
+  lemma origin_in_lasso': "lasso_from_node' v xs \<Longrightarrow> v \<in> set xs"
+    apply (induction xs arbitrary: v)
+    apply simp
+    using lasso'_impl_path origin_in_path' by blast
+
+  lemma lasso_from_node'_consD: "lasso_from_node' v (x#xs) 
+    \<Longrightarrow> (\<exists>v' xs'. x=v \<and> (v,v')\<in>E \<and> lasso_from_node' v' xs' \<and> set xs'\<subseteq>set (x#xs))"
+    by (auto simp add: lasso_from_node'_def Cons_eq_append_conv; force)
 
   lemma lasso_from_equiv_cycle_from: "cycle_from_node v ys \<longleftrightarrow> (\<exists>xs. lasso_from_node v xs ys)"
     unfolding lasso_from_node_def cycle_from_node_def cycle_node_def
@@ -313,6 +328,11 @@ lemma subgraph_lasso: "E' \<subseteq> E \<Longrightarrow> cycle_from_node E' v v
     with v_v' show ?case by auto
   qed
 
+lemma subgraph_lasso': "E' \<subseteq> E \<Longrightarrow> lasso_from_node' E' v vs \<Longrightarrow> lasso_from_node' E v vs"
+  unfolding lasso_from_node'_def
+  apply (induction vs arbitrary: v)
+  apply blast by (meson subgraph_path)
+
 lemma lasso_inter_1: "cycle_from_node (E1 \<inter> E2) v vs \<Longrightarrow> cycle_from_node E1 v vs"
   proof -
     assume "cycle_from_node (E1 \<inter> E2) v vs"
@@ -399,13 +419,24 @@ begin
     with 0 1 show ?thesis by simp
   qed
 
+  lemma ind_subgraph_add_empty: "induced_by_strategy (\<sigma> ++ Map.empty) = induced_by_strategy \<sigma>"
+    by auto
+
+  lemma ind_subgraph_addD: "induced_by_strategy (\<sigma> ++ \<sigma>') \<subseteq> induced_by_strategy \<sigma> \<union> E_of_strat \<sigma>'"
+    unfolding induced_by_strategy_def E_of_strat_def by auto
+
+  abbreviation even_owned_target :: "'v set \<Rightarrow> 'v set" where
+    "even_owned_target Y \<equiv> {v|v. v\<in>V\<^sub>0 \<and> E``{v} \<inter> Y \<noteq> {}}"
+
+  abbreviation even_opponent_target :: "'v set \<Rightarrow> 'v set" where
+    "even_opponent_target Y \<equiv> {v|v. v\<in>V\<^sub>1 \<and> E``{v} \<subseteq> Y}"
+
   inductive attr_even :: "'v set \<Rightarrow> 'v set \<Rightarrow> bool" for X where
   base: "attr_even X X" |
-  step: "attr_even X Y \<Longrightarrow> Y' = Y \<union> {v|v. v\<in>V\<^sub>0 \<and>  E``{v} \<inter> Y \<noteq> {}} \<union> {v|v. v\<in>V\<^sub>1 \<and> E``{v} \<subseteq> Y} \<Longrightarrow>  attr_even X Y'"
+  step: "attr_even X Y \<Longrightarrow> Y' = Y \<union> even_owned_target Y \<union> even_opponent_target Y \<Longrightarrow>  attr_even X Y'"
 
   lemma attr_even_subset: "attr_even X Y \<Longrightarrow> X \<subseteq> Y"
-    apply (induction rule: attr_even.induct)
-    by auto
+    apply (induction rule: attr_even.induct) by auto
 
   lemma "attr_even X Y \<Longrightarrow> \<exists>\<sigma>.
         strategy_of V\<^sub>0 \<sigma> \<and> dom \<sigma> \<subseteq> Y
@@ -430,28 +461,55 @@ begin
       by blast
     note Y'_def = step.hyps
     fix \<sigma>' :: "'v \<rightharpoonup> 'v"
-  
-    let ?dom' = "{v |v. v \<in> V\<^sub>0 \<and> E `` {v} \<inter> Y \<noteq> {}} - Y"
-  
+    let ?dom' = "even_owned_target Y - Y"
     define \<sigma>' where "\<sigma>' = (\<lambda>v. (
       if v\<in>?dom' then Some (SOME v'. v'\<in>E``{v} \<inter> Y)
       else None))"
   
     have EDGE_\<sigma>': "\<forall>u v. \<sigma>' u = Some v \<longrightarrow> (u,v)\<in>E"
       unfolding \<sigma>'_def apply (auto) by (metis (no_types, lifting) someI)
-    have DOM_\<sigma>': "dom \<sigma>' = {v |v. v \<in> V\<^sub>0 \<and> E `` {v} \<inter> Y \<noteq> {}} - Y"
+    have DOM_\<sigma>': "dom \<sigma>' = even_owned_target Y - Y"
       unfolding \<sigma>'_def by (auto split: if_splits)
     have RAN_\<sigma>': "ran \<sigma>' \<subseteq> Y"
       unfolding \<sigma>'_def apply (auto simp: ran_def) by (metis (no_types, lifting) someI)
   
     have [simp]: "strategy_of V\<^sub>0 (\<sigma> ++ \<sigma>')"
-      using EVEN_\<sigma> DOM_\<sigma>' EDGE_\<sigma>' unfolding strategy_of_def E_of_strat_def
+      using EVEN_\<sigma> DOM_\<sigma>' EDGE_\<sigma>'
+      unfolding strategy_of_def E_of_strat_def
       by auto
   
     {
       fix y xs
       assume y: "y \<in> Y'" and y_lasso: "lasso_from_node' (induced_by_strategy (\<sigma> ++ \<sigma>')) y xs"
-      from y consider "y\<in>Y" | "y\<in>?dom'" | "y\<in>{v |v. v \<in> V\<^sub>1 \<and> E `` {v} \<subseteq> Y}" unfolding Y'_def by blast
+      then have "X \<inter> set xs \<noteq> {}"
+      proof cases
+        assume "y\<in>X"
+        from y_lasso origin_in_lasso' have "y\<in>set xs" by fast
+        with \<open>y\<in>X\<close> show ?thesis by auto
+      next
+        assume "y\<notin>X"
+        with y y_lasso obtain y' xs'
+          where y'_edge: "(y,y') \<in> induced_by_strategy (\<sigma> ++ \<sigma>')"
+          and y'_lasso: "lasso_from_node' (induced_by_strategy (\<sigma> ++ \<sigma>'))  y' xs'"
+          and xs'_subset: "set xs' \<subseteq> set xs"
+          apply (cases xs; simp)
+          apply (drule lasso_from_node'_consD)
+          by auto
+        from y consider "y\<in>Y" | "y\<in>?dom'" | "y\<in>even_opponent_target Y" unfolding Y'_def by blast
+        hence "y'\<in>Y"
+        proof cases
+          case 1
+          then show ?thesis sorry
+        next
+          case 2
+          then show ?thesis sorry
+        next
+          case 3
+          then show ?thesis sorry
+        qed
+        then show ?thesis sorry
+      qed
+      from y consider "y\<in>Y" | "y\<in>?dom'" | "y\<in>even_opponent_target Y" unfolding Y'_def by blast
       then have "X \<inter> set xs \<noteq> {}" proof cases
         case 1
         have "lasso_from_node' (induced_by_strategy \<sigma>) y xs" sorry
