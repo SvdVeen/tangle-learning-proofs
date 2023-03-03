@@ -484,7 +484,7 @@ begin
     apply (induction rule: attr_even.induct) by auto
 
   lemma "attr_even X Y \<Longrightarrow> \<exists>\<sigma>.
-        strategy_of V\<^sub>0 \<sigma> \<and> dom \<sigma> \<subseteq> Y
+        strategy_of V\<^sub>0 \<sigma> \<and> dom \<sigma> \<subseteq> Y \<and> (induced_by_strategy \<sigma> `` (Y-X) \<subseteq> Y)
         \<and> (\<forall>y\<in>Y. \<forall>xs. lasso_from_node' (induced_by_strategy \<sigma>) y xs \<longrightarrow> X \<inter> set xs \<noteq> {})"
   proof (induction rule: attr_even.induct)
     case base
@@ -496,6 +496,7 @@ begin
     from step.IH obtain \<sigma> where
      EVEN_\<sigma> [simp]: "strategy_of V\<^sub>0 \<sigma>"
      and DOM_\<sigma>: "dom \<sigma> \<subseteq> Y"
+     and Y_CLOSED_\<sigma>: "(induced_by_strategy \<sigma> `` (Y-X) \<subseteq> Y)"
      and ATTR_\<sigma>: "(\<forall>y\<in>Y. \<forall>xs. lasso_from_node' (induced_by_strategy \<sigma>) y xs \<longrightarrow> X \<inter> set xs \<noteq> {})"
       by blast
     note Y'_def = step.hyps
@@ -559,7 +560,6 @@ begin
         hence "X \<inter> set xs' \<noteq> {}" sorry
         with xs'_subset show ?thesis by auto
       qed
-      oops
       from y consider "y\<in>Y" | "y\<in>?dom'" | "y\<in>even_opponent_target Y" unfolding Y'_def by blast
       then have "X \<inter> set xs \<noteq> {}" proof cases
         case 1
@@ -575,9 +575,15 @@ begin
       qed
     } note aux = this
 
+    have aux2: "induced_by_strategy (\<sigma> ++ \<sigma>') `` (Y' - X) \<subseteq> Y'"
+      using Y_CLOSED_\<sigma> unfolding Y'_def
+      apply auto
+      sorry
+      
+
     show ?case
       apply (rule exI[where x="\<sigma> ++ \<sigma>'"])
-      apply (auto simp: aux)
+      apply (auto simp: aux aux2)
       using DOM_\<sigma> DOM_\<sigma>' by (auto simp: Y'_def)
   qed
 
