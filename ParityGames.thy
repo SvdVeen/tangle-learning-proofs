@@ -162,8 +162,8 @@ begin
   lemma path'_equiv_path: "path' v (v#xs) v' \<Longrightarrow> xs \<noteq> [] \<Longrightarrow> path v (xs@[v']) v'"
     apply (induction xs arbitrary: v) by fastforce+
 
-  lemma origin_in_path':  "path' v vs v' \<and> vs \<noteq> [] \<Longrightarrow> v \<in> set vs"
-    apply (induction vs arbitrary: v) by simp+
+  lemma origin_in_path':  "path' v vs v' \<and> vs \<noteq> [] \<Longrightarrow> v \<in> set vs" by (cases vs) auto
+(*    apply (induction vs arbitrary: v) by simp+*)
 
   lemma path'D: "path' v vs v' \<and> vs \<noteq> [] \<Longrightarrow> \<exists>y vs'. vs = v#(vs') \<and> (v,y) \<in> E \<and> path' y vs' v'"
     apply (induction vs arbitrary: v) by simp+
@@ -233,12 +233,20 @@ begin
 
   lemma lasso'_impl_path: "lasso_from_node' v xs \<Longrightarrow> \<exists>v'. path' v xs v'"
     unfolding lasso_from_node'_def by force
-
+    
   lemma origin_in_lasso': "lasso_from_node' v xs \<Longrightarrow> v \<in> set xs"
     apply (induction xs arbitrary: v)
     apply simp
     using lasso'_impl_path origin_in_path' by blast
 
+    
+  lemma lasso'_iff_path: "lasso_from_node' v xs \<longleftrightarrow> (\<exists>v'\<in>set xs. path' v xs v')"
+    unfolding lasso_from_node'_def
+    apply (auto simp: in_set_conv_decomp neq_Nil_conv)
+    by force
+    
+    
+    
   lemma lasso_from_node'_consD: "lasso_from_node' v (x#xs) 
     \<Longrightarrow> (\<exists>v' xs'. x=v \<and> (v,v')\<in>E \<and> lasso_from_node' v' xs' \<and> set xs'\<subseteq>set (x#xs))"
     by (auto simp add: lasso_from_node'_def Cons_eq_append_conv; force)
@@ -334,13 +342,13 @@ begin
 end
 
 subsection \<open>Paths in Subgraphs\<close>
-lemma subgraph_path: "E' \<subseteq> E \<Longrightarrow> path' E' v vs v' \<Longrightarrow> path' E v vs v'"
+lemma subgraph_path': "E' \<subseteq> E \<Longrightarrow> path' E' v vs v' \<Longrightarrow> path' E v vs v'"
   apply (induction vs arbitrary: v) by auto
 
 lemma subgraph_cycle: "E' \<subseteq> E \<Longrightarrow> cycle_node E' v vs \<Longrightarrow> cycle_node E v vs"
   unfolding cycle_node_def
   apply (induction vs arbitrary: v)
-  by (auto simp: subgraph_path)
+  by (auto simp: subgraph_path')
 
 lemma subgraph_cycle_from_node: "E' \<subseteq> E \<Longrightarrow> cycle_from_node E' v vs \<Longrightarrow> cycle_from_node E v vs"
   unfolding cycle_from_node_def
@@ -361,7 +369,7 @@ lemma subgraph_cycle_from_node: "E' \<subseteq> E \<Longrightarrow> cycle_from_n
 lemma subgraph_lasso': "E' \<subseteq> E \<Longrightarrow> lasso_from_node' E' v vs \<Longrightarrow> lasso_from_node' E v vs"
   unfolding lasso_from_node'_def
   apply (induction vs arbitrary: v)
-  apply blast by (meson subgraph_path)
+  apply blast by (meson subgraph_path')
 
 lemma cycle_from_node_inter_1: "cycle_from_node (E1 \<inter> E2) v vs \<Longrightarrow> cycle_from_node E1 v vs"
   proof -
@@ -406,6 +414,9 @@ begin
 
   lemma [simp]: "E_of_strat Map.empty = {}"
     unfolding E_of_strat_def by fast
+    
+  lemma E_of_strat_eq_empty_conv[simp]: "E_of_strat \<sigma> = {} \<longleftrightarrow> \<sigma> = Map.empty"  
+    unfolding E_of_strat_def by auto
 
   definition top_priority :: "'v list \<Rightarrow> nat" where
     "top_priority xs \<equiv> MAX v \<in> set xs. prio v"
@@ -422,11 +433,12 @@ begin
   lemma [simp]: "strategy_of S Map.empty"
     unfolding strategy_of_def by auto
 
-  lemma strategy_of_empty: "strategy_of {} \<sigma> \<Longrightarrow> \<sigma> = Map.empty"
-    unfolding strategy_of_def by fast
+  lemma strategy_of_empty[simp]: "strategy_of {} \<sigma> \<longleftrightarrow> \<sigma> = Map.empty"
+    unfolding strategy_of_def by auto
 
-  lemma strategy_of_add_empty[simp]: "strategy_of S (\<sigma> ++ Map.empty) \<longleftrightarrow> strategy_of S \<sigma>"
+  (*lemma strategy_of_add_empty[simp]: "strategy_of S (\<sigma> ++ Map.empty) \<longleftrightarrow> strategy_of S \<sigma>"
     by auto
+  *)
 
   lemma strategy_of_add_same: "strategy_of S \<sigma> \<and> strategy_of S \<sigma>' \<Longrightarrow> strategy_of S (\<sigma> ++ \<sigma>')"
     unfolding strategy_of_def E_of_strat_def by auto
@@ -438,35 +450,37 @@ begin
   lemma strategies_disjoint: "strategy_of V\<^sub>0 \<sigma> \<and> strategy_of V\<^sub>1 \<sigma>' \<Longrightarrow> (dom \<sigma> \<inter> dom \<sigma>') = {}"
     using strategy_of_add_disjoint players_disjoint by blast
 
-  definition induced_by_strategy :: "'v strat \<Rightarrow> 'v dgraph" where
-    "induced_by_strategy \<sigma> = E \<inter> ((-dom \<sigma>) \<times> UNIV \<union> E_of_strat \<sigma>)"
+  definition induced_by_strategy :: "'v set \<Rightarrow> 'v strat \<Rightarrow> 'v dgraph" where
+    "induced_by_strategy Vp \<sigma> = E \<inter> ((-Vp) \<times> UNIV \<union> E_of_strat \<sigma>)"
 
-  lemma [simp]: "induced_by_strategy Map.empty = E"
-    unfolding induced_by_strategy_def by fast
+  lemma [simp]: "induced_by_strategy Vp Map.empty = E \<inter> (-Vp) \<times> UNIV"
+    unfolding induced_by_strategy_def by simp
 
+  (*  
   lemma [simp]: "induced_by_strategy (\<sigma> ++ Map.empty) = induced_by_strategy \<sigma>"
     by auto
 
   lemma [simp]: "induced_by_strategy (Map.empty ++ \<sigma>) = induced_by_strategy \<sigma>"
     by auto
+  *)  
 
-  lemma ind_subgraph: "induced_by_strategy \<sigma> \<subseteq> E"
+  lemma ind_subgraph: "induced_by_strategy Vp \<sigma> \<subseteq> E"
     unfolding induced_by_strategy_def by auto
 
-  lemma ind_subgraph_addD: "induced_by_strategy (\<sigma> ++ \<sigma>') \<subseteq> induced_by_strategy \<sigma> \<union> E_of_strat \<sigma>'"
+  lemma ind_subgraph_addD: "induced_by_strategy Vp (\<sigma> ++ \<sigma>') \<subseteq> induced_by_strategy Vp \<sigma> \<union> E_of_strat \<sigma>'"
     unfolding induced_by_strategy_def E_of_strat_def by auto
 
-  lemma ind_subgraph_finite: "finite (induced_by_strategy \<sigma>)"
+  lemma ind_subgraph_finite: "finite (induced_by_strategy Vp \<sigma>)"
     using ind_subgraph fin finite_subset by blast
 
-  lemma ind_subgraph_cycle: "cycle_node (induced_by_strategy \<sigma>) v xs \<Longrightarrow> cycle_node E v xs"
+  lemma ind_subgraph_cycle: "cycle_node (induced_by_strategy Vp \<sigma>) v xs \<Longrightarrow> cycle_node E v xs"
     using subgraph_cycle by (metis ind_subgraph)
 
-  lemma ind_subgraph_cycle_from_node: "cycle_from_node (induced_by_strategy \<sigma>) v xs
+  lemma ind_subgraph_cycle_from_node: "cycle_from_node (induced_by_strategy Vp \<sigma>) v xs
      \<Longrightarrow> cycle_from_node E v xs"
     using subgraph_cycle_from_node by (metis ind_subgraph)
 
-  lemma ind_subgraph_lasso': "lasso_from_node' (induced_by_strategy \<sigma>) v xs
+  lemma ind_subgraph_lasso': "lasso_from_node' (induced_by_strategy Vp \<sigma>) v xs
     \<Longrightarrow> lasso_from_node' E v xs"
     using subgraph_lasso' by (metis ind_subgraph)
 
@@ -483,9 +497,19 @@ begin
   lemma attr_even_subset: "attr_even X Y \<Longrightarrow> X \<subseteq> Y"
     apply (induction rule: attr_even.induct) by auto
 
+  lemma (in -) simulate_path_aux:
+    assumes "E``(Y-X) \<subseteq> Y"  
+    assumes "v\<in>Y"
+    assumes "path' E v xs v'"
+    shows "X\<inter>set xs \<noteq> {} \<or> (path' (E \<inter> (Y-X)\<times>Y) v xs v')"
+    using assms(2,3)
+    apply (induction xs arbitrary: v)
+    using assms(1)
+    by auto
+    
   lemma "attr_even X Y \<Longrightarrow> \<exists>\<sigma>.
-        strategy_of V\<^sub>0 \<sigma> \<and> dom \<sigma> \<subseteq> Y \<and> (induced_by_strategy \<sigma> `` (Y-X) \<subseteq> Y)
-        \<and> (\<forall>y\<in>Y. \<forall>xs. lasso_from_node' (induced_by_strategy \<sigma>) y xs \<longrightarrow> X \<inter> set xs \<noteq> {})"
+        strategy_of V\<^sub>0 \<sigma> \<and> dom \<sigma> \<subseteq> Y \<and> (induced_by_strategy V\<^sub>0 \<sigma> `` (Y-X) \<subseteq> Y)
+        \<and> (\<forall>y\<in>Y. \<forall>xs. lasso_from_node' (induced_by_strategy V\<^sub>0 \<sigma>) y xs \<longrightarrow> X \<inter> set xs \<noteq> {})"
   proof (induction rule: attr_even.induct)
     case base
     then show ?case
@@ -496,8 +520,8 @@ begin
     from step.IH obtain \<sigma> where
      EVEN_\<sigma> [simp]: "strategy_of V\<^sub>0 \<sigma>"
      and DOM_\<sigma>: "dom \<sigma> \<subseteq> Y"
-     and Y_CLOSED_\<sigma>: "(induced_by_strategy \<sigma> `` (Y-X) \<subseteq> Y)"
-     and ATTR_\<sigma>: "(\<forall>y\<in>Y. \<forall>xs. lasso_from_node' (induced_by_strategy \<sigma>) y xs \<longrightarrow> X \<inter> set xs \<noteq> {})"
+     and Y_CLOSED_\<sigma>: "(induced_by_strategy V\<^sub>0 \<sigma> `` (Y-X) \<subseteq> Y)"
+     and ATTR_\<sigma>: "(\<forall>y\<in>Y. \<forall>xs. lasso_from_node' (induced_by_strategy V\<^sub>0 \<sigma>) y xs \<longrightarrow> X \<inter> set xs \<noteq> {})"
       by blast
     note Y'_def = step.hyps
     fix \<sigma>' :: "'v \<rightharpoonup> 'v"
@@ -517,10 +541,131 @@ begin
   
     have [simp]: "strategy_of V\<^sub>0 (\<sigma> ++ \<sigma>')"
       using strategy_of_add_same by simp
-  
+ 
+    have NO_Y_\<sigma>': "fst`E_of_strat \<sigma>' \<inter> Y = {}" using DOM_\<sigma>' unfolding E_of_strat_def by auto
+    with Y_CLOSED_\<sigma> have Y_CLOSED_\<sigma>': "(induced_by_strategy V\<^sub>0 \<sigma> \<union> E_of_strat \<sigma>')``(Y-X) \<subseteq> Y" by auto
+      
     {
       fix y xs
-      assume y: "y \<in> Y'" and y_lasso: "lasso_from_node' (induced_by_strategy (\<sigma> ++ \<sigma>')) y xs"
+      assume "y\<in>Y"
+      assume y_lasso': "lasso_from_node' (induced_by_strategy V\<^sub>0 \<sigma> \<union> E_of_strat \<sigma>') y xs"
+      
+      from y_lasso' obtain y' where 
+        "path' (induced_by_strategy V\<^sub>0 \<sigma> \<union> E_of_strat \<sigma>') y xs y'" "y'\<in>set xs"
+        by (auto simp: lasso'_iff_path)
+      
+      from simulate_path_aux[OF Y_CLOSED_\<sigma>' \<open>y\<in>Y\<close> this(1)] have "X \<inter> set xs \<noteq> {}"
+      proof 
+        assume "path' ((induced_by_strategy V\<^sub>0 \<sigma> \<union> E_of_strat \<sigma>') \<inter> (Y - X) \<times> Y) y xs y'"
+        moreover have "(induced_by_strategy V\<^sub>0 \<sigma> \<union> E_of_strat \<sigma>') \<inter> (Y - X) \<times> Y \<subseteq> induced_by_strategy V\<^sub>0 \<sigma>"
+          using NO_Y_\<sigma>' by auto
+        ultimately have "path' (induced_by_strategy V\<^sub>0 \<sigma>) y xs y'" using subgraph_path' by meson
+        with \<open>y'\<in>set xs\<close> have "lasso_from_node' (induced_by_strategy V\<^sub>0 \<sigma>) y xs" 
+          by (auto simp: lasso'_iff_path)
+        with ATTR_\<sigma>[rule_format, OF \<open>y\<in>Y\<close>]
+        show "X \<inter> set xs \<noteq> {}" by blast
+      qed 
+    } note IN_Y_DONE = this
+      
+      
+      
+    {
+      fix y xs
+      assume y: "y \<in> Y'" and y_lasso: "lasso_from_node' (induced_by_strategy V\<^sub>0 (\<sigma> ++ \<sigma>')) y xs"
+
+      from subgraph_lasso'[OF ind_subgraph_addD, OF y_lasso] have 
+        y_lasso': "lasso_from_node' (induced_by_strategy V\<^sub>0 \<sigma> \<union> E_of_strat \<sigma>') y xs" .
+      (*from y_lasso' y obtain y' xs'
+        where y'_edge: "(y,y') \<in> induced_by_strategy V\<^sub>0 \<sigma> \<union> E_of_strat \<sigma>'"
+        and y'_lasso: "lasso_from_node' (induced_by_strategy V\<^sub>0 \<sigma> \<union> E_of_strat \<sigma>')  y' xs'"
+        and xs'_subset: "set xs' \<subseteq> set xs"
+        apply (cases xs; simp)
+        apply (drule lasso_from_node'_consD)
+        apply auto
+        done
+      *)
+      
+      have "X \<inter> set xs \<noteq> {}"  
+      proof cases
+        assume "y\<in>X"
+        moreover from y_lasso origin_in_lasso' have "y\<in>set xs" by fast
+        ultimately show ?thesis by auto
+      next
+        assume "y\<notin>X"  
+          
+        from y consider "y\<in>Y" | "y\<in>?dom'" | "y\<in>even_opponent_target Y" unfolding Y'_def by blast
+        then have "X \<inter> set xs \<noteq> {}"
+        proof cases
+          assume "y\<in>Y"
+          then show ?thesis using IN_Y_DONE y_lasso' by blast
+        next
+          assume A: "y\<in>?dom'"
+          
+          let ?iE' = "(induced_by_strategy V\<^sub>0 \<sigma> \<union> E_of_strat \<sigma>')"
+          
+          from y_lasso' obtain y'' where y_path': "path' (induced_by_strategy V\<^sub>0 \<sigma> \<union> E_of_strat \<sigma>') y xs y''" "y''\<in>set xs"
+            by (auto simp: lasso'_iff_path)
+  
+          have "(induced_by_strategy V\<^sub>0 \<sigma> \<union> E_of_strat \<sigma>')``{y} \<subseteq> Y" 
+          proof -  
+            have "E_of_strat \<sigma>' `` {y} \<subseteq> Y"  
+              using RAN_\<sigma>' unfolding E_of_strat_def by (auto simp: ranI)
+            moreover have "induced_by_strategy V\<^sub>0 \<sigma> `` {y} \<subseteq> Y"  
+              using A DOM_\<sigma> unfolding induced_by_strategy_def E_of_strat_def 
+              by auto
+            ultimately show ?thesis  
+              by auto
+          qed  
+          
+          with y_path' obtain y' xs' where 
+            [simp]: "xs=y#xs'" 
+            and "(y,y') \<in> ?iE'" 
+            and "y'\<in>Y"
+            and PATH_XS': "path' ?iE' y' xs' y''" 
+            and Y''_BACK: "y''\<in>insert y (set xs')"
+            apply (cases xs)
+            by auto
+            
+          show ?thesis
+          proof (cases "y''\<in> set xs'")
+            case True thus ?thesis
+              using IN_Y_DONE \<open>path' (induced_by_strategy V\<^sub>0 \<sigma> \<union> E_of_strat \<sigma>') y' xs' y''\<close> \<open>xs = y # xs'\<close> \<open>y' \<in> Y\<close> lasso'_iff_path 
+              by fastforce
+              
+          next
+            case False show ?thesis proof
+              assume B: "X\<inter>set xs = {}"
+              
+              from False Y''_BACK have [simp]: "y''=y" by auto
+
+              note simulate_path_aux[OF Y_CLOSED_\<sigma>' \<open>y'\<in>Y\<close> PATH_XS']
+              hence "path' (?iE' \<inter> (Y - X) \<times> Y) y' xs' y" using B by simp
+              moreover have "(?iE') \<inter> (Y - X) \<times> Y \<subseteq> induced_by_strategy V\<^sub>0 \<sigma> \<inter> UNIV \<times> Y"
+                using NO_Y_\<sigma>' by auto
+              ultimately have "path' (induced_by_strategy V\<^sub>0 \<sigma> \<inter> UNIV \<times> Y) y' xs' y" using subgraph_path' by meson
+              
+              thus False
+                apply (cases xs' rule: rev_cases)
+                using A \<open>y' \<in> Y\<close>
+                by auto
+            qed
+          qed
+        next
+                
+                
+              
+              
+            
+                    
+          
+          then obtain y' xs' where "(y,y') \<in> E_of_strat \<sigma>'" "xs = y#xs'"
+            apply auto 
+          
+        
+         
+      
+      
+      
       then have "X \<inter> set xs \<noteq> {}"
       proof cases
         assume "y\<in>X"
@@ -530,15 +675,17 @@ begin
         assume "y\<notin>X"
         from subgraph_lasso'[OF ind_subgraph_addD, OF y_lasso] have 
         y_lasso': "lasso_from_node' (induced_by_strategy \<sigma> \<union> E_of_strat \<sigma>') y xs" .
-        with y obtain y' xs'
-          where y'_edge: "(y,y') \<in> induced_by_strategy \<sigma> \<union> E_of_strat \<sigma>'"
-          and y'_lasso: "lasso_from_node' (induced_by_strategy \<sigma> \<union> E_of_strat \<sigma>')  y' xs'"
-          and xs'_subset: "set xs' \<subseteq> set xs"
-          apply (cases xs; simp)
-          apply (drule lasso_from_node'_consD)
-          by auto
 
-        from y consider "y\<in>Y" | "y\<in>?dom'" | "y\<in>even_opponent_target Y" unfolding Y'_def by blast
+        have NO_Y_\<sigma>': "fst`E_of_strat \<sigma>' \<inter> Y = {}" using DOM_\<sigma>' unfolding E_of_strat_def by auto
+        
+        with Y_CLOSED_\<sigma> have Y_CLOSED_\<sigma>': "(induced_by_strategy \<sigma> \<union> E_of_strat \<sigma>')``(Y-X) \<subseteq> Y" by auto
+        
+        
+        
+          
+          
+          
+        from y consider "y\<in>Y" | "y\<in>?dom'" | "y\<in>even_opponent_target Y" unfolding Y'_def by b last
         then have "y'\<in>Y" proof cases
           case 1
           then show ?thesis sorry
@@ -560,6 +707,10 @@ begin
         hence "X \<inter> set xs' \<noteq> {}" sorry
         with xs'_subset show ?thesis by auto
       qed
+      
+      
+      
+      
       from y consider "y\<in>Y" | "y\<in>?dom'" | "y\<in>even_opponent_target Y" unfolding Y'_def by blast
       then have "X \<inter> set xs \<noteq> {}" proof cases
         case 1
