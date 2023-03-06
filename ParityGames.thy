@@ -338,6 +338,7 @@ begin
 end
 
 subsection \<open>Paths in Subgraphs\<close>
+
 lemma simulate_path_aux:
   assumes "E``(Y-X) \<subseteq> Y"
   assumes "v\<in>Y"
@@ -426,6 +427,9 @@ begin
 
   lemma E_of_strat_dom: "dom \<sigma> = fst`E_of_strat \<sigma>"
     unfolding E_of_strat_def by force
+
+  lemma E_of_strat_ran_subset[simp]: "ran \<sigma> \<subseteq> X \<Longrightarrow> E_of_strat \<sigma> `` {x} \<subseteq> X"
+    unfolding E_of_strat_def by (auto simp: ranI)
 
   definition top_priority :: "'v list \<Rightarrow> nat" where
     "top_priority xs \<equiv> MAX v \<in> set xs. prio v"
@@ -527,7 +531,7 @@ begin
       unfolding strategy_of_def E_of_strat_def using DOM_\<sigma>' EDGE_\<sigma>' by auto
 
     have [simp]: "strategy_of V\<^sub>0 (\<sigma> ++ \<sigma>')"
-      using strategy_of_add_same by simp
+      by (simp add: strategy_of_add_same)
 
     let ?iE' = "(induced_by_strategy V\<^sub>0 \<sigma> \<union> E_of_strat \<sigma>')"
 
@@ -544,7 +548,6 @@ begin
         "path' ?iE' y xs y'" "y'\<in>set xs"
         by (auto simp: lasso'_iff_path)
 
-      thm this(1)
       from simulate_path_aux[OF Y_CLOSED_\<sigma>' \<open>y\<in>Y\<close> this(1)] have "X \<inter> set xs \<noteq> {}"
       proof
         assume "path' (?iE' \<inter> (Y - X) \<times> Y) y xs y'"
@@ -577,17 +580,16 @@ begin
           assume "y\<in>Y"
           then show ?thesis using IN_Y_DONE y_lasso' by blast
         next
-          assume A: "y\<in>?dom'"
-
+          assume y_in_dom': "y\<in>?dom'"
           from y_lasso' obtain y'' where y_path': "path' ?iE' y xs y''" "y''\<in>set xs"
             by (auto simp: lasso'_iff_path)
 
-          have "?iE'``{y} \<subseteq> Y"
+          have "?iE' `` {y} \<subseteq> Y"
           proof -
             have "E_of_strat \<sigma>' `` {y} \<subseteq> Y"
-              using RAN_\<sigma>' unfolding E_of_strat_def by (auto simp: ranI)
+              using RAN_\<sigma>' by simp
             moreover have "induced_by_strategy V\<^sub>0 \<sigma> `` {y} \<subseteq> Y"
-              using A DOM_\<sigma> unfolding induced_by_strategy_def E_of_strat_def
+              using y_in_dom' DOM_\<sigma> unfolding induced_by_strategy_def E_of_strat_def
               by auto
             ultimately show ?thesis
               by auto
@@ -595,38 +597,81 @@ begin
 
           with y_path' obtain y' xs' where
             [simp]: "xs=y#xs'"
-            and "(y,y') \<in> ?iE'"
-            and "y'\<in>Y"
-            and PATH_XS': "path' ?iE' y' xs' y''"
-            and Y''_BACK: "y''\<in>insert y (set xs')"
+            and y'_in_Y: "y'\<in>Y"
+            and path_xs': "path' ?iE' y' xs' y''"
+            and y''_back: "y''\<in>insert y (set xs')"
+            apply (cases xs) by auto
+
+          show ?thesis
+          proof (cases "y''\<in> set xs'")
+            case True thus ?thesis
+              using IN_Y_DONE[OF y'_in_Y] path_xs' lasso'_iff_path
+              by fastforce
+          next
+            case False show ?thesis
+            proof
+              assume xs_no_X: "X \<inter> set xs = {}"
+
+              from False y''_back have [simp]: "y''=y" by auto
+              have "path' (induced_by_strategy V\<^sub>0 \<sigma> \<inter> UNIV \<times> Y) y' xs' y"
+              proof -
+                from simulate_path_aux[OF Y_CLOSED_\<sigma>' y'_in_Y path_xs']
+                have "path' (?iE' \<inter> (Y - X) \<times> Y) y' xs' y" using xs_no_X by simp
+                moreover have "(?iE') \<inter> (Y - X) \<times> Y \<subseteq> induced_by_strategy V\<^sub>0 \<sigma> \<inter> UNIV \<times> Y"
+                  using NO_Y_\<sigma>' by auto
+                ultimately show ?thesis by (simp add: subgraph_path')
+              qed
+              thus False
+                apply (cases xs' rule: rev_cases)
+                using y_in_dom' y'_in_Y by auto
+            qed
+          qed
+        next
+          assume y_in_opponent_target: "y\<in>even_opponent_target Y"
+          from y_lasso' obtain y'' where y_path': "path' ?iE' y xs y''" "y''\<in>set xs"
+            by (auto simp: lasso'_iff_path)
+
+          have "?iE'``{y} \<subseteq> Y"
+          proof -
+            from y_in_opponent_target have "E``{y} \<subseteq> Y" by fast
+            moreover have "?iE' \<subseteq> E"
+              using EVEN_\<sigma>' ind_subgraph strategy_of_def by auto
+            ultimately show ?thesis by blast
+          qed
+
+          with y_path' obtain y' xs' where
+            [simp]: "xs=y#xs'"
+            and y'_in_Y: "y'\<in>Y"
+            and path_xs': "path' ?iE' y' xs' y''"
+            and y''_back: "y''\<in>insert y (set xs')"
             apply (cases xs)
             by auto
 
           show ?thesis
           proof (cases "y''\<in> set xs'")
             case True thus ?thesis
-              using IN_Y_DONE \<open>path' ?iE' y' xs' y''\<close> \<open>xs = y # xs'\<close> \<open>y' \<in> Y\<close> lasso'_iff_path
+              using IN_Y_DONE[OF y'_in_Y] path_xs' lasso'_iff_path
               by fastforce
           next
             case False show ?thesis proof
-              assume B: "X\<inter>set xs = {}"
+              assume xs_no_X: "X \<inter> set xs = {}"
 
-              from False Y''_BACK have [simp]: "y''=y" by auto
-
-              note simulate_path_aux[OF Y_CLOSED_\<sigma>' \<open>y'\<in>Y\<close> PATH_XS']
-              hence "path' (?iE' \<inter> (Y - X) \<times> Y) y' xs' y" using B by simp
-              moreover have "(?iE') \<inter> (Y - X) \<times> Y \<subseteq> induced_by_strategy V\<^sub>0 \<sigma> \<inter> UNIV \<times> Y"
-                using NO_Y_\<sigma>' by auto
-              ultimately have "path' (induced_by_strategy V\<^sub>0 \<sigma> \<inter> UNIV \<times> Y) y' xs' y" using subgraph_path' by meson
-
+              from False y''_back have [simp]: "y''=y" by auto
+              have "path' (induced_by_strategy V\<^sub>0 \<sigma> \<inter> UNIV \<times> Y) y' xs' y"
+              proof -
+                from simulate_path_aux[OF Y_CLOSED_\<sigma>' y'_in_Y path_xs']
+                have "path' (?iE' \<inter> (Y - X) \<times> Y) y' xs' y" using xs_no_X by simp
+                moreover have "(?iE') \<inter> (Y - X) \<times> Y \<subseteq> induced_by_strategy V\<^sub>0 \<sigma> \<inter> UNIV \<times> Y"
+                  using NO_Y_\<sigma>' by auto
+                ultimately show ?thesis by (simp add: subgraph_path')
+              qed
               thus False
                 apply (cases xs' rule: rev_cases)
-                using A \<open>y' \<in> Y\<close> by auto
+                using xs_no_X IN_Y_DONE[OF y'_in_Y] y_lasso'
+                apply fastforce apply auto
+                using xs_no_X IN_Y_DONE y_lasso' by blast
             qed
           qed
-        next
-          assume "y\<in>even_opponent_target Y"
-          then show ?thesis sorry
         qed
         then show ?thesis by auto
       qed
@@ -687,9 +732,19 @@ begin
     } note aux = this
 
     have aux2: "induced_by_strategy V\<^sub>0 (\<sigma> ++ \<sigma>') `` (Y' - X) \<subseteq> Y'"
-      using Y_CLOSED_\<sigma> unfolding Y'_def
-      apply auto
-      sorry
+    proof
+      fix x
+      assume "x \<in> induced_by_strategy V\<^sub>0 (\<sigma> ++ \<sigma>') `` (Y' - X)"
+      with Y_CLOSED_\<sigma> Y_CLOSED_\<sigma>'
+      show "x \<in> Y'" proof (cases "x\<in>dom \<sigma>")
+        case True
+        with DOM_\<sigma> show ?thesis unfolding Y'_def by auto
+      next
+        case False
+        hence "x \<in> dom \<sigma>'" using DOM_\<sigma>' DOM_\<sigma> unfolding Y'_def sorry
+        then show ?thesis sorry
+      qed sorry
+    qed
       
 
     show ?case
