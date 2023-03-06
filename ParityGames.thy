@@ -339,7 +339,7 @@ end
 
 subsection \<open>Paths in Subgraphs\<close>
 lemma simulate_path_aux:
-  assumes "E``(Y-X) \<subseteq> Y"  
+  assumes "E``(Y-X) \<subseteq> Y"
   assumes "v\<in>Y"
   assumes "path' E v xs v'"
   shows "X\<inter>set xs \<noteq> {} \<or> (path' (E \<inter> (Y-X)\<times>Y) v xs v')"
@@ -423,6 +423,9 @@ begin
 
   lemma E_of_strat_eq_empty_conv[simp]: "E_of_strat \<sigma> = {} \<longleftrightarrow> \<sigma> = Map.empty"
     unfolding E_of_strat_def by auto
+
+  lemma E_of_strat_dom: "dom \<sigma> = fst`E_of_strat \<sigma>"
+    unfolding E_of_strat_def by force
 
   definition top_priority :: "'v list \<Rightarrow> nat" where
     "top_priority xs \<equiv> MAX v \<in> set xs. prio v"
@@ -528,7 +531,8 @@ begin
 
     let ?iE' = "(induced_by_strategy V\<^sub>0 \<sigma> \<union> E_of_strat \<sigma>')"
 
-    have NO_Y_\<sigma>': "fst`E_of_strat \<sigma>' \<inter> Y = {}" using DOM_\<sigma>' unfolding E_of_strat_def by auto
+    have NO_Y_\<sigma>': "fst`E_of_strat \<sigma>' \<inter> Y = {}"
+      using DOM_\<sigma>' by (simp add: E_of_strat_dom inf_commute)
     with Y_CLOSED_\<sigma> have Y_CLOSED_\<sigma>': "?iE'``(Y-X) \<subseteq> Y" by auto
 
     {
@@ -540,6 +544,7 @@ begin
         "path' ?iE' y xs y'" "y'\<in>set xs"
         by (auto simp: lasso'_iff_path)
 
+      thm this(1)
       from simulate_path_aux[OF Y_CLOSED_\<sigma>' \<open>y\<in>Y\<close> this(1)] have "X \<inter> set xs \<noteq> {}"
       proof
         assume "path' (?iE' \<inter> (Y - X) \<times> Y) y xs y'"
@@ -588,11 +593,11 @@ begin
               by auto
           qed
 
-          with y_path' obtain y' xs' where 
+          with y_path' obtain y' xs' where
             [simp]: "xs=y#xs'"
             and "(y,y') \<in> ?iE'"
             and "y'\<in>Y"
-            and PATH_XS': "path' ?iE' y' xs' y''" 
+            and PATH_XS': "path' ?iE' y' xs' y''"
             and Y''_BACK: "y''\<in>insert y (set xs')"
             apply (cases xs)
             by auto
@@ -600,7 +605,7 @@ begin
           show ?thesis
           proof (cases "y''\<in> set xs'")
             case True thus ?thesis
-              using IN_Y_DONE \<open>path' ?iE' y' xs' y''\<close> \<open>xs = y # xs'\<close> \<open>y' \<in> Y\<close> lasso'_iff_path 
+              using IN_Y_DONE \<open>path' ?iE' y' xs' y''\<close> \<open>xs = y # xs'\<close> \<open>y' \<in> Y\<close> lasso'_iff_path
               by fastforce
           next
             case False show ?thesis proof
@@ -616,8 +621,7 @@ begin
 
               thus False
                 apply (cases xs' rule: rev_cases)
-                using A \<open>y' \<in> Y\<close>
-                by auto
+                using A \<open>y' \<in> Y\<close> by auto
             qed
           qed
         next
