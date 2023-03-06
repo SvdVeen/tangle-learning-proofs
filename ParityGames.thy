@@ -526,22 +526,24 @@ begin
     have [simp]: "strategy_of V\<^sub>0 (\<sigma> ++ \<sigma>')"
       using strategy_of_add_same by simp
 
+    let ?iE' = "(induced_by_strategy V\<^sub>0 \<sigma> \<union> E_of_strat \<sigma>')"
+
     have NO_Y_\<sigma>': "fst`E_of_strat \<sigma>' \<inter> Y = {}" using DOM_\<sigma>' unfolding E_of_strat_def by auto
-    with Y_CLOSED_\<sigma> have Y_CLOSED_\<sigma>': "(induced_by_strategy V\<^sub>0 \<sigma> \<union> E_of_strat \<sigma>')``(Y-X) \<subseteq> Y" by auto
+    with Y_CLOSED_\<sigma> have Y_CLOSED_\<sigma>': "?iE'``(Y-X) \<subseteq> Y" by auto
 
     {
       fix y xs
       assume "y\<in>Y"
-      assume y_lasso': "lasso_from_node' (induced_by_strategy V\<^sub>0 \<sigma> \<union> E_of_strat \<sigma>') y xs"
+      assume y_lasso': "lasso_from_node' ?iE' y xs"
 
       from y_lasso' obtain y' where
-        "path' (induced_by_strategy V\<^sub>0 \<sigma> \<union> E_of_strat \<sigma>') y xs y'" "y'\<in>set xs"
+        "path' ?iE' y xs y'" "y'\<in>set xs"
         by (auto simp: lasso'_iff_path)
 
       from simulate_path_aux[OF Y_CLOSED_\<sigma>' \<open>y\<in>Y\<close> this(1)] have "X \<inter> set xs \<noteq> {}"
       proof
-        assume "path' ((induced_by_strategy V\<^sub>0 \<sigma> \<union> E_of_strat \<sigma>') \<inter> (Y - X) \<times> Y) y xs y'"
-        moreover have "(induced_by_strategy V\<^sub>0 \<sigma> \<union> E_of_strat \<sigma>') \<inter> (Y - X) \<times> Y \<subseteq> induced_by_strategy V\<^sub>0 \<sigma>"
+        assume "path' (?iE' \<inter> (Y - X) \<times> Y) y xs y'"
+        moreover have "?iE' \<inter> (Y - X) \<times> Y \<subseteq> induced_by_strategy V\<^sub>0 \<sigma>"
           using NO_Y_\<sigma>' by auto
         ultimately have "path' (induced_by_strategy V\<^sub>0 \<sigma>) y xs y'" using subgraph_path' by meson
         with \<open>y'\<in>set xs\<close> have "lasso_from_node' (induced_by_strategy V\<^sub>0 \<sigma>) y xs"
@@ -554,9 +556,8 @@ begin
     {
       fix y xs
       assume y: "y \<in> Y'" and y_lasso: "lasso_from_node' (induced_by_strategy V\<^sub>0 (\<sigma> ++ \<sigma>')) y xs"
-
       from subgraph_lasso'[OF ind_subgraph_addD, OF y_lasso] have 
-        y_lasso': "lasso_from_node' (induced_by_strategy V\<^sub>0 \<sigma> \<union> E_of_strat \<sigma>') y xs" .
+        y_lasso': "lasso_from_node' ?iE' y xs" .
 
       have "X \<inter> set xs \<noteq> {}"
       proof cases
@@ -573,12 +574,10 @@ begin
         next
           assume A: "y\<in>?dom'"
 
-          let ?iE' = "(induced_by_strategy V\<^sub>0 \<sigma> \<union> E_of_strat \<sigma>')"
-
-          from y_lasso' obtain y'' where y_path': "path' (induced_by_strategy V\<^sub>0 \<sigma> \<union> E_of_strat \<sigma>') y xs y''" "y''\<in>set xs"
+          from y_lasso' obtain y'' where y_path': "path' ?iE' y xs y''" "y''\<in>set xs"
             by (auto simp: lasso'_iff_path)
 
-          have "(induced_by_strategy V\<^sub>0 \<sigma> \<union> E_of_strat \<sigma>')``{y} \<subseteq> Y"
+          have "?iE'``{y} \<subseteq> Y"
           proof -
             have "E_of_strat \<sigma>' `` {y} \<subseteq> Y"
               using RAN_\<sigma>' unfolding E_of_strat_def by (auto simp: ranI)
@@ -601,7 +600,7 @@ begin
           show ?thesis
           proof (cases "y''\<in> set xs'")
             case True thus ?thesis
-              using IN_Y_DONE \<open>path' (induced_by_strategy V\<^sub>0 \<sigma> \<union> E_of_strat \<sigma>') y' xs' y''\<close> \<open>xs = y # xs'\<close> \<open>y' \<in> Y\<close> lasso'_iff_path 
+              using IN_Y_DONE \<open>path' ?iE' y' xs' y''\<close> \<open>xs = y # xs'\<close> \<open>y' \<in> Y\<close> lasso'_iff_path 
               by fastforce
           next
             case False show ?thesis proof
