@@ -686,13 +686,13 @@ begin
               qed
               thus False
                 apply (cases xs' rule: rev_cases)
-                using xs_no_X IN_Y_DONE[OF y'_in_Y] y_lasso'
-                apply fastforce apply auto
-                using xs_no_X IN_Y_DONE y_lasso' by blast
+                using IN_Y_DONE[OF y'_in_Y] y_lasso' xs_no_X apply fastforce
+                apply simp
+                using IN_Y_DONE y_lasso' xs_no_X by blast
             qed
           qed
         qed
-        thus ?thesis by auto
+        thus ?thesis .
       qed
     } note aux = this
 
@@ -705,13 +705,13 @@ begin
         case 1
         have "(x,y) \<in> induced_by_strategy V\<^sub>0 \<sigma>"
         proof -
-          from edge have "x \<in> dom \<sigma> \<or> x \<in> dom \<sigma>' \<or> x \<in> (-V\<^sub>0)"
-            using ind_subgraph_add_edge_src by simp
+          from ind_subgraph_add_edge_src[OF edge(1)] have "x \<in> dom \<sigma> \<or> x \<in> dom \<sigma>' \<or> x \<in> (-V\<^sub>0)" .
           with 1 consider "x \<in> dom \<sigma>" | "x \<in> (-V\<^sub>0)" using DOM_\<sigma>' by force
-          thus ?thesis
-            apply (cases)
-            using edge ind_subgraph_add_edge_dom_\<sigma> apply simp
-            using edge ind_subgraph_add_edge_outside_strat by blast
+          thus ?thesis proof cases
+            case 1 from ind_subgraph_add_edge_dom_\<sigma>[OF edge(1) DOMS_DISJ this] show ?thesis .
+          next
+            case 2 from ind_subgraph_add_edge_outside_strat[OF edge(1) this] show ?thesis ..
+          qed
         qed
         moreover from 1 edge have "x \<in> Y-X" by blast
         ultimately show ?thesis
@@ -719,11 +719,11 @@ begin
       next
         case 2
         with DOM_\<sigma>' have "x \<in> dom \<sigma>'" by simp
-        with edge have xy_in_\<sigma>'_subgraph:"(x,y) \<in> induced_by_strategy V\<^sub>0 \<sigma>'"
-          using ind_subgraph_add_edge_dom_\<sigma>' by blast
+        from ind_subgraph_add_edge_dom_\<sigma>'[OF edge(1) this]
+        have xy_in_\<sigma>'_subgraph:"(x,y) \<in> induced_by_strategy V\<^sub>0 \<sigma>'" .
         from 2 have x_V\<^sub>0: "x \<in> V\<^sub>0" unfolding Y'_def by fast
-        from ind_subgraph_edge_dst[OF xy_in_\<sigma>'_subgraph x_V\<^sub>0] show ?thesis
-          using RAN_\<sigma>' unfolding Y'_def by auto
+        from ind_subgraph_edge_dst[OF xy_in_\<sigma>'_subgraph x_V\<^sub>0] RAN_\<sigma>'
+        show ?thesis unfolding Y'_def by auto
       next
         case 3
         hence "E``{x} \<subseteq> Y" by blast
