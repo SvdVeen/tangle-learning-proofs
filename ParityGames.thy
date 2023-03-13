@@ -31,7 +31,7 @@ begin
 
   lemma "finite E \<Longrightarrow> finite V"
     unfolding V_def by simp
-  *)  
+  *)
 
   (** A path consisting of the edges of a graph *)
   fun epath :: "'v \<Rightarrow> ('v\<times>'v) list \<Rightarrow> 'v \<Rightarrow> bool" where
@@ -265,11 +265,11 @@ begin
   lemma fin_E[simp, intro!]: "finite E"
     using E_in_V by (simp add: finite_subset)
 
-  lemma path_closed_V: "v\<in>V \<Longrightarrow> path' E v xs v' \<Longrightarrow> v'\<in>V"  
-    apply (induction xs arbitrary: v) 
+  lemma path_closed_V: "v\<in>V \<Longrightarrow> path' E v xs v' \<Longrightarrow> v'\<in>V"
+    apply (induction xs arbitrary: v)
     using E_in_V
     by auto
-    
+
 
   lemma path_any_length: "\<lbrakk>v\<in>V\<rbrakk> \<Longrightarrow> \<exists>xs v'. length xs = n \<and> path' E v xs v'"
   proof (induction n)
@@ -322,7 +322,7 @@ begin
     ultimately have "lasso_from_node' E x (xs1@(y#xs2))" unfolding lasso_from_node'_def by blast
     then show "\<exists>xs. lasso_from_node' E x xs" by auto
   qed
-  
+
 end
 
 
@@ -387,13 +387,13 @@ lemma cycle_from_node_inter_2: "cycle_from_node (E1 \<inter> E2) v vs \<Longrigh
 
 subsection \<open>Winning Strategies\<close>
 
-locale arena_defs = finite_graph_V + 
+locale arena_defs = finite_graph_V +
   fixes V\<^sub>0 :: "'v set"
   fixes prio :: "'v \<Rightarrow> nat"
-  assumes V\<^sub>0_in_V: "V\<^sub>0 \<subseteq> V" 
+  assumes V\<^sub>0_in_V: "V\<^sub>0 \<subseteq> V"
 begin
   definition V\<^sub>1 where "V\<^sub>1 = V - V\<^sub>0"
-  
+
   lemma "V\<^sub>0 = V - V\<^sub>1" using V\<^sub>0_in_V unfolding V\<^sub>1_def by auto
 
   lemma V_fst_E: "v \<in> V \<longleftrightarrow> v \<in> fst`E"
@@ -406,7 +406,7 @@ begin
     unfolding V\<^sub>1_def by auto
 
   lemma in_V\<^sub>1_notin_V\<^sub>0: "v\<in>V \<Longrightarrow> v\<notin>V\<^sub>0 \<longleftrightarrow> v\<in>V\<^sub>1"
-    unfolding V\<^sub>1_def by blast 
+    unfolding V\<^sub>1_def by blast
 
   text \<open>A positional strategy for a player i is a function \<sigma>:Vi\<rightarrow>V\<close>
   type_synonym 'a strat = "'a \<Rightarrow> 'a option"
@@ -461,131 +461,176 @@ begin
     using strategy_of_add_disj players_disjoint by blast
 
   definition induced_by_strategy :: "'v set \<Rightarrow> 'v strat \<Rightarrow> 'v dgraph" where
-    "induced_by_strategy Vp \<sigma> = E \<inter> ((-Vp) \<times> UNIV \<union> E_of_strat \<sigma>)"
+    "induced_by_strategy V\<^sub>\<alpha> \<sigma> = E \<inter> ((-V\<^sub>\<alpha>) \<times> UNIV \<union> E_of_strat \<sigma>)"
 
-  lemma induced_by_strategy_empty[simp]: "induced_by_strategy Vp Map.empty = E \<inter> (-Vp) \<times> UNIV"
+  lemma induced_by_strategy_empty[simp]: "induced_by_strategy V\<^sub>\<alpha> Map.empty = E \<inter> (-V\<^sub>\<alpha>) \<times> UNIV"
     unfolding induced_by_strategy_def by simp
 
-  lemma ind_subgraph: "induced_by_strategy Vp \<sigma> \<subseteq> E"
+  lemma ind_subgraph: "induced_by_strategy V\<^sub>\<alpha> \<sigma> \<subseteq> E"
     unfolding induced_by_strategy_def by auto
 
-  lemma ind_subgraph_edge_in_E[simp]: "(v,w) \<in> induced_by_strategy Vp \<sigma> \<Longrightarrow> (v,w) \<in> E"
+  lemma ind_subgraph_edge_in_E[simp]: "(v,w) \<in> induced_by_strategy V\<^sub>\<alpha> \<sigma> \<Longrightarrow> (v,w) \<in> E"
     using ind_subgraph by blast
 
-  lemma ind_subgraph_edge_src: "(v,w) \<in> induced_by_strategy Vp \<sigma> \<Longrightarrow> v \<in> dom \<sigma> \<or> v \<in> (-Vp)"
+  lemma ind_subgraph_edge_src: "(v,w) \<in> induced_by_strategy V\<^sub>\<alpha> \<sigma> \<Longrightarrow> v \<in> dom \<sigma> \<or> v \<in> (-V\<^sub>\<alpha>)"
     unfolding induced_by_strategy_def E_of_strat_def by auto
 
-  lemma ind_subgraph_edge_dst: "(v,w) \<in> induced_by_strategy Vp \<sigma> \<Longrightarrow> v \<in> Vp \<Longrightarrow> w \<in> ran \<sigma>"
+  lemma ind_subgraph_edge_dst: "(v,w) \<in> induced_by_strategy V\<^sub>\<alpha> \<sigma> \<Longrightarrow> v \<in> V\<^sub>\<alpha> \<Longrightarrow> w \<in> ran \<sigma>"
     unfolding induced_by_strategy_def E_of_strat_def ran_def by blast
 
-  lemma ind_subgraph_finite[simp]: "finite (induced_by_strategy Vp \<sigma>)"
+  lemma ind_subgraph_finite[simp]: "finite (induced_by_strategy V\<^sub>\<alpha> \<sigma>)"
     using ind_subgraph fin_E finite_subset by blast
 
-  lemma ind_subgraph_addD: "induced_by_strategy Vp (\<sigma> ++ \<sigma>') \<subseteq> induced_by_strategy Vp \<sigma> \<union> E_of_strat \<sigma>'"
+  lemma ind_subgraph_addD: "induced_by_strategy V\<^sub>\<alpha> (\<sigma> ++ \<sigma>') \<subseteq> induced_by_strategy V\<^sub>\<alpha> \<sigma> \<union> E_of_strat \<sigma>'"
     unfolding induced_by_strategy_def E_of_strat_def by auto
 
-  lemma ind_subgraph_add_edge: "(v,w) \<in> induced_by_strategy Vp (\<sigma> ++ \<sigma>')
-    \<Longrightarrow> (v,w) \<in> induced_by_strategy Vp \<sigma> \<or> (v,w) \<in> induced_by_strategy Vp \<sigma>'"
+  lemma ind_subgraph_add_edge: "(v,w) \<in> induced_by_strategy V\<^sub>\<alpha> (\<sigma> ++ \<sigma>')
+    \<Longrightarrow> (v,w) \<in> induced_by_strategy V\<^sub>\<alpha> \<sigma> \<or> (v,w) \<in> induced_by_strategy V\<^sub>\<alpha> \<sigma>'"
     unfolding induced_by_strategy_def E_of_strat_def by fast
 
-  lemma ind_subgraph_add_edge_src: "(v,w) \<in> induced_by_strategy Vp (\<sigma> ++ \<sigma>')
-    \<Longrightarrow> v \<in> dom \<sigma> \<or> v \<in> dom \<sigma>' \<or> v \<in> (-Vp)"
+  lemma ind_subgraph_add_edge_src: "(v,w) \<in> induced_by_strategy V\<^sub>\<alpha> (\<sigma> ++ \<sigma>')
+    \<Longrightarrow> v \<in> dom \<sigma> \<or> v \<in> dom \<sigma>' \<or> v \<in> (-V\<^sub>\<alpha>)"
     unfolding induced_by_strategy_def E_of_strat_def by blast
 
-  lemma ind_subgraph_add_edge_outside_strat: "(v,w) \<in> induced_by_strategy Vp (\<sigma> ++ \<sigma>') \<Longrightarrow> v \<in> (-Vp)
-    \<Longrightarrow> (v,w) \<in> induced_by_strategy Vp \<sigma> \<and> (v,w) \<in> induced_by_strategy Vp \<sigma>'"
+  lemma ind_subgraph_add_edge_outside_strat: "(v,w) \<in> induced_by_strategy V\<^sub>\<alpha> (\<sigma> ++ \<sigma>') \<Longrightarrow> v \<in> (-V\<^sub>\<alpha>)
+    \<Longrightarrow> (v,w) \<in> induced_by_strategy V\<^sub>\<alpha> \<sigma> \<and> (v,w) \<in> induced_by_strategy V\<^sub>\<alpha> \<sigma>'"
     unfolding induced_by_strategy_def E_of_strat_def by fast
 
-  lemma ind_subgraph_add_edge_dom_\<sigma>: "(v,w) \<in> induced_by_strategy Vp (\<sigma> ++ \<sigma>') \<Longrightarrow> dom \<sigma> \<inter> dom \<sigma>' = {}
-       \<Longrightarrow> v \<in> dom \<sigma> \<Longrightarrow> (v,w) \<in> induced_by_strategy Vp \<sigma>"
+  lemma ind_subgraph_add_edge_dom_\<sigma>: "(v,w) \<in> induced_by_strategy V\<^sub>\<alpha> (\<sigma> ++ \<sigma>') \<Longrightarrow> dom \<sigma> \<inter> dom \<sigma>' = {}
+       \<Longrightarrow> v \<in> dom \<sigma> \<Longrightarrow> (v,w) \<in> induced_by_strategy V\<^sub>\<alpha> \<sigma>"
       unfolding induced_by_strategy_def E_of_strat_def by auto
 
-  lemma ind_subgraph_add_edge_dom_\<sigma>': "(v,w) \<in> induced_by_strategy Vp (\<sigma> ++ \<sigma>') \<Longrightarrow> v \<in> dom \<sigma>'
-     \<Longrightarrow> (v,w) \<in> induced_by_strategy Vp \<sigma>'"
+  lemma ind_subgraph_add_edge_dom_\<sigma>': "(v,w) \<in> induced_by_strategy V\<^sub>\<alpha> (\<sigma> ++ \<sigma>') \<Longrightarrow> v \<in> dom \<sigma>'
+     \<Longrightarrow> (v,w) \<in> induced_by_strategy V\<^sub>\<alpha> \<sigma>'"
     unfolding induced_by_strategy_def E_of_strat_def by blast
 
-  lemma ind_subgraph_cycle: "cycle_node (induced_by_strategy Vp \<sigma>) v xs \<Longrightarrow> cycle_node E v xs"
+  lemma ind_subgraph_cycle: "cycle_node (induced_by_strategy V\<^sub>\<alpha> \<sigma>) v xs \<Longrightarrow> cycle_node E v xs"
     using subgraph_cycle by (metis ind_subgraph)
 
-  lemma ind_subgraph_cycle_from_node: "cycle_from_node (induced_by_strategy Vp \<sigma>) v xs
+  lemma ind_subgraph_cycle_from_node: "cycle_from_node (induced_by_strategy V\<^sub>\<alpha> \<sigma>) v xs
      \<Longrightarrow> cycle_from_node E v xs"
     using subgraph_cycle_from_node by (metis ind_subgraph)
 
-  lemma ind_subgraph_lasso': "lasso_from_node' (induced_by_strategy Vp \<sigma>) v xs
+  lemma ind_subgraph_lasso': "lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) v xs
     \<Longrightarrow> lasso_from_node' E v xs"
     using subgraph_lasso' by (metis ind_subgraph)
 
-  context 
-    fixes Vp :: "'v set"  
-    (*assumes Vp_subset: "Vp \<subseteq> V"*)
-  begin  
-    (*private abbreviation (input) owned_target :: "'v set \<Rightarrow> 'v set" where
-      "owned_target Y \<equiv> {v|v. v\<in>Vp \<and> E``{v} \<inter> Y \<noteq> {}}"
-  
+  context
+    fixes V\<^sub>\<alpha> :: "'v set"
+    (*assumes V\<^sub>\<alpha>_subset: "V\<^sub>\<alpha> \<subseteq> V"*)
+  begin
+    private abbreviation (input) owned_target :: "'v set \<Rightarrow> 'v set" where
+      "owned_target Y \<equiv> {v|v. v\<in>V\<^sub>\<alpha> \<and> E``{v} \<inter> Y \<noteq> {}}"
+
     private abbreviation (input) opponent_target :: "'v set \<Rightarrow> 'v set" where
-      "opponent_target Y \<equiv> {v|v. v\<in>-Vp \<and> E``{v} \<subseteq> Y}"
-    *)
-  
-    (*
+      "opponent_target Y \<equiv> {v|v. v\<in>-V\<^sub>\<alpha> \<and> E``{v} \<subseteq> Y}"
+
     inductive attractor' :: "'v set \<Rightarrow> 'v set \<Rightarrow> bool" for X where
       base: "attractor' X X" |
       step: "attractor' X Y \<Longrightarrow> Y' = Y \<union> owned_target Y \<union> opponent_target Y \<Longrightarrow>  attractor' X Y'"
-    *)
-      
+
     inductive_set attractor :: "'v set \<Rightarrow> 'v set" for X where
       base: "x \<in> X \<Longrightarrow> x \<in> attractor X"
-    | own: "\<lbrakk> x \<in> Vp; (x,y)\<in>E; y\<in>attractor X \<rbrakk> \<Longrightarrow> x \<in> attractor X"
-    | opponent: "\<lbrakk> x\<in>-Vp; \<forall>y. (x,y)\<in>E \<longrightarrow> y\<in>attractor X \<rbrakk> \<Longrightarrow> x \<in> attractor X"
-      
+    | own: "\<lbrakk> x \<in> V\<^sub>\<alpha>; (x,y)\<in>E; y\<in>attractor X \<rbrakk> \<Longrightarrow> x \<in> attractor X"
+    | opponent: "\<lbrakk> x\<in>-V\<^sub>\<alpha>; \<forall>y. (x,y)\<in>E \<longrightarrow> y\<in>attractor X \<rbrakk> \<Longrightarrow> x \<in> attractor X"
 
-  
     inductive_set attractor_edges :: "'v set \<Rightarrow> ('v \<times> 'v) set" for X where
       ae_base: "x \<in> X \<Longrightarrow> (x,x) \<in> attractor_edges X"
-    | ae_own: "\<lbrakk> x \<in> Vp; (x,y)\<in>E; (y,y_tgt)\<in>attractor_edges X \<rbrakk> \<Longrightarrow> (x,y) \<in> attractor_edges X"
-    | ae_opponent: "\<lbrakk> x\<in>-Vp; \<forall>y. (x,y)\<in>E \<longrightarrow> (\<exists>y_tgt. (y,y_tgt)\<in>attractor_edges X) \<rbrakk> \<Longrightarrow> (x,x) \<in> attractor_edges X"
-          
-    
+    | ae_own: "\<lbrakk> x \<in> V\<^sub>\<alpha>; (x,y)\<in>E; (y,y_tgt)\<in>attractor_edges X \<rbrakk> \<Longrightarrow> (x,y) \<in> attractor_edges X"
+    | ae_opponent: "\<lbrakk> x\<in>-V\<^sub>\<alpha>; \<forall>y. (x,y)\<in>E \<longrightarrow> (\<exists>y_tgt. (y,y_tgt)\<in>attractor_edges X) \<rbrakk> \<Longrightarrow> (x,x) \<in> attractor_edges X"
+
     lemma attractor_edges_sound: "(x,y)\<in>attractor_edges X \<Longrightarrow> x\<in>attractor X"
       apply (induction rule: attractor_edges.induct)
       by (auto intro: base own opponent)
-    
+
     lemma attractor_edges_complete: "x\<in>attractor X \<Longrightarrow> (\<exists>y. (x,y)\<in>attractor_edges X)"
       apply (induction rule: attractor.induct)
       by (auto 0 3 intro: ae_base ae_own ae_opponent)
-      
-    definition "attractor_strategy X v \<equiv> 
-      if v\<notin>X \<and> v\<in>Vp \<and> (\<exists>v'. (v,v')\<in>attractor_edges X) then 
-        Some (SOME v'. (v,v')\<in>attractor_edges X)
-      else 
-        None  
-        "  
 
-        
-    lemma attractor_edges_edges: "(x,y)\<in>attractor_edges X \<Longrightarrow> x\<in>Vp-X \<Longrightarrow>(x,y)\<in>E"
+    definition "attractor_strategy X v \<equiv>
+      if v\<notin>X \<and> v\<in>V\<^sub>\<alpha> \<and> (\<exists>v'. (v,v')\<in>attractor_edges X) then
+        Some (SOME v'. (v,v')\<in>attractor_edges X)
+      else
+        None
+        "
+
+    lemma attractor_edges_edges: "(x,y)\<in>attractor_edges X \<Longrightarrow> x\<in>V\<^sub>\<alpha>-X \<Longrightarrow>(x,y)\<in>E"
       apply (induction rule: attractor_edges.induct)
       by (auto intro: base own opponent)
-            
-    lemma dom_attractor_strategy: "dom (attractor_strategy X) = Vp \<inter> (attractor X - X)"
+
+    lemma dom_attractor_strategy: "dom (attractor_strategy X) = V\<^sub>\<alpha> \<inter> (attractor X - X)"
       by (auto simp: attractor_strategy_def split: if_splits intro: attractor_edges_sound attractor_edges_complete)
-      
-    lemma "strategy_of Vp (attractor_strategy X)"    
-      unfolding strategy_of_def
-    
-    xxx, ctd here
-    
+
+    lemma attractor_strategy_of_V\<^sub>\<alpha>: "strategy_of V\<^sub>\<alpha> (attractor_strategy X)"
+      unfolding attractor_strategy_def strategy_of_def E_of_strat_def
+      apply (auto split: if_splits)
+      using attractor_edges_edges tfl_some by auto
+
+  lemma "(x,y) \<in> induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X) \<Longrightarrow> x \<in> attractor X - X
+    \<Longrightarrow> y \<in> attractor X"
+    unfolding induced_by_strategy_def E_of_strat_def attractor_strategy_def
+    using attractor.cases apply (auto split: if_splits)
+    by (metis attractor_edges.simps attractor_edges_sound someI)
+
     lemma attractor_subset: "X \<subseteq> attractor X"
       by (auto intro: base)
 
-    lemma "\<exists>\<sigma>. 
-        strategy_of Vp \<sigma> 
-      \<and> dom \<sigma> \<subseteq> attractor X 
-      \<and> (\<forall>y\<in>attractor X. \<forall>xs. lasso_from_node' (induced_by_strategy Vp \<sigma>) y xs \<longrightarrow> X \<inter> set xs \<noteq> {})"  
-      
-      
-    lemma attract_strategy_aux: "attractor X Y \<Longrightarrow> \<exists>\<sigma>.
-          strategy_of Vp \<sigma> \<and> dom \<sigma> \<subseteq> Y \<and> (induced_by_strategy Vp \<sigma> `` (Y-X) \<subseteq> Y)
-          \<and> (\<forall>y\<in>Y. \<forall>xs. lasso_from_node' (induced_by_strategy Vp \<sigma>) y xs \<longrightarrow> X \<inter> set xs \<noteq> {})"
-    proof (induction rule: attractor.induct)
+    lemma "\<exists>\<sigma>.
+        strategy_of V\<^sub>\<alpha> \<sigma>
+      \<and> dom \<sigma> \<subseteq> attractor X
+      \<and> (\<forall>y\<in>attractor X. \<forall>xs. lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) y xs \<longrightarrow> X \<inter> set xs \<noteq> {})"
+    proof -
+      fix \<sigma>
+      define \<sigma> where "\<sigma> = attractor_strategy X"
+      show ?thesis proof (rule exI[where x="\<sigma>"]; intro conjI)
+        show "strategy_of V\<^sub>\<alpha> \<sigma>" using \<sigma>_def attractor_strategy_of_V\<^sub>\<alpha> by blast
+      next
+        show "dom \<sigma> \<subseteq> attractor X" using \<sigma>_def dom_attractor_strategy by blast
+      next
+        show "\<forall>y\<in>attractor X. \<forall>xs. lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) y xs \<longrightarrow> X \<inter> set xs \<noteq> {}"
+        proof (rule ballI; rule allI; rule impI)
+          fix y assume y_in_attractor: "y \<in> attractor X"
+          then consider
+            (base) "y \<in> X" |
+            (own) "y \<in> V\<^sub>\<alpha>" and "\<exists>z. (y,z) \<in> E \<and> z \<in> attractor X" |
+            (opponent) "y \<notin> V\<^sub>\<alpha>" and "\<forall>z. (y,z) \<in> E \<longrightarrow> z \<in> attractor X"
+            using attractor.cases Compl_iff by metis
+          thus "\<And>xs. lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) y xs \<Longrightarrow> X \<inter> set xs \<noteq> {}"
+          proof cases
+            case base
+            fix xs assume lasso_from_y: "lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) y xs"
+            from base origin_in_lasso'[OF lasso_from_y] show "X \<inter> set xs \<noteq> {}" by blast
+          next
+            case own
+            then obtain z where z_def: "(y,z) \<in> E" "z \<in> attractor X" by blast
+            fix xs assume "xs="
+            then show "X \<inter> set xs \<noteq> {}" sorry
+          next
+            case opponent
+            then show ?thesis sorry
+          qed
+        qed
+       (** proof (rule ballI; rule allI; rule impI)
+          fix y xs
+          assume y_in_attractor: "y \<in> attractor X"
+            and lasso_from_y: "lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) y xs"
+          thus "X \<inter> set xs \<noteq> {}" proof cases
+            case base thus ?thesis using origin_in_lasso'[OF lasso_from_y] by blast
+          next
+            case (own z)
+            then show ?thesis sorry
+          next
+            case opponent
+            then show ?thesis sorry
+          qed
+        qed *)
+      qed
+    qed
+
+    lemma attract_strategy_aux: "attractor' X Y \<Longrightarrow> \<exists>\<sigma>.
+          strategy_of V\<^sub>\<alpha> \<sigma> \<and> dom \<sigma> \<subseteq> Y \<and> (induced_by_strategy V\<^sub>\<alpha> \<sigma> `` (Y-X) \<subseteq> Y)
+          \<and> (\<forall>y\<in>Y. \<forall>xs. lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) y xs \<longrightarrow> X \<inter> set xs \<noteq> {})"
+    proof (induction rule: attractor'.induct)
       case base thus ?case
         apply (rule exI[where x=Map.empty]; simp)
         using origin_in_lasso' by fastforce
@@ -593,12 +638,12 @@ begin
       case (step Y Y')
       note Y'_def = step.hyps
       from step.IH obtain \<sigma> where
-       PLAYER_\<sigma> [simp]: "strategy_of Vp \<sigma>"
+       PLAYER_\<sigma> [simp]: "strategy_of V\<^sub>\<alpha> \<sigma>"
        and DOM_\<sigma>: "dom \<sigma> \<subseteq> Y"
-       and Y_CLOSED_\<sigma>: "(induced_by_strategy Vp \<sigma> `` (Y-X) \<subseteq> Y)"
-       and ATTR_\<sigma>: "(\<forall>y\<in>Y. \<forall>xs. lasso_from_node' (induced_by_strategy Vp \<sigma>) y xs \<longrightarrow> X \<inter> set xs \<noteq> {})"
+       and Y_CLOSED_\<sigma>: "(induced_by_strategy V\<^sub>\<alpha> \<sigma> `` (Y-X) \<subseteq> Y)"
+       and ATTR_\<sigma>: "(\<forall>y\<in>Y. \<forall>xs. lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) y xs \<longrightarrow> X \<inter> set xs \<noteq> {})"
         by blast
-  
+
       fix \<sigma>' :: "'v \<rightharpoonup> 'v"
       let ?dom' = "owned_target Y - Y"
       define \<sigma>' where "\<sigma>' = (\<lambda>v. (
@@ -610,40 +655,40 @@ begin
         unfolding \<sigma>'_def by (auto split: if_splits)
       have RAN_\<sigma>': "ran \<sigma>' \<subseteq> Y"
         unfolding \<sigma>'_def apply (auto simp: ran_def) by (metis (no_types, lifting) someI)
-      have PLAYER_\<sigma>'[simp]: "strategy_of Vp \<sigma>'"
+      have PLAYER_\<sigma>'[simp]: "strategy_of V\<^sub>\<alpha> \<sigma>'"
         unfolding strategy_of_def E_of_strat_def using DOM_\<sigma>' EDGE_\<sigma>' by auto
-  
+
       from DOM_\<sigma> DOM_\<sigma>' have DOMS_DISJ[simp]: "dom \<sigma> \<inter> dom \<sigma>' = {}" by auto
-  
-      let ?iE' = "(induced_by_strategy Vp \<sigma> \<union> E_of_strat \<sigma>')"
+
+      let ?iE' = "(induced_by_strategy V\<^sub>\<alpha> \<sigma> \<union> E_of_strat \<sigma>')"
       have NO_Y_\<sigma>': "fst`E_of_strat \<sigma>' \<inter> Y = {}"
         using DOM_\<sigma>' by (simp add: E_of_strat_dom inf_commute)
       with Y_CLOSED_\<sigma> have Y_CLOSED_\<sigma>': "?iE'``(Y-X) \<subseteq> Y" by auto
-  
+
       {
         fix y xs
         assume y: "y\<in>Y"
         assume y_lasso': "lasso_from_node' ?iE' y xs"
         from y_lasso' obtain y' where y_path': "path' ?iE' y xs y'" "y'\<in>set xs"
           by (auto simp: lasso'_iff_path)
-  
+
         from simulate_path_aux[OF Y_CLOSED_\<sigma>' y y_path'(1)] have "X \<inter> set xs \<noteq> {}"
         proof
           assume "path' (?iE' \<inter> (Y - X) \<times> Y) y xs y'"
-          moreover have "?iE' \<inter> (Y - X) \<times> Y \<subseteq> induced_by_strategy Vp \<sigma>" using NO_Y_\<sigma>' by auto
-          ultimately have "path' (induced_by_strategy Vp \<sigma>) y xs y'" using subgraph_path' by meson
-          with y_path'(2) have "lasso_from_node' (induced_by_strategy Vp \<sigma>) y xs"
+          moreover have "?iE' \<inter> (Y - X) \<times> Y \<subseteq> induced_by_strategy V\<^sub>\<alpha> \<sigma>" using NO_Y_\<sigma>' by auto
+          ultimately have "path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) y xs y'" using subgraph_path' by meson
+          with y_path'(2) have "lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) y xs"
             by (auto simp: lasso'_iff_path)
           with ATTR_\<sigma>[rule_format, OF y] show "X \<inter> set xs \<noteq> {}" by blast
         qed
       } note IN_Y_DONE = this
-  
+
       {
         fix y xs
-        assume y: "y \<in> Y'" and y_lasso: "lasso_from_node' (induced_by_strategy Vp (\<sigma> ++ \<sigma>')) y xs"
+        assume y: "y \<in> Y'" and y_lasso: "lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> (\<sigma> ++ \<sigma>')) y xs"
         from subgraph_lasso'[OF ind_subgraph_addD, OF y_lasso]
         have y_lasso': "lasso_from_node' ?iE' y xs" .
-  
+
         have "X \<inter> set xs \<noteq> {}"
         proof cases
           assume "y\<in>X"
@@ -659,22 +704,22 @@ begin
             assume y_in_dom': "y\<in>?dom'"
             from y_lasso' obtain y'' where y_path': "path' ?iE' y xs y''" "y''\<in>set xs"
               by (auto simp: lasso'_iff_path)
-  
+
             have "?iE' `` {y} \<subseteq> Y"
             proof -
               have "E_of_strat \<sigma>' `` {y} \<subseteq> Y" using RAN_\<sigma>' by simp
-              moreover have "induced_by_strategy Vp \<sigma> `` {y} \<subseteq> Y"
+              moreover have "induced_by_strategy V\<^sub>\<alpha> \<sigma> `` {y} \<subseteq> Y"
                 using y_in_dom' DOM_\<sigma> unfolding induced_by_strategy_def E_of_strat_def by auto
               ultimately show ?thesis by auto
             qed
-  
+
             with y_path' obtain y' xs' where
               [simp]: "xs=y#xs'"
               and y'_in_Y: "y'\<in>Y"
               and path_xs': "path' ?iE' y' xs' y''"
               and y''_back: "y''\<in>insert y (set xs')"
               apply (cases xs) by auto
-  
+
             show ?thesis
             proof (cases "y''\<in> set xs'")
               case True thus ?thesis
@@ -682,13 +727,13 @@ begin
             next
               case False show ?thesis proof
                 assume xs_no_X: "X \<inter> set xs = {}"
-  
+
                 from False y''_back have [simp]: "y''=y" by auto
-                have "path' (induced_by_strategy Vp \<sigma> \<inter> UNIV \<times> Y) y' xs' y"
+                have "path' (induced_by_strategy V\<^sub>\<alpha> \<sigma> \<inter> UNIV \<times> Y) y' xs' y"
                 proof -
                   from simulate_path_aux[OF Y_CLOSED_\<sigma>' y'_in_Y path_xs']
                   have "path' (?iE' \<inter> (Y - X) \<times> Y) y' xs' y" using xs_no_X by simp
-                  moreover have "(?iE') \<inter> (Y - X) \<times> Y \<subseteq> induced_by_strategy Vp \<sigma> \<inter> UNIV \<times> Y"
+                  moreover have "(?iE') \<inter> (Y - X) \<times> Y \<subseteq> induced_by_strategy V\<^sub>\<alpha> \<sigma> \<inter> UNIV \<times> Y"
                     using NO_Y_\<sigma>' by auto
                   ultimately show ?thesis by (simp add: subgraph_path')
                 qed
@@ -701,14 +746,14 @@ begin
             assume y_in_opponent_target: "y\<in>opponent_target Y"
             from y_lasso' obtain y'' where y_path': "path' ?iE' y xs y''" "y''\<in>set xs"
               by (auto simp: lasso'_iff_path)
-  
+
             have "?iE'``{y} \<subseteq> Y"
             proof -
               from y_in_opponent_target have "E``{y} \<subseteq> Y" by fast
               moreover have "?iE' \<subseteq> E" using PLAYER_\<sigma>' strategy_of_def by auto
               ultimately show ?thesis by blast
             qed
-  
+
             with y_path' obtain y' xs' where
               [simp]: "xs=y#xs'"
               and y'_in_Y: "y'\<in>Y"
@@ -716,7 +761,7 @@ begin
               and y''_back: "y''\<in>insert y (set xs')"
               apply (cases xs)
               by auto
-  
+
             show ?thesis
             proof (cases "y''\<in> set xs'")
               case True thus ?thesis
@@ -725,13 +770,13 @@ begin
             next
               case False show ?thesis proof
                 assume xs_no_X: "X \<inter> set xs = {}"
-  
+
                 from False y''_back have [simp]: "y''=y" by auto
-                have "path' (induced_by_strategy Vp \<sigma> \<inter> UNIV \<times> Y) y' xs' y"
+                have "path' (induced_by_strategy V\<^sub>\<alpha> \<sigma> \<inter> UNIV \<times> Y) y' xs' y"
                 proof -
                   from simulate_path_aux[OF Y_CLOSED_\<sigma>' y'_in_Y path_xs']
                   have "path' (?iE' \<inter> (Y - X) \<times> Y) y' xs' y" using xs_no_X by simp
-                  moreover have "(?iE') \<inter> (Y - X) \<times> Y \<subseteq> induced_by_strategy Vp \<sigma> \<inter> UNIV \<times> Y"
+                  moreover have "(?iE') \<inter> (Y - X) \<times> Y \<subseteq> induced_by_strategy V\<^sub>\<alpha> \<sigma> \<inter> UNIV \<times> Y"
                     using NO_Y_\<sigma>' by auto
                   ultimately show ?thesis by (simp add: subgraph_path')
                 qed
@@ -746,18 +791,18 @@ begin
           thus ?thesis .
         qed
       } note aux = this
-  
-      have aux2: "induced_by_strategy Vp (\<sigma> ++ \<sigma>') `` (Y' - X) \<subseteq> Y'"
+
+      have aux2: "induced_by_strategy V\<^sub>\<alpha> (\<sigma> ++ \<sigma>') `` (Y' - X) \<subseteq> Y'"
       proof clarify
         fix x y
-        assume edge: "(x,y) \<in> induced_by_strategy Vp (\<sigma> ++ \<sigma>')" "x \<in> Y'" "x \<notin> X"
+        assume edge: "(x,y) \<in> induced_by_strategy V\<^sub>\<alpha> (\<sigma> ++ \<sigma>')" "x \<in> Y'" "x \<notin> X"
         then consider "x\<in>Y" | "x\<in>?dom'" | "x\<in>opponent_target Y" unfolding Y'_def by blast
         thus "y \<in> Y'" proof cases
           case 1
-          have "(x,y) \<in> induced_by_strategy Vp \<sigma>"
+          have "(x,y) \<in> induced_by_strategy V\<^sub>\<alpha> \<sigma>"
           proof -
-            from ind_subgraph_add_edge_src[OF edge(1)] have "x \<in> dom \<sigma> \<or> x \<in> dom \<sigma>' \<or> x \<in> (-Vp)" .
-            with 1 consider "x \<in> dom \<sigma>" | "x \<in> (-Vp)" using DOM_\<sigma>' by force
+            from ind_subgraph_add_edge_src[OF edge(1)] have "x \<in> dom \<sigma> \<or> x \<in> dom \<sigma>' \<or> x \<in> (-V\<^sub>\<alpha>)" .
+            with 1 consider "x \<in> dom \<sigma>" | "x \<in> (-V\<^sub>\<alpha>)" using DOM_\<sigma>' by force
             thus ?thesis proof cases
               case 1 from ind_subgraph_add_edge_dom_\<sigma>[OF edge(1) DOMS_DISJ this] show ?thesis .
             next
@@ -771,8 +816,8 @@ begin
           case 2
           with DOM_\<sigma>' have "x \<in> dom \<sigma>'" by simp
           from ind_subgraph_add_edge_dom_\<sigma>'[OF edge(1) this]
-          have xy_in_\<sigma>'_subgraph:"(x,y) \<in> induced_by_strategy Vp \<sigma>'" .
-          from 2 have x_V\<^sub>0: "x \<in> Vp" unfolding Y'_def by fast
+          have xy_in_\<sigma>'_subgraph:"(x,y) \<in> induced_by_strategy V\<^sub>\<alpha> \<sigma>'" .
+          from 2 have x_V\<^sub>0: "x \<in> V\<^sub>\<alpha>" unfolding Y'_def by fast
           from ind_subgraph_edge_dst[OF xy_in_\<sigma>'_subgraph x_V\<^sub>0] RAN_\<sigma>'
           show ?thesis unfolding Y'_def by auto
         next
@@ -782,20 +827,18 @@ begin
           ultimately show ?thesis unfolding Y'_def by auto
         qed
       qed
-  
+
       show ?case
         apply (rule exI[where x="\<sigma> ++ \<sigma>'"])
         apply (auto simp: aux aux2)
         using DOM_\<sigma> DOM_\<sigma>' by (auto simp: Y'_def)
     qed
-      
-      
-      
-        
-    lemma attract_strategy_aux: "attractor X Y \<Longrightarrow> \<exists>\<sigma>.
-          strategy_of Vp \<sigma> \<and> dom \<sigma> \<subseteq> Y \<and> (induced_by_strategy Vp \<sigma> `` (Y-X) \<subseteq> Y)
-          \<and> (\<forall>y\<in>Y. \<forall>xs. lasso_from_node' (induced_by_strategy Vp \<sigma>) y xs \<longrightarrow> X \<inter> set xs \<noteq> {})"
-    proof (induction rule: attractor.induct)
+
+
+   (** lemma attract_strategy_aux: "attractor' X Y \<Longrightarrow> \<exists>\<sigma>.
+          strategy_of V\<^sub>\<alpha> \<sigma> \<and> dom \<sigma> \<subseteq> Y \<and> (induced_by_strategy V\<^sub>\<alpha> \<sigma> `` (Y-X) \<subseteq> Y)
+          \<and> (\<forall>y\<in>Y. \<forall>xs. lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) y xs \<longrightarrow> X \<inter> set xs \<noteq> {})"
+    proof (induction rule: attractor'.induct)
       case base thus ?case
         apply (rule exI[where x=Map.empty]; simp)
         using origin_in_lasso' by fastforce
@@ -803,12 +846,12 @@ begin
       case (step Y Y')
       note Y'_def = step.hyps
       from step.IH obtain \<sigma> where
-       PLAYER_\<sigma> [simp]: "strategy_of Vp \<sigma>"
+       PLAYER_\<sigma> [simp]: "strategy_of V\<^sub>\<alpha> \<sigma>"
        and DOM_\<sigma>: "dom \<sigma> \<subseteq> Y"
-       and Y_CLOSED_\<sigma>: "(induced_by_strategy Vp \<sigma> `` (Y-X) \<subseteq> Y)"
-       and ATTR_\<sigma>: "(\<forall>y\<in>Y. \<forall>xs. lasso_from_node' (induced_by_strategy Vp \<sigma>) y xs \<longrightarrow> X \<inter> set xs \<noteq> {})"
+       and Y_CLOSED_\<sigma>: "(induced_by_strategy V\<^sub>\<alpha> \<sigma> `` (Y-X) \<subseteq> Y)"
+       and ATTR_\<sigma>: "(\<forall>y\<in>Y. \<forall>xs. lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) y xs \<longrightarrow> X \<inter> set xs \<noteq> {})"
         by blast
-  
+
       fix \<sigma>' :: "'v \<rightharpoonup> 'v"
       let ?dom' = "owned_target Y - Y"
       define \<sigma>' where "\<sigma>' = (\<lambda>v. (
@@ -820,40 +863,40 @@ begin
         unfolding \<sigma>'_def by (auto split: if_splits)
       have RAN_\<sigma>': "ran \<sigma>' \<subseteq> Y"
         unfolding \<sigma>'_def apply (auto simp: ran_def) by (metis (no_types, lifting) someI)
-      have PLAYER_\<sigma>'[simp]: "strategy_of Vp \<sigma>'"
+      have PLAYER_\<sigma>'[simp]: "strategy_of V\<^sub>\<alpha> \<sigma>'"
         unfolding strategy_of_def E_of_strat_def using DOM_\<sigma>' EDGE_\<sigma>' by auto
-  
+
       from DOM_\<sigma> DOM_\<sigma>' have DOMS_DISJ[simp]: "dom \<sigma> \<inter> dom \<sigma>' = {}" by auto
-  
-      let ?iE' = "(induced_by_strategy Vp \<sigma> \<union> E_of_strat \<sigma>')"
+
+      let ?iE' = "(induced_by_strategy V\<^sub>\<alpha> \<sigma> \<union> E_of_strat \<sigma>')"
       have NO_Y_\<sigma>': "fst`E_of_strat \<sigma>' \<inter> Y = {}"
         using DOM_\<sigma>' by (simp add: E_of_strat_dom inf_commute)
       with Y_CLOSED_\<sigma> have Y_CLOSED_\<sigma>': "?iE'``(Y-X) \<subseteq> Y" by auto
-  
+
       {
         fix y xs
         assume y: "y\<in>Y"
         assume y_lasso': "lasso_from_node' ?iE' y xs"
         from y_lasso' obtain y' where y_path': "path' ?iE' y xs y'" "y'\<in>set xs"
           by (auto simp: lasso'_iff_path)
-  
+
         from simulate_path_aux[OF Y_CLOSED_\<sigma>' y y_path'(1)] have "X \<inter> set xs \<noteq> {}"
         proof
           assume "path' (?iE' \<inter> (Y - X) \<times> Y) y xs y'"
-          moreover have "?iE' \<inter> (Y - X) \<times> Y \<subseteq> induced_by_strategy Vp \<sigma>" using NO_Y_\<sigma>' by auto
-          ultimately have "path' (induced_by_strategy Vp \<sigma>) y xs y'" using subgraph_path' by meson
-          with y_path'(2) have "lasso_from_node' (induced_by_strategy Vp \<sigma>) y xs"
+          moreover have "?iE' \<inter> (Y - X) \<times> Y \<subseteq> induced_by_strategy V\<^sub>\<alpha> \<sigma>" using NO_Y_\<sigma>' by auto
+          ultimately have "path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) y xs y'" using subgraph_path' by meson
+          with y_path'(2) have "lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) y xs"
             by (auto simp: lasso'_iff_path)
           with ATTR_\<sigma>[rule_format, OF y] show "X \<inter> set xs \<noteq> {}" by blast
         qed
       } note IN_Y_DONE = this
-  
+
       {
         fix y xs
-        assume y: "y \<in> Y'" and y_lasso: "lasso_from_node' (induced_by_strategy Vp (\<sigma> ++ \<sigma>')) y xs"
+        assume y: "y \<in> Y'" and y_lasso: "lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> (\<sigma> ++ \<sigma>')) y xs"
         from subgraph_lasso'[OF ind_subgraph_addD, OF y_lasso]
         have y_lasso': "lasso_from_node' ?iE' y xs" .
-  
+
         have "X \<inter> set xs \<noteq> {}"
         proof cases
           assume "y\<in>X"
@@ -869,22 +912,22 @@ begin
             assume y_in_dom': "y\<in>?dom'"
             from y_lasso' obtain y'' where y_path': "path' ?iE' y xs y''" "y''\<in>set xs"
               by (auto simp: lasso'_iff_path)
-  
+
             have "?iE' `` {y} \<subseteq> Y"
             proof -
               have "E_of_strat \<sigma>' `` {y} \<subseteq> Y" using RAN_\<sigma>' by simp
-              moreover have "induced_by_strategy Vp \<sigma> `` {y} \<subseteq> Y"
+              moreover have "induced_by_strategy V\<^sub>\<alpha> \<sigma> `` {y} \<subseteq> Y"
                 using y_in_dom' DOM_\<sigma> unfolding induced_by_strategy_def E_of_strat_def by auto
               ultimately show ?thesis by auto
             qed
-  
+
             with y_path' obtain y' xs' where
               [simp]: "xs=y#xs'"
               and y'_in_Y: "y'\<in>Y"
               and path_xs': "path' ?iE' y' xs' y''"
               and y''_back: "y''\<in>insert y (set xs')"
               apply (cases xs) by auto
-  
+
             show ?thesis
             proof (cases "y''\<in> set xs'")
               case True thus ?thesis
@@ -892,13 +935,13 @@ begin
             next
               case False show ?thesis proof
                 assume xs_no_X: "X \<inter> set xs = {}"
-  
+
                 from False y''_back have [simp]: "y''=y" by auto
-                have "path' (induced_by_strategy Vp \<sigma> \<inter> UNIV \<times> Y) y' xs' y"
+                have "path' (induced_by_strategy V\<^sub>\<alpha> \<sigma> \<inter> UNIV \<times> Y) y' xs' y"
                 proof -
                   from simulate_path_aux[OF Y_CLOSED_\<sigma>' y'_in_Y path_xs']
                   have "path' (?iE' \<inter> (Y - X) \<times> Y) y' xs' y" using xs_no_X by simp
-                  moreover have "(?iE') \<inter> (Y - X) \<times> Y \<subseteq> induced_by_strategy Vp \<sigma> \<inter> UNIV \<times> Y"
+                  moreover have "(?iE') \<inter> (Y - X) \<times> Y \<subseteq> induced_by_strategy V\<^sub>\<alpha> \<sigma> \<inter> UNIV \<times> Y"
                     using NO_Y_\<sigma>' by auto
                   ultimately show ?thesis by (simp add: subgraph_path')
                 qed
@@ -911,14 +954,14 @@ begin
             assume y_in_opponent_target: "y\<in>opponent_target Y"
             from y_lasso' obtain y'' where y_path': "path' ?iE' y xs y''" "y''\<in>set xs"
               by (auto simp: lasso'_iff_path)
-  
+
             have "?iE'``{y} \<subseteq> Y"
             proof -
               from y_in_opponent_target have "E``{y} \<subseteq> Y" by fast
               moreover have "?iE' \<subseteq> E" using PLAYER_\<sigma>' strategy_of_def by auto
               ultimately show ?thesis by blast
             qed
-  
+
             with y_path' obtain y' xs' where
               [simp]: "xs=y#xs'"
               and y'_in_Y: "y'\<in>Y"
@@ -926,7 +969,7 @@ begin
               and y''_back: "y''\<in>insert y (set xs')"
               apply (cases xs)
               by auto
-  
+
             show ?thesis
             proof (cases "y''\<in> set xs'")
               case True thus ?thesis
@@ -935,13 +978,13 @@ begin
             next
               case False show ?thesis proof
                 assume xs_no_X: "X \<inter> set xs = {}"
-  
+
                 from False y''_back have [simp]: "y''=y" by auto
-                have "path' (induced_by_strategy Vp \<sigma> \<inter> UNIV \<times> Y) y' xs' y"
+                have "path' (induced_by_strategy V\<^sub>\<alpha> \<sigma> \<inter> UNIV \<times> Y) y' xs' y"
                 proof -
                   from simulate_path_aux[OF Y_CLOSED_\<sigma>' y'_in_Y path_xs']
                   have "path' (?iE' \<inter> (Y - X) \<times> Y) y' xs' y" using xs_no_X by simp
-                  moreover have "(?iE') \<inter> (Y - X) \<times> Y \<subseteq> induced_by_strategy Vp \<sigma> \<inter> UNIV \<times> Y"
+                  moreover have "(?iE') \<inter> (Y - X) \<times> Y \<subseteq> induced_by_strategy V\<^sub>\<alpha> \<sigma> \<inter> UNIV \<times> Y"
                     using NO_Y_\<sigma>' by auto
                   ultimately show ?thesis by (simp add: subgraph_path')
                 qed
@@ -956,18 +999,18 @@ begin
           thus ?thesis .
         qed
       } note aux = this
-  
-      have aux2: "induced_by_strategy Vp (\<sigma> ++ \<sigma>') `` (Y' - X) \<subseteq> Y'"
+
+      have aux2: "induced_by_strategy V\<^sub>\<alpha> (\<sigma> ++ \<sigma>') `` (Y' - X) \<subseteq> Y'"
       proof clarify
         fix x y
-        assume edge: "(x,y) \<in> induced_by_strategy Vp (\<sigma> ++ \<sigma>')" "x \<in> Y'" "x \<notin> X"
+        assume edge: "(x,y) \<in> induced_by_strategy V\<^sub>\<alpha> (\<sigma> ++ \<sigma>')" "x \<in> Y'" "x \<notin> X"
         then consider "x\<in>Y" | "x\<in>?dom'" | "x\<in>opponent_target Y" unfolding Y'_def by blast
         thus "y \<in> Y'" proof cases
           case 1
-          have "(x,y) \<in> induced_by_strategy Vp \<sigma>"
+          have "(x,y) \<in> induced_by_strategy V\<^sub>\<alpha> \<sigma>"
           proof -
-            from ind_subgraph_add_edge_src[OF edge(1)] have "x \<in> dom \<sigma> \<or> x \<in> dom \<sigma>' \<or> x \<in> (-Vp)" .
-            with 1 consider "x \<in> dom \<sigma>" | "x \<in> (-Vp)" using DOM_\<sigma>' by force
+            from ind_subgraph_add_edge_src[OF edge(1)] have "x \<in> dom \<sigma> \<or> x \<in> dom \<sigma>' \<or> x \<in> (-V\<^sub>\<alpha>)" .
+            with 1 consider "x \<in> dom \<sigma>" | "x \<in> (-V\<^sub>\<alpha>)" using DOM_\<sigma>' by force
             thus ?thesis proof cases
               case 1 from ind_subgraph_add_edge_dom_\<sigma>[OF edge(1) DOMS_DISJ this] show ?thesis .
             next
@@ -981,8 +1024,8 @@ begin
           case 2
           with DOM_\<sigma>' have "x \<in> dom \<sigma>'" by simp
           from ind_subgraph_add_edge_dom_\<sigma>'[OF edge(1) this]
-          have xy_in_\<sigma>'_subgraph:"(x,y) \<in> induced_by_strategy Vp \<sigma>'" .
-          from 2 have x_V\<^sub>0: "x \<in> Vp" unfolding Y'_def by fast
+          have xy_in_\<sigma>'_subgraph:"(x,y) \<in> induced_by_strategy V\<^sub>\<alpha> \<sigma>'" .
+          from 2 have x_V\<^sub>0: "x \<in> V\<^sub>\<alpha>" unfolding Y'_def by fast
           from ind_subgraph_edge_dst[OF xy_in_\<sigma>'_subgraph x_V\<^sub>0] RAN_\<sigma>'
           show ?thesis unfolding Y'_def by auto
         next
@@ -992,30 +1035,30 @@ begin
           ultimately show ?thesis unfolding Y'_def by auto
         qed
       qed
-  
+
       show ?case
         apply (rule exI[where x="\<sigma> ++ \<sigma>'"])
         apply (auto simp: aux aux2)
         using DOM_\<sigma> DOM_\<sigma>' by (auto simp: Y'_def)
-    qed
-  
-    theorem attract_strategy: 
-      assumes "attractor X Y"
-      obtains \<sigma> where 
-        "strategy_of Vp \<sigma>" 
-        "dom \<sigma> \<subseteq> Y" 
-        "(\<forall>y\<in>Y. \<forall>xs. lasso_from_node' (induced_by_strategy Vp \<sigma>) y xs \<longrightarrow> X \<inter> set xs \<noteq> {})"
+    qed *)
+
+    theorem attract_strategy:
+      assumes "attractor' X Y"
+      obtains \<sigma> where
+        "strategy_of V\<^sub>\<alpha> \<sigma>"
+        "dom \<sigma> \<subseteq> Y"
+        "(\<forall>y\<in>Y. \<forall>xs. lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) y xs \<longrightarrow> X \<inter> set xs \<noteq> {})"
       using attract_strategy_aux[OF assms] by blast
-      
-  end    
-     
+
+  end
+
   abbreviation "attr_even \<equiv> attractor V\<^sub>0"
   abbreviation "attr_odd \<equiv> attractor V\<^sub>1"
-   
-  thm attract_strategy[where Vp=V\<^sub>0]
-  thm attract_strategy[where Vp=V\<^sub>1]
 
-      
+  thm attract_strategy[where V\<^sub>\<alpha>=V\<^sub>0]
+  thm attract_strategy[where V\<^sub>\<alpha>=V\<^sub>1]
+
+
   definition won_by_even :: "'v \<Rightarrow> bool" where
     "won_by_even v \<equiv> v\<in>V \<and> (\<exists>\<sigma>. strategy_of V\<^sub>0 \<sigma> \<and>
     (\<forall>xs. cycle_from_node (induced_by_strategy (dom \<sigma>) \<sigma>) v xs \<longrightarrow> winning_even xs))"
@@ -1036,9 +1079,9 @@ begin
     unfolding induced_by_strategy_def E_of_strat_def strategy_of_def V\<^sub>1_def by auto
 
   lemma V\<^sub>0_induced_succs_2: "v\<in>V\<^sub>0 \<Longrightarrow> strategy_of V\<^sub>0 \<sigma> \<Longrightarrow> induced_by_strategy (dom \<sigma>) \<sigma> `` {v} \<noteq> {}"
-    unfolding induced_by_strategy_def E_of_strat_def strategy_of_def 
-    using succ[of v] V\<^sub>0_in_V 
-    apply (cases "v\<in>dom \<sigma>") 
+    unfolding induced_by_strategy_def E_of_strat_def strategy_of_def
+    using succ[of v] V\<^sub>0_in_V
+    apply (cases "v\<in>dom \<sigma>")
     subgoal by auto
     subgoal by blast
     done
@@ -1087,7 +1130,7 @@ begin
         ultimately show "(G\<sigma> \<inter> G\<sigma>') `` {v} \<noteq> {}" by fast
       qed
       subgoal by (rule V\<^sub>0_in_V)
-      done  
+      done
     from Ginter.finite_graph_always_has_cycle_from_node[OF \<open>v\<in>V\<close>] Ginter.succ \<open>v\<in>V\<close>
     obtain xs where xs: "cycle_from_node (G\<sigma> \<inter> G\<sigma>') v xs" by blast
     moreover from xs have "cycle_from_node G\<sigma> v xs" using cycle_from_node_inter_1 by fastforce
@@ -1103,18 +1146,18 @@ begin
 
   lemma "won_by_even v \<noteq> won_by_odd v" (*using w1 w'*) oops
   *)
-  
+
 
   lemma subarenaI:
     assumes "V'\<subseteq>V"
-    assumes "\<And>v. v\<in>V' \<Longrightarrow> E``{v} \<inter> V' \<noteq> {}" 
+    assumes "\<And>v. v\<in>V' \<Longrightarrow> E``{v} \<inter> V' \<noteq> {}"
     shows "arena_defs (E \<inter> (V'\<times>V')) V' (V\<^sub>0 \<inter> V')"
     apply unfold_locales
     using assms succ
-    by (auto intro: finite_subset) 
-  
-    
-  
+    by (auto intro: finite_subset)
+
+
+
 end
 
   term "arena_defs.won_by_even E V V\<^sub>0 prio"
@@ -1126,35 +1169,35 @@ lemma obtain_max_arg_finite_set_nat:
   fixes f :: "'a \<Rightarrow> nat"
   assumes "finite S" "S\<noteq>{}"
   obtains s where "s\<in>S" "\<forall>s'\<in>S. f s' \<le> f s"
-proof -  
+proof -
   have "\<exists>s\<in>S. \<forall>s'\<in>S. f s' \<le> f s"
     using assms
     apply (induction)
-    apply auto  
+    apply auto
     by force
-  thus ?thesis using that by blast  
-qed  
+  thus ?thesis using that by blast
+qed
 
 
 
 
-
-  lemma 
+(**
+  lemma
     fixes E V V\<^sub>0 and prio :: "'v \<Rightarrow> nat"
     assumes "arena_defs E V V\<^sub>0"
     shows "\<exists>W\<^sub>0 W\<^sub>1. V = W\<^sub>0 \<union> W\<^sub>1 \<and> W\<^sub>0 \<inter> W\<^sub>1 = {} \<and> (\<forall>v\<in>W\<^sub>0. arena_defs.won_by_even E V V\<^sub>0 prio v) \<and> (\<forall>v\<in>W\<^sub>1. arena_defs.won_by_odd E V V\<^sub>0 prio v)"
   proof -
-    have "finite V"  
+    have "finite V"
     proof -
       from assms interpret arena_defs E V V\<^sub>0 prio .
       show ?thesis by (rule fin_V)
     qed
-    then show ?thesis using assms 
+    then show ?thesis using assms
     proof (induction arbitrary: E V\<^sub>0 rule: finite_psubset_induct)
       case (psubset V)
-      
+
       interpret arena_defs E V V\<^sub>0 prio by fact
-      
+
       show ?case proof (cases)
         assume "V={}"
         thus ?thesis by blast
@@ -1162,72 +1205,19 @@ qed
         assume "V\<noteq>{}"
 
         find_theorems arg_max_on
-        
+
         find_theorems "_\<noteq>{}" "?a\<in>_" "_ \<le> ?f ?a"
-        
+
         find_theorems "arg_max_on"
-        
+
         obtain v where V_NODE: "v\<in>V" and V_MAXP: "\<forall>v'\<in>V. prio v' \<le> prio v"
           using obtain_max_arg_finite_set_nat[OF _ \<open>V\<noteq>{}\<close>, of prio] by blast
-          
+
         assume WLOG_EVEN: "even (prio v)"
-        
+
         define A where "A = attr_even "
-        
-        
-      
-      
-      
-      
+
+
       then show ?case sorry
-    qed
-    
-        
-    
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-subsection \<open>Miscellaneous\<close>
-
-text \<open>
-  A strategy for player i is a function \<sigma>:V*Vi\<rightarrow>V that selects a successor for every history of the
-  play ending in a vertex of player i.
-  A strategy is memoryless iff \<sigma>(wv) = \<sigma>(v) for all w\<in>V*, v\<in>Vi.
-  A strategy is winning from a vertex v if all plays starting in v and consistent with \<sigma> are winning
-  for player i.
-\<close>
-
-locale arena = arena_defs E V\<^sub>0
-  for
-    E :: "'v dgraph"
-  and V\<^sub>0 :: "'v set"
-  +
-  assumes V0_ss: "V\<^sub>0 \<subseteq> V"
-  assumes succ: "E``{v}\<noteq>{}"
-  assumes fin: "finite (UNIV::'v set)"
-begin
-
-text \<open>Wholly unnecessary but allows me to not have to unfold V1_def all the time.\<close>
-lemma V1_ss[simp]: "V\<^sub>1 \<subseteq> V"
-  unfolding V\<^sub>1_def by auto
-
-definition connected where "connected v v' \<longleftrightarrow> (v,v')\<in>E\<^sup>*"
-
-lemma conn: "v\<in>V \<Longrightarrow> connected v v' \<Longrightarrow> v'\<in>V"
-  unfolding connected_def V_def
-  by (metis Range.RangeI Range_snd UnCI rtranclE)
-end
+    qed *)
 end
