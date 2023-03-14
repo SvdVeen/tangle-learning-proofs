@@ -252,7 +252,6 @@ begin
     then show "\<exists>v'. (v,v') \<in> E\<^sup>* \<and> path' v' ys v' \<and> ys \<noteq> []"
       using path'_is_rtrancl by auto
   qed
-
 end
 
 locale finite_graph_V =
@@ -269,7 +268,6 @@ begin
     apply (induction xs arbitrary: v)
     using E_in_V
     by auto
-
 
   lemma path_any_length: "\<lbrakk>v\<in>V\<rbrakk> \<Longrightarrow> \<exists>xs v'. length xs = n \<and> path' E v xs v'"
   proof (induction n)
@@ -324,11 +322,6 @@ begin
   qed
 
 end
-
-
-
-
-
 
 subsection \<open>Paths in Subgraphs\<close>
 
@@ -525,9 +518,9 @@ begin
     private abbreviation (input) opponent_target :: "'v set \<Rightarrow> 'v set" where
       "opponent_target Y \<equiv> {v|v. v\<in>-V\<^sub>\<alpha> \<and> E``{v} \<subseteq> Y}"
 
-    inductive attractor' :: "'v set \<Rightarrow> 'v set \<Rightarrow> bool" for X where
-      base: "attractor' X X" |
-      step: "attractor' X Y \<Longrightarrow> Y' = Y \<union> owned_target Y \<union> opponent_target Y \<Longrightarrow>  attractor' X Y'"
+    inductive is_attractor :: "'v set \<Rightarrow> 'v set \<Rightarrow> bool" for X where
+      base: "is_attractor X X" |
+      step: "is_attractor X Y \<Longrightarrow> Y' = Y \<union> owned_target Y \<union> opponent_target Y \<Longrightarrow>  is_attractor X Y'"
 
     inductive_set attractor :: "'v set \<Rightarrow> 'v set" for X where
       base: "x \<in> X \<Longrightarrow> x \<in> attractor X"
@@ -547,16 +540,41 @@ begin
       apply (induction rule: attractor.induct)
       by (auto 0 3 intro: ae_base ae_own ae_opponent)
 
+    lemma attractor_edges_edges: "(x,y)\<in>attractor_edges X \<Longrightarrow> x\<in>V\<^sub>\<alpha>-X \<Longrightarrow>(x,y)\<in>E"
+      apply (induction rule: attractor_edges.induct)
+      by (auto intro: base own opponent)
+
     definition "attractor_strategy X v \<equiv>
       if v\<notin>X \<and> v\<in>V\<^sub>\<alpha> \<and> (\<exists>v'. (v,v')\<in>attractor_edges X) then
         Some (SOME v'. (v,v')\<in>attractor_edges X)
       else
         None
         "
+    lemma attractor_strategy_subset: "X \<subseteq> attractor X"
+      by (auto intro: base)
 
-    lemma attractor_edges_edges: "(x,y)\<in>attractor_edges X \<Longrightarrow> x\<in>V\<^sub>\<alpha>-X \<Longrightarrow>(x,y)\<in>E"
-      apply (induction rule: attractor_edges.induct)
-      by (auto intro: base own opponent)
+    lemma attractor_strategy_edges: "attractor_strategy X v = Some v' \<Longrightarrow> (v,v') \<in> attractor_edges X"
+      unfolding attractor_strategy_def apply (simp split: if_splits)
+      by (metis verit_sko_ex') (** I don't like this proof but I don't know how else to solve it *)
+  
+    lemma attractor_strategy_edges_E: "attractor_strategy X v = Some v' \<Longrightarrow> (v,v') \<in> E"
+    proof -
+      assume assm: "attractor_strategy X v = Some v'"
+      from assm have A: "(v,v') \<in> attractor_edges X" using attractor_strategy_edges by auto
+      from assm have B: "v\<in>V\<^sub>\<alpha>-X" by (auto simp: attractor_strategy_def split: if_splits)
+      from attractor_edges_edges[OF A B] show "(v,v') \<in> E" .
+    qed
+
+    lemma attractor_strategy_sound: "attractor_strategy X v = Some v' \<Longrightarrow> v \<in> attractor X"
+    proof -
+      assume assm: "attractor_strategy X v = Some v'"
+      hence "(v,v') \<in> attractor_edges X" using attractor_strategy_edges by auto
+      from attractor_edges_sound[OF this] show ?thesis .
+    qed
+
+    lemma "attractor_strategy X v = Some v' \<Longrightarrow> v' \<in> attractor X"
+      apply (auto simp: attractor_strategy_def split: if_splits)
+      by (metis attractor_edges.simps attractor_edges_sound someI)
 
     lemma dom_attractor_strategy: "dom (attractor_strategy X) = V\<^sub>\<alpha> \<inter> (attractor X - X)"
       by (auto simp: attractor_strategy_def split: if_splits intro: attractor_edges_sound attractor_edges_complete)
@@ -566,14 +584,45 @@ begin
       apply (auto split: if_splits)
       using attractor_edges_edges tfl_some by auto
 
-  lemma "(x,y) \<in> induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X) \<Longrightarrow> x \<in> attractor X - X
-    \<Longrightarrow> y \<in> attractor X"
-    unfolding induced_by_strategy_def E_of_strat_def attractor_strategy_def
-    using attractor.cases apply (auto split: if_splits)
-    by (metis attractor_edges.simps attractor_edges_sound someI)
+    lemma attractor_strategy_closed_edge: "(x,y) \<in> induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X) \<Longrightarrow> x \<in> attractor X - X
+      \<Longrightarrow> y \<in> attractor X"
+      unfolding induced_by_strategy_def E_of_strat_def attractor_strategy_def
+      using attractor.cases apply (auto split: if_splits)
+      by (metis attractor_edges.simps attractor_edges_sound someI)
 
-    lemma attractor_subset: "X \<subseteq> attractor X"
-      by (auto intro: base)
+    lemma attractor_strategy_closed: "induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X) `` (attractor X - X) \<subseteq> attractor X"
+      using attractor_strategy_closed_edge by blast
+
+    lemma attractor_strategy_escape_via_X: "(x,y) \<in> induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X)
+       \<Longrightarrow> x \<in> attractor X \<Longrightarrow> y \<notin> attractor X \<Longrightarrow> x \<in> X"
+    proof (rule ccontr)
+      assume assms: "(x,y) \<in> induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X)" 
+                    "x \<in> attractor X" 
+                    "y \<notin> attractor X" 
+                    "x\<notin>X"
+      then show False proof (cases "x\<in>X")
+        case True with assms(4) show ?thesis .. 
+      next
+        case False
+        with assms(2) have "x\<in>attractor X - X" by blast
+        from attractor_strategy_closed_edge[OF assms(1) this] have "y \<in> attractor X" .
+        with assms(3) show ?thesis ..
+      qed
+    qed
+
+lemma "path' (induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X)) x xs y \<Longrightarrow> x \<in> attractor X \<Longrightarrow> x \<notin> X
+  \<Longrightarrow> X \<inter> set xs \<noteq> {}"
+proof (rule ccontr; simp)
+  assume assms: "path' (induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X)) x xs y"
+                "x \<in> attractor X"
+                "x \<notin> X"
+                "X \<inter> set xs = {}"
+  then obtain es where 
+   epath: "epath (induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X)) x es y" "xs = map fst es"
+    using path'_alt by metis
+  with assms(4)
+  show False sorry
+qed
 
     lemma "\<exists>\<sigma>.
         strategy_of V\<^sub>\<alpha> \<sigma>
@@ -589,7 +638,26 @@ begin
       next
         show "\<forall>y\<in>attractor X. \<forall>xs. lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) y xs \<longrightarrow> X \<inter> set xs \<noteq> {}"
         proof (rule ballI; rule allI; rule impI)
-          fix y assume y_in_attractor: "y \<in> attractor X"
+          fix y xs
+          assume y_in_attractor: "y \<in> attractor X"
+            and lasso_from_y: "lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) y xs"
+          thus "X \<inter> set xs \<noteq> {}" proof (cases "y\<in>X")
+            case True with origin_in_lasso'[OF lasso_from_y] show "X \<inter> set xs \<noteq> {}" by blast
+          next
+            case False
+            from lasso_from_y obtain z 
+              where y_path': "path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) y xs z" "z \<in> set xs"
+              by (auto simp: lasso'_iff_path)
+            have \<sigma>_closed: "induced_by_strategy V\<^sub>\<alpha> \<sigma> `` (attractor X - X) \<subseteq> attractor X"
+              using attractor_strategy_closed \<sigma>_def by blast
+            from simulate_path_aux[OF \<sigma>_closed y_in_attractor y_path'(1)]
+            show ?thesis proof
+              assume "path' (induced_by_strategy V\<^sub>\<alpha> \<sigma> \<inter> (attractor X - X) \<times> attractor X) y xs z"
+              show "X \<inter> set xs \<noteq> {}" sorry
+            qed
+          qed
+        qed
+          (**
           then consider
             (base) "y \<in> X" |
             (own) "y \<in> V\<^sub>\<alpha>" and "\<exists>z. (y,z) \<in> E \<and> z \<in> attractor X" |
@@ -603,13 +671,11 @@ begin
           next
             case own
             then obtain z where z_def: "(y,z) \<in> E" "z \<in> attractor X" by blast
-            fix xs assume "xs="
             then show "X \<inter> set xs \<noteq> {}" sorry
           next
             case opponent
             then show ?thesis sorry
-          qed
-        qed
+          qed qed *)
        (** proof (rule ballI; rule allI; rule impI)
           fix y xs
           assume y_in_attractor: "y \<in> attractor X"
@@ -627,10 +693,10 @@ begin
       qed
     qed
 
-    lemma attract_strategy_aux: "attractor' X Y \<Longrightarrow> \<exists>\<sigma>.
+    lemma attract_strategy_aux: "is_attractor X Y \<Longrightarrow> \<exists>\<sigma>.
           strategy_of V\<^sub>\<alpha> \<sigma> \<and> dom \<sigma> \<subseteq> Y \<and> (induced_by_strategy V\<^sub>\<alpha> \<sigma> `` (Y-X) \<subseteq> Y)
           \<and> (\<forall>y\<in>Y. \<forall>xs. lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) y xs \<longrightarrow> X \<inter> set xs \<noteq> {})"
-    proof (induction rule: attractor'.induct)
+    proof (induction rule: is_attractor.induct)
       case base thus ?case
         apply (rule exI[where x=Map.empty]; simp)
         using origin_in_lasso' by fastforce
@@ -835,10 +901,10 @@ begin
     qed
 
 
-   (** lemma attract_strategy_aux: "attractor' X Y \<Longrightarrow> \<exists>\<sigma>.
+   (** lemma attract_strategy_aux: "is_attractor X Y \<Longrightarrow> \<exists>\<sigma>.
           strategy_of V\<^sub>\<alpha> \<sigma> \<and> dom \<sigma> \<subseteq> Y \<and> (induced_by_strategy V\<^sub>\<alpha> \<sigma> `` (Y-X) \<subseteq> Y)
           \<and> (\<forall>y\<in>Y. \<forall>xs. lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) y xs \<longrightarrow> X \<inter> set xs \<noteq> {})"
-    proof (induction rule: attractor'.induct)
+    proof (induction rule: is_attractor.induct)
       case base thus ?case
         apply (rule exI[where x=Map.empty]; simp)
         using origin_in_lasso' by fastforce
@@ -1043,7 +1109,7 @@ begin
     qed *)
 
     theorem attract_strategy:
-      assumes "attractor' X Y"
+      assumes "is_attractor X Y"
       obtains \<sigma> where
         "strategy_of V\<^sub>\<alpha> \<sigma>"
         "dom \<sigma> \<subseteq> Y"
