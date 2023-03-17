@@ -242,7 +242,20 @@ begin
 
   lemma lasso_from_node'_consD: "lasso_from_node' v (x#xs)
     \<Longrightarrow> (\<exists>v' xs'. x=v \<and> (v,v')\<in>E \<and> lasso_from_node' v' xs' \<and> set xs'\<subseteq>set (x#xs))"
-    by (auto simp add: lasso_from_node'_def Cons_eq_append_conv; force)
+    by (auto simp: lasso_from_node'_def Cons_eq_append_conv; force)
+
+  lemma lasso_from_node'_prepend: "\<lbrakk> lasso_from_node' v' xs; (v,v') \<in> E \<rbrakk> \<Longrightarrow> lasso_from_node' v (v#xs)"
+    unfolding lasso_from_node'_def
+    apply (induction xs arbitrary: v')
+    subgoal by simp
+    subgoal for x' xs' by (metis ParityGames.path'.simps(2) append_Cons)
+    done
+
+  lemma self_lasso': "\<lbrakk> path' v vs v; vs \<noteq> [] \<rbrakk> \<Longrightarrow> lasso_from_node' v vs"
+    unfolding lasso_from_node'_def by force
+
+  lemma lasso'_close_loop: "\<lbrakk> path' v' vs v; vs \<noteq> []; (v,v') \<in> E \<rbrakk> \<Longrightarrow> lasso_from_node' v' (vs@[v])"
+    unfolding lasso_from_node'_def by fastforce
 
   lemma lasso_from_equiv_cycle_from: "cycle_from_node v ys \<longleftrightarrow> (\<exists>xs. lasso_from_node v xs ys)"
     unfolding lasso_from_node_def cycle_from_node_def cycle_node_def
@@ -550,6 +563,12 @@ begin
       apply (induction rule: attractor_edges.induct)
       by (auto intro: base own opponent)
 
+(** There is only one edge for each of the player's own vertices in the attractor_edges *)
+lemma "(x,y)\<in>attractor_edges X \<Longrightarrow> x\<in>V\<^sub>\<alpha>-X \<Longrightarrow> \<forall>z. (x,z)\<in>attractor_edges X \<longrightarrow> z = y"
+  apply (induction rule: attractor_edges.induct)
+  apply (auto intro: ae_base ae_own ae_opponent)
+  sorry
+
     definition "attractor_strategy X v \<equiv>
       if v\<notin>X \<and> v\<in>V\<^sub>\<alpha> \<and> (\<exists>v'. (v,v')\<in>attractor_edges X) then
         Some (SOME v'. (v,v')\<in>attractor_edges X)
@@ -579,18 +598,6 @@ begin
     lemma "attractor_strategy X v = Some v' \<Longrightarrow> v' \<in> attractor X"
       apply (auto simp: attractor_strategy_def split: if_splits)
       by (metis attractor_edges.simps attractor_edges_sound someI)
-
-lemma "(x,y) \<in> attractor_edges X \<Longrightarrow> x \<in> V\<^sub>\<alpha>-X \<Longrightarrow> attractor_strategy X x = Some y"
-proof (induction rule: attractor_edges.induct)
-  case (ae_base x) thus ?case by simp
-next
-  case (ae_own x y y_tgt)
-  hence y_edge: "(x,y) \<in> attractor_edges X" using attractor_edges.ae_own by blast
-  with ae_own have "x\<notin>X \<and> x\<in>V\<^sub>\<alpha> \<and> (\<exists>x'. (x,x') \<in> attractor_edges X)" by fast
-  with y_edge show ?case apply (auto simp add: attractor_strategy_def) sorry
-next
-  case (ae_opponent x) thus ?case by blast
-qed
 
     lemma dom_attractor_strategy: "dom (attractor_strategy X) = V\<^sub>\<alpha> \<inter> (attractor X - X)"
       by (auto simp: attractor_strategy_def split: if_splits intro: attractor_edges_sound attractor_edges_complete)
@@ -625,89 +632,83 @@ qed
         with assms(3) show ?thesis ..
       qed
     qed
-  
 
-lemma "y\<in>attractor X \<Longrightarrow> \<forall>xs. lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X)) y xs \<longrightarrow> X \<inter> set xs \<noteq> {}"
-proof (induction rule: attractor.induct)
-  case (base x) show ?case proof (rule allI; rule impI)
-    fix xs assume "lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X)) x xs"
-    from base origin_in_lasso'[OF this] show "X \<inter> set xs \<noteq> {}" by auto
-  qed
-next
-  case (own x y)
-  hence "(x,y) \<in> attractor_edges X" using ae_own attractor_edges_complete by blast
-  show ?case proof (rule allI; rule impI)
-    fix xs assume "lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X)) x xs"
-    then obtain z where x_path': "path' (induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X)) x xs z" "z \<in> set xs"
-      using lasso'_iff_path by fast
-    from simulate_path_aux[OF attractor_strategy_closed[of X]]
-    show "X \<inter> set xs \<noteq> {}" sorry (** TODO *)
-  qed
-next
-  case (opponent x) show ?case proof (rule allI; rule impI)
-    fix xs assume x_lasso': "lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X)) x xs"
-    from x_lasso' obtain z where x_path': "path' (induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X)) x xs z" "z \<in> set xs"
-      using lasso'_iff_path by fast
-    then obtain x' xs' where
-      [simp]:"xs=x#xs'"
-      and x'_edge: "(x,x')\<in>(induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X))"
-      and path_xs': "path' (induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X)) x' xs' z"
-      and z_back: "z\<in>insert x (set xs')"
-      using path'D by fastforce
-    with opponent.IH have x'_in_attractor: "x' \<in> attractor X" by force
-    show "X \<inter> set xs \<noteq> {}" proof (cases "z\<in>set xs'")
-      case True with path_xs' have "lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X)) x' xs'"
-        using lasso'_iff_path by fast
-      with x'_edge opponent.IH show ?thesis by force
+    lemma attractor_strategy_forces_X: "y\<in>attractor X
+       \<Longrightarrow> \<forall>xs. lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X)) y xs \<longrightarrow> X \<inter> set xs \<noteq> {}"
+    proof (induction rule: attractor.induct)
+      case (base x) show ?case proof (rule allI; rule impI)
+        fix xs assume "lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X)) x xs"
+        from base origin_in_lasso'[OF this] show "X \<inter> set xs \<noteq> {}" by auto
+      qed
     next
-      case False show ?thesis proof
-        assume xs_no_X: "X \<inter> set xs = {}"
-        from False z_back have [simp]: "x = z" by fast
-        from simulate_path_aux[OF attractor_strategy_closed x'_in_attractor path_xs'] xs_no_X
-        have "path' ((induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X) \<inter> (attractor X - X) \<times> attractor X)) x' xs' x" by auto
-        (** TODO *)
-        then show False
-          apply (cases xs' rule: rev_cases)
-          subgoal using opponent.IH x'_edge x_lasso' xs_no_X by force
-          subgoal for a b sorry
-          done
+      case (own x y)
+      hence "(x,y) \<in> attractor_edges X" using ae_own attractor_edges_complete by blast
+      hence y_only_succ: "induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X) `` {x} = {y}"
+        (** Intuitively this is true, but I need some way to prove this, probably some lemma *) sorry
+      show ?case proof (rule allI; rule impI)
+        fix xs assume x_lasso': "lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X)) x xs"
+        from x_lasso' obtain z where x_path': "path' (induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X)) x xs z" "z \<in> set xs"
+          using lasso'_iff_path by fast
+        then obtain x' xs' where
+          [simp]:"xs=x#xs'"
+          and x'_edge: "(x,x')\<in>(induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X))"
+          and path_xs': "path' (induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X)) x' xs' z"
+          and z_back: "z\<in>insert x (set xs')"
+          using path'D by fastforce
+        with y_only_succ have [simp]: "x' = y" by blast
+        show "X \<inter> set xs \<noteq> {}" proof (cases "z\<in>set xs'")
+          case True with path_xs' have "lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X)) y xs'"
+            using lasso'_iff_path by fastforce
+          with own.IH show ?thesis by simp
+        next
+          case False show ?thesis proof
+            assume xs_no_X: "X \<inter> set xs = {}"
+            from False z_back have [simp]: "x = z" by fast
+            show False proof (cases xs')
+              case Nil with path_xs' x_lasso' xs_no_X own.IH show ?thesis by fastforce 
+            next
+              case (Cons a list)
+              hence "xs'\<noteq>[]" by simp
+              from lasso'_close_loop[OF path_xs' this] x'_edge
+              have "lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X)) y (xs' @ [x])" by auto
+              with own.IH xs_no_X show ?thesis by fastforce
+            qed
+          qed
+        qed
+      qed
+    next
+      case (opponent x) show ?case proof (rule allI; rule impI)
+        fix xs assume x_lasso': "lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X)) x xs"
+        from x_lasso' obtain z where x_path': "path' (induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X)) x xs z" "z \<in> set xs"
+          using lasso'_iff_path by fast
+        then obtain x' xs' where
+          [simp]:"xs=x#xs'"
+          and x'_edge: "(x,x')\<in>(induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X))"
+          and path_xs': "path' (induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X)) x' xs' z"
+          and z_back: "z\<in>insert x (set xs')"
+          using path'D by fastforce
+        show "X \<inter> set xs \<noteq> {}" proof (cases "z\<in>set xs'")
+          case True
+          with path_xs' have "lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X)) x' xs'"
+            using lasso'_iff_path by fast
+          with x'_edge opponent.IH show ?thesis by force
+        next
+          case False show ?thesis proof
+            assume xs_no_X: "X \<inter> set xs = {}"
+            from False z_back have [simp]: "x = z" by fast
+            show False proof (cases xs')
+              case Nil with path_xs' x'_edge x_lasso' xs_no_X opponent.IH show ?thesis by force
+            next
+              case (Cons a list)
+              hence "xs'\<noteq>[]" by fast
+              from lasso'_close_loop[OF path_xs' this] x'_edge
+              have "lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X)) x' (xs' @ [x])" by simp
+              with opponent.IH x'_edge xs_no_X show ?thesis by force
+            qed
+          qed
+        qed
       qed
     qed
-  qed
-qed
-(** proof (rule allI; rule impI; rule ccontr; simp)
-  let ?iG = "(induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X))"
-  fix xs
-  assume y_in_attractor: "y\<in>attractor X"
-     and lasso_from_y: "lasso_from_node' ?iG y xs"
-     and xs_no_X: "X \<inter> set xs = {}"
-  then show False proof (induction rule: attractor.induct)
-    case (base x) with origin_in_lasso'[OF base(2)] show ?case by fast
-  next
-    case (own x y)
-    then show ?case sorry
-  next
-    case (opponent x)
-    then show ?case sorry
-  qed
-qed *)
-
-lemma "path' (induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X)) x xs y \<Longrightarrow> x \<in> attractor X \<Longrightarrow> x\<notin>X
-  \<Longrightarrow> X \<inter> set xs \<noteq> {}"
-proof (rule ccontr; simp)
-  assume assms: "path' (induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X)) x xs y"
-                "x \<in> attractor X"
-                "x \<notin> X"
-                "X \<inter> set xs = {}"
-  then obtain es where 
-   epath: "epath (induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X)) x es y" "xs = map fst es"
-    using path'_alt by metis
-  with assms(4) have "\<forall>v v'. (v,v') \<in> set es \<longrightarrow> v\<notin>X"
-  apply (induction es arbitrary: x rule: epath.induct)
-  by force
-  from assms(2,3) have "x \<in> attractor X - X" by simp
-  show False sorry
-qed
 
     lemma "\<exists>\<sigma>.
         strategy_of V\<^sub>\<alpha> \<sigma>
@@ -722,6 +723,8 @@ qed
         show "dom \<sigma> \<subseteq> attractor X" using \<sigma>_def dom_attractor_strategy by blast
       next
         show "\<forall>y\<in>attractor X. \<forall>xs. lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) y xs \<longrightarrow> X \<inter> set xs \<noteq> {}"
+          using \<sigma>_def attractor_strategy_forces_X by blast
+        (** PROOF MOVED TO LEMMA ABOVE
         proof (rule ballI; rule allI; rule impI)
           fix y xs
           assume y_in_attractor: "y \<in> attractor X"
@@ -743,7 +746,7 @@ qed
               show "X \<inter> set xs \<noteq> {}" sorry
             qed
           qed
-        qed
+        qed *)
           (**
           then consider
             (base) "y \<in> X" |
