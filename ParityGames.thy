@@ -563,12 +563,6 @@ begin
       apply (induction rule: attractor_edges.induct)
       by (auto intro: base own opponent)
 
-(** There is only one edge for each of the player's own vertices in the attractor_edges *)
-lemma "(x,y)\<in>attractor_edges X \<Longrightarrow> x\<in>V\<^sub>\<alpha>-X \<Longrightarrow> \<forall>z. (x,z)\<in>attractor_edges X \<longrightarrow> z = y"
-  apply (induction rule: attractor_edges.induct)
-  apply (auto intro: ae_base ae_own ae_opponent)
-  sorry
-
     definition "attractor_strategy X v \<equiv>
       if v\<notin>X \<and> v\<in>V\<^sub>\<alpha> \<and> (\<exists>v'. (v,v')\<in>attractor_edges X) then
         Some (SOME v'. (v,v')\<in>attractor_edges X)
@@ -633,6 +627,12 @@ lemma "(x,y)\<in>attractor_edges X \<Longrightarrow> x\<in>V\<^sub>\<alpha>-X \<
       qed
     qed
 
+    inductive_set attractor' :: "'v set \<Rightarrow> nat \<Rightarrow> 'v set" for X i where
+      base: "\<lbrakk> x \<in> X; i = 0 \<rbrakk> \<Longrightarrow> x \<in> attractor' X i"
+    | own: "\<lbrakk> x \<in> V\<^sub>\<alpha>-X; (x,y)\<in>E; y\<in>attractor' X (i-1) \<rbrakk> \<Longrightarrow> x \<in> attractor' X i"
+    | opponent: "\<lbrakk> x\<in>-V\<^sub>\<alpha>-X; \<forall>y. (x,y)\<in>E \<longrightarrow> y\<in>attractor' X (i-1) \<rbrakk> \<Longrightarrow> x \<in> attractor' X i"
+
+(**  Commenting this out because it breaks everything else.
     lemma attractor_strategy_forces_X: "y\<in>attractor X \<Longrightarrow> \<exists>\<sigma> n.
        strategy_of V\<^sub>\<alpha> \<sigma> \<and> dom \<sigma> \<subseteq> attractor X - X 
        \<and> (\<forall>xs z. path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) y xs z \<and> n\<le>length xs \<longrightarrow> X \<inter> set xs \<noteq> {})"
@@ -768,7 +768,7 @@ lemma "(x,y)\<in>attractor_edges X \<Longrightarrow> x\<in>V\<^sub>\<alpha>-X \<
           qed
         qed
       qed
-    qed
+    qed *)
        
        
     
@@ -782,7 +782,7 @@ lemma "(x,y)\<in>attractor_edges X \<Longrightarrow> x\<in>V\<^sub>\<alpha>-X \<
         from base origin_in_lasso'[OF this] show "X \<inter> set xs \<noteq> {}" by auto
       qed
     next
-      case (own x y) then show ?case
+      case (own x y)
       hence "(x,y) \<in> attractor_edges X" using ae_own attractor_edges_complete by blast
       hence y_only_succ: "induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X) `` {x} = {y}"
         (** Intuitively this is true, but I need some way to prove this, probably some lemma *) sorry
@@ -865,62 +865,6 @@ lemma "(x,y)\<in>attractor_edges X \<Longrightarrow> x\<in>V\<^sub>\<alpha>-X \<
       next
         show "\<forall>y\<in>attractor X. \<forall>xs. lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) y xs \<longrightarrow> X \<inter> set xs \<noteq> {}"
           using \<sigma>_def attractor_strategy_forces_X by blast
-        (** PROOF MOVED TO LEMMA ABOVE
-        proof (rule ballI; rule allI; rule impI)
-          fix y xs
-          assume y_in_attractor: "y \<in> attractor X"
-            and lasso_from_y: "lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) y xs"
-          thus "X \<inter> set xs \<noteq> {}" proof (cases "y\<in>X")
-            case True with origin_in_lasso'[OF lasso_from_y] show "X \<inter> set xs \<noteq> {}" by blast
-          next
-            case False
-            from lasso_from_y obtain z 
-              where y_path': "path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) y xs z" "z \<in> set xs"
-              by (auto simp: lasso'_iff_path)
-            have xs_notempty[simp]: "xs\<noteq>[]" using y_path'(2) by auto
-            have \<sigma>_closed: "induced_by_strategy V\<^sub>\<alpha> \<sigma> `` (attractor X - X) \<subseteq> attractor X"
-              using attractor_strategy_closed \<sigma>_def by blast
-            from simulate_path_aux[OF \<sigma>_closed y_in_attractor y_path'(1)] show ?thesis proof
-              assume "path' (induced_by_strategy V\<^sub>\<alpha> \<sigma> \<inter> (attractor X - X) \<times> attractor X) y xs z"
-              hence "\<forall>v v'. (v,v') \<in> (induced_by_strategy V\<^sub>\<alpha> \<sigma> \<inter> (attractor X - X) \<times> attractor X)
-                \<longrightarrow> v \<in> attractor X - X \<and> v' \<in> attractor X" by auto
-              show "X \<inter> set xs \<noteq> {}" sorry
-            qed
-          qed
-        qed *)
-          (**
-          then consider
-            (base) "y \<in> X" |
-            (own) "y \<in> V\<^sub>\<alpha>" and "\<exists>z. (y,z) \<in> E \<and> z \<in> attractor X" |
-            (opponent) "y \<notin> V\<^sub>\<alpha>" and "\<forall>z. (y,z) \<in> E \<longrightarrow> z \<in> attractor X"
-            using attractor.cases Compl_iff by metis
-          thus "\<And>xs. lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) y xs \<Longrightarrow> X \<inter> set xs \<noteq> {}"
-          proof cases
-            case base
-            fix xs assume lasso_from_y: "lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) y xs"
-            from base origin_in_lasso'[OF lasso_from_y] show "X \<inter> set xs \<noteq> {}" by blast
-          next
-            case own
-            then obtain z where z_def: "(y,z) \<in> E" "z \<in> attractor X" by blast
-            then show "X \<inter> set xs \<noteq> {}" sorry
-          next
-            case opponent
-            then show ?thesis sorry
-          qed qed *)
-       (** proof (rule ballI; rule allI; rule impI)
-          fix y xs
-          assume y_in_attractor: "y \<in> attractor X"
-            and lasso_from_y: "lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) y xs"
-          thus "X \<inter> set xs \<noteq> {}" proof cases
-            case base thus ?thesis using origin_in_lasso'[OF lasso_from_y] by blast
-          next
-            case (own z)
-            then show ?thesis sorry
-          next
-            case opponent
-            then show ?thesis sorry
-          qed
-        qed *)
       qed
     qed
 
