@@ -526,7 +526,7 @@ begin
 
   context
     fixes V\<^sub>\<alpha> :: "'v set"
-    (*assumes V\<^sub>\<alpha>_subset: "V\<^sub>\<alpha> \<subseteq> V"*)
+    assumes V\<^sub>\<alpha>_subset: "V\<^sub>\<alpha> \<subseteq> V"
   begin
     private abbreviation (input) owned_target :: "'v set \<Rightarrow> 'v set" where
       "owned_target Y \<equiv> {v|v. v\<in>V\<^sub>\<alpha> \<and> E``{v} \<inter> Y \<noteq> {}}"
@@ -541,7 +541,7 @@ begin
     inductive_set attractor :: "'v set \<Rightarrow> 'v set" for X where
       base: "x \<in> X \<Longrightarrow> x \<in> attractor X"
     | own: "\<lbrakk> x \<in> V\<^sub>\<alpha>-X; (x,y)\<in>E; y\<in>attractor X \<rbrakk> \<Longrightarrow> x \<in> attractor X"
-    | opponent: "\<lbrakk> x\<in>-V\<^sub>\<alpha>-X; \<forall>y. (x,y)\<in>E \<longrightarrow> y\<in>attractor X \<rbrakk> \<Longrightarrow> x \<in> attractor X"
+    | opponent: "\<lbrakk> x\<in>V-V\<^sub>\<alpha>-X; \<forall>y. (x,y)\<in>E \<longrightarrow> y\<in>attractor X \<rbrakk> \<Longrightarrow> x \<in> attractor X"
 
     lemma attractor_subset: "X \<subseteq> attractor X"
       by (auto intro: base)
@@ -549,7 +549,7 @@ begin
     inductive_set attractor_edges :: "'v set \<Rightarrow> ('v \<times> 'v) set" for X where
       ae_base: "x \<in> X \<Longrightarrow> (x,x) \<in> attractor_edges X"
     | ae_own: "\<lbrakk> x \<in> V\<^sub>\<alpha>; (x,y)\<in>E; (y,y_tgt)\<in>attractor_edges X \<rbrakk> \<Longrightarrow> (x,y) \<in> attractor_edges X"
-    | ae_opponent: "\<lbrakk> x\<in>-V\<^sub>\<alpha>; \<forall>y. (x,y)\<in>E \<longrightarrow> (\<exists>y_tgt. (y,y_tgt)\<in>attractor_edges X) \<rbrakk> \<Longrightarrow> (x,x) \<in> attractor_edges X"
+    | ae_opponent: "\<lbrakk> x\<in>V-V\<^sub>\<alpha>; \<forall>y. (x,y)\<in>E \<longrightarrow> (\<exists>y_tgt. (y,y_tgt)\<in>attractor_edges X) \<rbrakk> \<Longrightarrow> (x,x) \<in> attractor_edges X"
 
     lemma attractor_edges_sound: "(x,y)\<in>attractor_edges X \<Longrightarrow> x\<in>attractor X"
       apply (induction rule: attractor_edges.induct)
@@ -626,12 +626,179 @@ begin
         with assms(3) show ?thesis ..
       qed
     qed
+    
+    inductive attractor'p :: "'v set \<Rightarrow> nat \<Rightarrow> 'v \<Rightarrow> bool" for X where
+      base: "\<lbrakk> x \<in> X \<rbrakk> \<Longrightarrow> attractor'p X 0 x"
+    | own: "\<lbrakk> x \<in> V\<^sub>\<alpha>-X; (x,y)\<in>E; attractor'p X i y \<rbrakk> \<Longrightarrow> attractor'p X (Suc i) x"
+    | opponent: "\<lbrakk> x\<in>V-V\<^sub>\<alpha>-X; \<forall>y. (x,y)\<in>E \<longrightarrow> attractor'p X i y \<rbrakk> \<Longrightarrow> attractor'p X (Suc i) x"
+    
+    definition "attractor' X i \<equiv> Collect (attractor'p X i)"
 
-    inductive_set attractor' :: "'v set \<Rightarrow> nat \<Rightarrow> 'v set" for X i where
-      base: "\<lbrakk> x \<in> X; i = 0 \<rbrakk> \<Longrightarrow> x \<in> attractor' X i"
-    | own: "\<lbrakk> x \<in> V\<^sub>\<alpha>-X; (x,y)\<in>E; y\<in>attractor' X (i-1) \<rbrakk> \<Longrightarrow> x \<in> attractor' X i"
-    | opponent: "\<lbrakk> x\<in>-V\<^sub>\<alpha>-X; \<forall>y. (x,y)\<in>E \<longrightarrow> y\<in>attractor' X (i-1) \<rbrakk> \<Longrightarrow> x \<in> attractor' X i"
+    print_statement attractor'p.induct[of _ i x]
+    
+    lemma attractor'_induct[consumes 1, case_names base own opponent]:
+      assumes "x\<in>attractor' X i"
+        and "\<And>x. x \<in> X \<Longrightarrow> P 0 x"
+        and "\<And>x y i. \<lbrakk>x \<in> V\<^sub>\<alpha> - X; (x, y) \<in> E; y\<in>attractor' X i; P i y\<rbrakk> \<Longrightarrow> P (Suc i) x"
+        and "\<And>x i. \<lbrakk>x \<in> V - V\<^sub>\<alpha> - X; \<forall>y. (x, y) \<in> E \<longrightarrow> y\<in>attractor' X i \<and> P i y\<rbrakk> \<Longrightarrow> P (Suc i) x"
+      shows "P i x"    
+      using attractor'p.induct[of _ i x P] assms
+      unfolding attractor'_def
+      by auto
 
+    context
+      fixes X :: "'v set"
+    begin  
+    
+      fun nodes_in_rank :: "nat \<Rightarrow> 'v set" where 
+        "nodes_in_rank 0 = X"
+      | "nodes_in_rank (Suc n) = 
+          nodes_in_rank n
+        \<union> { x | x y :: 'v. x\<in>V\<^sub>\<alpha> \<and> (x,y)\<in>E \<and> y\<in>nodes_in_rank n }
+        \<union> { x. x\<in>V-V\<^sub>\<alpha> \<and> (\<forall>y. (x,y)\<in>E \<longrightarrow> y\<in>nodes_in_rank n)  }  
+          "  
+      
+      lemma "x\<in>nodes_in_rank n \<Longrightarrow> x\<in>attractor X"
+        apply (induction n arbitrary: x)
+        by (auto intro: attractor.intros)
+          
+      lemma "x\<in>attractor X \<Longrightarrow> (\<exists>n. x\<in>nodes_in_rank n)"
+      proof (induction rule: attractor.induct)
+        case (base x)
+        then show ?case by (auto intro: exI[where x=0])
+      next
+        case (own x y)
+        then show ?case apply clarsimp subgoal for n by (auto intro!: exI[where x="Suc n"]) done
+      next
+        case (opponent x)
+        
+        then show ?case sorry
+      qed
+        
+        subgoal by (auto intro: exI[where x=0])
+        subgoal for x y n by (auto intro!: exI[where x="Suc n"])
+        
+          
+    end  
+      
+    lemma attractor'_intros:
+      "\<And>x. x \<in> X \<Longrightarrow> x \<in> attractor' X 0"
+      "\<And>x y i. \<lbrakk>x \<in> V\<^sub>\<alpha> - X; (x, y) \<in> E; y\<in>attractor' X i\<rbrakk> \<Longrightarrow> x \<in> attractor' X (Suc i)"
+      "\<And>x i. \<lbrakk>x \<in> V - V\<^sub>\<alpha> - X; \<forall>y. (x, y) \<in> E \<longrightarrow> y\<in>attractor' X i\<rbrakk> \<Longrightarrow> x \<in> attractor' X (Suc i)"
+      unfolding attractor'_def
+      by (auto intro: attractor'p.intros)
+            
+    lemma attractor'_subset: assumes "x\<in>attractor' X i" shows "x\<in>attractor X"  
+      using assms apply (induction rule: attractor'_induct)
+      by (auto intro: attractor.intros)
+      
+    lemma attractor_subset': assumes "x\<in>attractor X" shows "\<exists>i. x\<in>attractor' X i"  
+      using assms 
+    proof (induction rule: attractor.induct)
+      case (base x)
+      then show ?case by (auto intro: attractor'_intros)
+    next
+      case (own x y)
+      then show ?case by (auto intro: attractor'_intros)
+    next
+      case (opponent x)
+      obtain y where E: "(x,y)\<in>E" using opponent.hyps succ by auto
+      with opponent.IH obtain i where "y \<in> attractor X" "y \<in> attractor' X i" by blast
+      hence "x \<in> attractor' X (Suc i)"
+        using opponent E 
+        
+        apply (rule_tac attractor'_intros(3))
+        apply (auto)
+      
+      
+      show ?case
+    qed
+      apply (auto intro: attractor'p.intros)
+      
+      using attractor'p.intros 
+      
+      
+      
+    lemma attractor_strategy_forces_X: "y\<in>attractor' X n \<Longrightarrow> \<exists>\<sigma>.
+       strategy_of V\<^sub>\<alpha> \<sigma> \<and> dom \<sigma> \<subseteq> attractor X - X 
+       \<and> (\<forall>xs z. path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) y xs z \<and> n<length xs \<longrightarrow> xs!n \<in> X)"
+    proof (induction rule: attractor'_induct)
+      case (base x)
+      then show ?case 
+        apply -
+        apply (rule exI[where x=Map.empty])
+        by (auto simp: neq_Nil_conv)
+      
+    next
+      case (own x y i)
+      
+      from own have x_in_attr: "x\<in>attractor X" by (blast intro: attractor.own)
+      
+      from own obtain \<sigma> where 
+        IH_strat: "strategy_of V\<^sub>\<alpha> \<sigma>" and
+        IH_dom: "dom \<sigma> \<subseteq> attractor X - X"  and
+        IH_lasso: "(\<forall>xs. lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) y xs \<longrightarrow> X \<inter> set xs \<noteq> {})"
+        by blast
+      
+      show ?case proof (intro exI[where x="\<sigma>(x\<mapsto>y)"] conjI)
+        show "strategy_of V\<^sub>\<alpha> (\<sigma>(x \<mapsto> y))" using IH_strat \<open>x\<in>V\<^sub>\<alpha>-X\<close> \<open>(x,y)\<in>E\<close>
+          unfolding strategy_of_def E_of_strat_def 
+          by (auto split: if_splits)
+        show "dom (\<sigma>(x \<mapsto> y)) \<subseteq> attractor X - X" 
+          using IH_dom \<open>x\<in>V\<^sub>\<alpha>-X\<close> x_in_attr by simp
+      
+        show "\<forall>xs. lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> (\<sigma>(x \<mapsto> y))) x xs \<longrightarrow> X \<inter> set xs \<noteq> {}" 
+        proof (intro allI impI)   
+          fix xs
+          assume A: "lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> (\<sigma>(x \<mapsto> y))) x xs"
+          hence [simp]: "xs\<noteq>[]" by auto
+          
+          have EDGE_DET: "y'=y" if "(x, y') \<in> induced_by_strategy V\<^sub>\<alpha> (\<sigma>(x \<mapsto> y))" for y'
+            using that \<open>x\<in>V\<^sub>\<alpha>-X\<close> unfolding induced_by_strategy_def E_of_strat_def 
+            by auto
+          
+          from A obtain z where "path' (induced_by_strategy V\<^sub>\<alpha> (\<sigma>(x \<mapsto> y))) x xs z" "z\<in>set xs"
+            using lasso'_iff_path by fast
+            
+          then obtain xs' where [simp]: "xs=x#xs'" and path_xs': "path' (induced_by_strategy V\<^sub>\<alpha> (\<sigma>(x \<mapsto> y))) y xs' z"
+            apply (cases xs; simp)
+            apply (auto dest: EDGE_DET)
+            done
+
+          show "X \<inter> set xs \<noteq> {}" proof (cases "z\<in>set xs'")
+            case True with path_xs' have "lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> (\<sigma>(x \<mapsto> y))) y xs'"
+              using lasso'_iff_path by fastforce
+            with own.IH show ?thesis by simp
+          next
+            case False show ?thesis proof
+              assume xs_no_X: "X \<inter> set xs = {}"
+              from False z_back have [simp]: "x = z" by fast
+              show False proof (cases xs')
+                case Nil with path_xs' x_lasso' xs_no_X own.IH show ?thesis by fastforce 
+              next
+                case (Cons a list)
+                hence "xs'\<noteq>[]" by simp
+                from lasso'_close_loop[OF path_xs' this] x'_edge
+                have "lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X)) y (xs' @ [x])" by auto
+                with own.IH xs_no_X show ?thesis by fastforce
+              qed
+            qed
+          qed
+            
+            
+                      
+          show "X \<inter> set xs \<noteq> {}" 
+          
+      
+      
+      
+      then show ?case sorry
+    next
+      case (opponent x i)
+      then show ?case sorry
+    qed
+              
+    
 (**  Commenting this out because it breaks everything else.
     lemma attractor_strategy_forces_X: "y\<in>attractor X \<Longrightarrow> \<exists>\<sigma> n.
        strategy_of V\<^sub>\<alpha> \<sigma> \<and> dom \<sigma> \<subseteq> attractor X - X 
