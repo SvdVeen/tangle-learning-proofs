@@ -649,15 +649,16 @@ begin
     context
       fixes X :: "'v set"
     begin  
-    
       fun nodes_in_rank :: "nat \<Rightarrow> 'v set" where 
         "nodes_in_rank 0 = X"
       | "nodes_in_rank (Suc n) = 
           nodes_in_rank n
         \<union> { x | x y :: 'v. x\<in>V\<^sub>\<alpha> \<and> (x,y)\<in>E \<and> y\<in>nodes_in_rank n }
         \<union> { x. x\<in>V-V\<^sub>\<alpha> \<and> (\<forall>y. (x,y)\<in>E \<longrightarrow> y\<in>nodes_in_rank n)  }  
-          "  
-      
+          "
+
+      find_theorems "Max ?s"
+
       lemma "x\<in>nodes_in_rank n \<Longrightarrow> x\<in>attractor X"
         apply (induction n arbitrary: x)
         by (auto intro: attractor.intros)
@@ -668,17 +669,24 @@ begin
         then show ?case by (auto intro: exI[where x=0])
       next
         case (own x y)
-        then show ?case apply clarsimp subgoal for n by (auto intro!: exI[where x="Suc n"]) done
+        then show ?case
+          apply clarsimp
+          subgoal for n by (auto intro!: exI[where x="Suc n"])
+          done
       next
         case (opponent x)
+        let ?ranks = "{i. \<forall>y. (x,y)\<in>E \<longrightarrow> y\<in>attractor X \<and> y\<in>nodes_in_rank i}"
+        (* We know that all successors are in a rank, and they should all be part of the highest rank.
+           Regardless, I cannot prove this at the moment. *)
+        from opponent succ have ranks_notEmpty: "?ranks \<noteq> {}" sorry
+        (* We know the graph is finite, but we don't know that successors are finite? Or that the nodes in rank are finite?*)
+        from opponent have ranks_finite: "finite ?ranks" sorry 
+        from opponent succ obtain n where n_def: "n = Max ?ranks" by blast
+        with ranks_notEmpty ranks_finite have n_in_ranks: "n\<in>?ranks" using Max_in by blast
+        with n_def have "\<forall>y. (x,y) \<in> E \<longrightarrow> y \<in> attractor X \<and> y \<in> nodes_in_rank n" by blast
+        then show ?case
         
-        then show ?case sorry
       qed
-        
-        subgoal by (auto intro: exI[where x=0])
-        subgoal for x y n by (auto intro!: exI[where x="Suc n"])
-        
-          
     end  
       
     lemma attractor'_intros:
@@ -936,10 +944,6 @@ begin
         qed
       qed
     qed *)
-       
-       
-    
-    find_theorems 
     
     lemma attractor_strategy_forces_X: "y\<in>attractor X
        \<Longrightarrow> \<forall>xs. lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X)) y xs \<longrightarrow> X \<inter> set xs \<noteq> {}"
