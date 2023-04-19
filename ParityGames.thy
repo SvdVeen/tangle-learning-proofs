@@ -846,7 +846,7 @@ begin
             subgoal for \<sigma> apply (rule exI[where x="\<sigma>"]) apply auto apply blast
               by (metis Compl_iff Image_singleton_iff Int_iff ind_subgraph_edge_src inf.absorb_iff1)
               done
-            
+
         next
           case our_node
 
@@ -877,9 +877,11 @@ begin
             using \<open>x\<in>V\<close> our_node dom_\<sigma> apply simp
             using nodes_in_rank.simps(1) nodes_in_rank_mono our_node(1) by blast
 
-          have closed_\<sigma>': "(\<forall>x'\<in>nodes_in_rank (Suc n) - X. \<forall>y\<in>induced_by_strategy V\<^sub>\<alpha> \<sigma>' `` {x'}. y \<in> nodes_in_rank (Suc n - 1))"
+          have closed_\<sigma>': "(\<forall>x'\<in>nodes_in_rank (Suc n) - X.
+            \<forall>y\<in>induced_by_strategy V\<^sub>\<alpha> \<sigma>' `` {x'}. y \<in> nodes_in_rank (Suc n - 1))"
+            using our_node(2,4) dom_\<sigma> closed_\<sigma> nodes_in_rank_increasing
             unfolding \<sigma>'_def induced_by_strategy_def E_of_strat_def
-            using \<open>x\<in>V\<^sub>\<alpha>\<close> closed_\<sigma> nodes_in_rank_increasing apply auto sorry
+            apply (clarify; simp split: if_splits) by blast
 
           {
             fix xs z
