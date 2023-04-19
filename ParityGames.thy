@@ -842,11 +842,21 @@ begin
         | (opponent_node) "x\<notin>nodes_in_rank n" "x\<in>V-V\<^sub>\<alpha>" "\<forall>y\<in>E``{x}. y\<in>nodes_in_rank n"
         by auto
         then show ?case proof cases
-          case already_in thus ?thesis using Suc.IH[of x] nodes_in_rank_increasing apply auto
-            subgoal for \<sigma> apply (rule exI[where x="\<sigma>"]) apply auto apply blast
-              by (metis Compl_iff Image_singleton_iff Int_iff ind_subgraph_edge_src inf.absorb_iff1)
-              done
-
+          case already_in thus ?thesis using Suc.IH[of x] nodes_in_rank_increasing ind_subgraph_edge_src
+            apply clarsimp
+            apply (rule exI)
+            apply safe
+            apply fast
+            apply fast
+            apply fast
+            apply fast
+            apply fast
+            apply fast
+            apply fast
+            apply fast
+            apply fast
+            apply fastforce
+            by fastforce
         next
           case our_node
 
