@@ -849,9 +849,10 @@ begin
             by blast
 
           define \<sigma>' where "\<sigma>' = \<sigma> ++ [x\<mapsto>y]"
-          from strategy_of_map_assign[OF our_node(2) our_node(3)] have strat_assign_x_y: "strategy_of V\<^sub>\<alpha> [x\<mapsto>y]" .
-          from strategy_of_add_same[OF strat_\<sigma> this] \<sigma>'_def have strat_\<sigma>': "strategy_of V\<^sub>\<alpha> \<sigma>'"
-            by simp
+          from strategy_of_map_assign[OF our_node(2) our_node(3)]
+          have strat_assign_x_y: "strategy_of V\<^sub>\<alpha> [x\<mapsto>y]" .
+          from strategy_of_add_same[OF strat_\<sigma> this] \<sigma>'_def
+          have strat_\<sigma>': "strategy_of V\<^sub>\<alpha> \<sigma>'" by simp
 
           from our_node dom_\<sigma> have "x \<notin> dom \<sigma>" by blast
           hence doms_disj: "dom \<sigma> \<inter> dom [x\<mapsto>y] = {}" by simp
@@ -864,8 +865,7 @@ begin
 
           have dom_\<sigma>': "dom \<sigma>' \<subseteq> nodes_in_rank (Suc n) - X"
             unfolding \<sigma>'_def
-            using \<open>x\<in>V\<close> our_node dom_\<sigma>
-            apply auto
+            using \<open>x\<in>V\<close> our_node dom_\<sigma> apply simp
             using nodes_in_rank.simps(1) nodes_in_rank_mono our_node(1) by blast
 
           {
@@ -875,8 +875,7 @@ begin
 
             have "x\<notin>dom \<sigma>" using dom_\<sigma> our_node(1) by blast
             then have "(x,yy)\<in>induced_by_strategy V\<^sub>\<alpha> \<sigma>' \<Longrightarrow> yy=y" for yy
-              using \<open>x\<in>V\<^sub>\<alpha>\<close>
-              by (auto simp: induced_by_strategy_def E_of_strat_def \<sigma>'_def)
+              using \<open>x\<in>V\<^sub>\<alpha>\<close> by (auto simp: induced_by_strategy_def E_of_strat_def \<sigma>'_def)
 
             thm subgraph_path'
             then obtain xs' where xs': "xs=x#xs'" "path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>') y xs' z"
@@ -896,12 +895,9 @@ begin
 
         next
           case opponent_node
-          then obtain y where "y \<in> E `` {x}" "y \<in> nodes_in_rank n" using succ by auto
-          with Suc.IH obtain \<sigma> where
-            strat_\<sigma>: "strategy_of V\<^sub>\<alpha> \<sigma>" and
-            dom_\<sigma>: "dom \<sigma> \<subseteq> nodes_in_rank n - X" and
-            forces_\<sigma>: "(\<forall>xs z. path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) y xs z \<and> n < length xs \<longrightarrow> set xs \<inter> X \<noteq> {})"
-            by blast
+          with Suc.IH have "\<forall>y \<in> E `` {x}.
+             \<exists>\<sigma>. strategy_of V\<^sub>\<alpha> \<sigma> \<and> dom \<sigma> \<subseteq> nodes_in_rank n - X \<and>
+            (\<forall>xs z. path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) y xs z \<and> n < length xs \<longrightarrow> set xs \<inter> X \<noteq> {})" by blast
           then show ?thesis sorry
         qed
       qed
