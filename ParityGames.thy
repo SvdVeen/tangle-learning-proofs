@@ -855,8 +855,7 @@ begin
             apply fast
             apply fast
             apply fast
-            apply fastforce
-            by fastforce
+            by fastforce+
         next
           case our_node
 
