@@ -773,6 +773,9 @@ begin
         apply (induction m)
         by (auto simp: le_Suc_eq)
 
+      lemma nodes_in_rank_increasing: "nodes_in_rank (n-Suc 0) \<subseteq> nodes_in_rank n"
+        apply (cases n)
+        by auto
 
       lemma nodes_in_rank_ss_attractor: "x\<in>nodes_in_rank n \<Longrightarrow> x\<in>attractor X"
         apply (induction n arbitrary: x)
@@ -823,6 +826,7 @@ begin
 
       lemma nodes_in_rank_forces_X: "x\<in>nodes_in_rank n \<Longrightarrow> \<exists>\<sigma>.
          strategy_of V\<^sub>\<alpha> \<sigma> \<and> dom \<sigma> \<subseteq> nodes_in_rank n - X
+         \<and> (\<forall>x' \<in> nodes_in_rank n - X. (\<forall>y \<in> (induced_by_strategy V\<^sub>\<alpha> \<sigma>) `` {x'}. y \<in> nodes_in_rank (n-1)))
          \<and> (\<forall>xs z. path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) x xs z \<and> n<length xs \<longrightarrow> set xs \<inter> X \<noteq> {})"
       proof (induction n arbitrary: x)
         case 0
@@ -838,13 +842,18 @@ begin
         | (opponent_node) "x\<notin>nodes_in_rank n" "x\<in>V-V\<^sub>\<alpha>" "\<forall>y\<in>E``{x}. y\<in>nodes_in_rank n"
         by auto
         then show ?case proof cases
-          case already_in thus ?thesis using Suc by force
+          case already_in thus ?thesis using Suc.IH[of x] nodes_in_rank_increasing apply auto
+            subgoal for \<sigma> apply (rule exI[where x="\<sigma>"]) apply auto apply blast
+              by (metis Compl_iff Image_singleton_iff Int_iff ind_subgraph_edge_src inf.absorb_iff1)
+              done
+            
         next
           case our_node
 
           from Suc.IH[OF \<open>y\<in>nodes_in_rank n\<close>] obtain \<sigma> where
             strat_\<sigma>: "strategy_of V\<^sub>\<alpha> \<sigma>" and
             dom_\<sigma>: "dom \<sigma> \<subseteq> nodes_in_rank n - X" and
+            closed_\<sigma>: "(\<forall>x'\<in>nodes_in_rank n - X. \<forall>y\<in>induced_by_strategy V\<^sub>\<alpha> \<sigma> `` {x'}. y \<in> nodes_in_rank (n - 1))" and
             forces_\<sigma>: "(\<forall>xs z. path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) y xs z \<and> n < length xs \<longrightarrow> set xs \<inter> X \<noteq> {})"
             by blast
 
@@ -868,11 +877,15 @@ begin
             using \<open>x\<in>V\<close> our_node dom_\<sigma> apply simp
             using nodes_in_rank.simps(1) nodes_in_rank_mono our_node(1) by blast
 
+          have closed_\<sigma>': "(\<forall>x'\<in>nodes_in_rank (Suc n) - X. \<forall>y\<in>induced_by_strategy V\<^sub>\<alpha> \<sigma>' `` {x'}. y \<in> nodes_in_rank (Suc n - 1))"
+            unfolding \<sigma>'_def induced_by_strategy_def E_of_strat_def
+            using \<open>x\<in>V\<^sub>\<alpha>\<close> closed_\<sigma> nodes_in_rank_increasing apply auto sorry
+
           {
             fix xs z
             assume PATH_XS: "path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>') x xs z"
               and LEN_XS: "Suc n < length xs"
-
+            thm Suc.IH
             have "x\<notin>dom \<sigma>" using dom_\<sigma> our_node(1) by blast
             then have "(x,yy)\<in>induced_by_strategy V\<^sub>\<alpha> \<sigma>' \<Longrightarrow> yy=y" for yy
               using \<open>x\<in>V\<^sub>\<alpha>\<close> by (auto simp: induced_by_strategy_def E_of_strat_def \<sigma>'_def)
@@ -891,7 +904,7 @@ begin
 
           show ?thesis
             apply (rule exI[where x=\<sigma>'])
-            using strat_\<sigma>' dom_\<sigma>' forces_\<sigma>' by blast
+            using strat_\<sigma>' dom_\<sigma>' closed_\<sigma>' forces_\<sigma>' by blast
 
         next
           case opponent_node
