@@ -527,14 +527,16 @@ begin
   lemma strategy_to_ind_subgraph: "\<lbrakk>\<sigma> v = Some w; (v,w) \<in> E \<rbrakk> \<Longrightarrow> (v,w) \<in> induced_by_strategy V\<^sub>\<alpha> \<sigma>"
     unfolding induced_by_strategy_def E_of_strat_def by auto
 
-  lemma ind_subgraph_add_subs: "\<lbrakk> \<sigma>' = \<sigma> ++ s; dom \<sigma> \<inter> dom s = {}; strategy_of V\<^sub>\<alpha> \<sigma> \<rbrakk>
-    \<Longrightarrow> induced_by_strategy V\<^sub>\<alpha> \<sigma> \<subseteq> induced_by_strategy V\<^sub>\<alpha> \<sigma>'"
+  lemma ind_subgraph_add_disjoint_doms: "\<lbrakk> dom \<sigma> \<inter> dom \<sigma>' = {}; strategy_of V\<^sub>\<alpha> \<sigma> \<rbrakk>
+    \<Longrightarrow> induced_by_strategy V\<^sub>\<alpha> \<sigma> \<subseteq> induced_by_strategy V\<^sub>\<alpha> (\<sigma> ++ \<sigma>')"
   proof -
-    assume \<sigma>'_def: "\<sigma>' = \<sigma> ++ s" and
-           doms_disj: "dom \<sigma> \<inter> dom s = {}" and
-           strat_of_\<sigma>: "strategy_of V\<^sub>\<alpha> \<sigma>"
+    assume
+      doms_disj: "dom \<sigma> \<inter> dom \<sigma>' = {}" and
+      strat_of_\<sigma>:  "strategy_of V\<^sub>\<alpha> \<sigma>"
 
-    have "\<forall>v w. (v,w) \<in> induced_by_strategy V\<^sub>\<alpha> \<sigma> \<longrightarrow> (v,w) \<in> induced_by_strategy V\<^sub>\<alpha> \<sigma>'"
+    let ?\<tau> = "\<sigma> ++ \<sigma>'"
+
+    have "\<forall>v w. (v,w) \<in> induced_by_strategy V\<^sub>\<alpha> \<sigma> \<longrightarrow> (v,w) \<in> induced_by_strategy V\<^sub>\<alpha> ?\<tau>"
     proof (intro allI; rule impI)
       fix v w
       assume in_\<sigma>: "(v,w) \<in> induced_by_strategy V\<^sub>\<alpha> \<sigma>"
@@ -542,35 +544,35 @@ begin
 
       from in_\<sigma> consider (own_node) "v \<in> dom \<sigma>" | (opponent_node) "v \<in> -V\<^sub>\<alpha>"
         using ind_subgraph_edge_src by blast
-      then show "(v,w) \<in> induced_by_strategy V\<^sub>\<alpha> \<sigma>'" proof cases
+      thus "(v,w) \<in> induced_by_strategy V\<^sub>\<alpha> ?\<tau>" proof cases
         case own_node
         with in_\<sigma> strat_of_\<sigma> have "\<sigma> v = Some w"
           using ind_subgraph_to_strategy by auto
-        with \<sigma>'_def doms_disj have "\<sigma>' v = Some w"
+        with doms_disj have "?\<tau> v = Some w"
           using map_add_comm by fastforce
-        then show ?thesis
+        thus ?thesis
           using strategy_to_ind_subgraph by auto
       next
-        case opponent_node
-        then show ?thesis
+        case opponent_node thus ?thesis
           unfolding induced_by_strategy_def E_of_strat_def by auto
       qed
     qed
-    then show ?thesis by force
+
+    thus ?thesis by force
   qed
 
-
-  lemma ind_subgraph_add_subs': "\<lbrakk> \<sigma>' = \<sigma> ++ s; dom \<sigma> \<inter> dom s = {}; strategy_of V\<^sub>\<alpha> \<sigma>; strategy_of V\<^sub>\<alpha> s \<rbrakk>
-    \<Longrightarrow> induced_by_strategy V\<^sub>\<alpha> \<sigma> = induced_by_strategy V\<^sub>\<alpha> \<sigma>' - dom s \<times> UNIV"
+  lemma ind_subgraph_add_disjoint_doms': "\<lbrakk> dom \<sigma> \<inter> dom \<sigma>' = {}; strategy_of V\<^sub>\<alpha> \<sigma>; strategy_of V\<^sub>\<alpha> \<sigma>' \<rbrakk>
+    \<Longrightarrow> induced_by_strategy V\<^sub>\<alpha> \<sigma> = induced_by_strategy V\<^sub>\<alpha> (\<sigma> ++ \<sigma>') - dom \<sigma>' \<times> UNIV"
   proof -
-    assume \<sigma>'_def: "\<sigma>' = \<sigma> ++ s" and
-           doms_disj: "dom \<sigma> \<inter> dom s = {}" and
-           strat_of_\<sigma>: "strategy_of V\<^sub>\<alpha> \<sigma>" and
-           strat_of_s: "strategy_of V\<^sub>\<alpha> s"
+    assume
+        doms_disj: "dom \<sigma> \<inter> dom \<sigma>' = {}" and
+        strat_of_\<sigma>: "strategy_of V\<^sub>\<alpha> \<sigma>" and
+        strat_of_\<sigma>': "strategy_of V\<^sub>\<alpha> \<sigma>'"
 
-    hence strat_of_\<sigma>': "strategy_of V\<^sub>\<alpha> \<sigma>'" by force
+    let ?\<tau> = "\<sigma> ++ \<sigma>'"
+    from strat_of_\<sigma> strat_of_\<sigma>' have strat_of_\<tau>: "strategy_of V\<^sub>\<alpha> ?\<tau>" by simp
 
-    have "\<forall>v w. (v,w) \<in> induced_by_strategy V\<^sub>\<alpha> \<sigma> \<longrightarrow> (v,w) \<in> induced_by_strategy V\<^sub>\<alpha> \<sigma>' - dom s \<times> UNIV"
+    have "\<forall>v w. (v,w) \<in> induced_by_strategy V\<^sub>\<alpha> \<sigma> \<longrightarrow> (v,w) \<in> induced_by_strategy V\<^sub>\<alpha> ?\<tau> - dom \<sigma>' \<times> UNIV"
     proof (intro allI; rule impI)
       fix v w
       assume in_\<sigma>: "(v,w) \<in> induced_by_strategy V\<^sub>\<alpha> \<sigma>"
@@ -578,19 +580,19 @@ begin
 
       from in_\<sigma> consider (own_node) "v \<in> dom \<sigma>" | (opponent_node) "v \<in> -V\<^sub>\<alpha>"
         using ind_subgraph_edge_src by blast
-      then show "(v,w) \<in> induced_by_strategy V\<^sub>\<alpha> \<sigma>' - dom s \<times> UNIV" proof cases
+      thus "(v,w) \<in> induced_by_strategy V\<^sub>\<alpha> ?\<tau> - dom \<sigma>' \<times> UNIV" proof cases
         case own_node
         with in_\<sigma> strat_of_\<sigma> have "\<sigma> v = Some w"
           using ind_subgraph_to_strategy by auto
-        with \<sigma>'_def doms_disj have edge_in_\<sigma>: "\<sigma>' v = Some w"
+        with doms_disj have edge_in_\<sigma>: "?\<tau> v = Some w"
           using map_add_comm by fastforce
-        from own_node strat_of_s doms_disj have v_notin_dom_s: "v \<notin> dom s"
+        from own_node strat_of_\<sigma>' doms_disj have v_notin_dom_\<sigma>': "v \<notin> dom \<sigma>'"
           using ind_subgraph_edge_src[OF in_\<sigma>] by auto
-        from edge_in_\<sigma> v_notin_dom_s show ?thesis
+        from edge_in_\<sigma> v_notin_dom_\<sigma>' show ?thesis
           using strategy_to_ind_subgraph by auto
       next
         case opponent_node
-        with strat_of_s have "v \<notin> dom s"
+        with strat_of_\<sigma>' have "v \<notin> dom \<sigma>'"
           unfolding strategy_of_def
           using ind_subgraph_edge_src[OF in_\<sigma>]
           by auto
@@ -599,19 +601,19 @@ begin
       qed
     qed
 
-    moreover have "\<forall>v w. (v,w) \<in> induced_by_strategy V\<^sub>\<alpha> \<sigma>' - dom s \<times> UNIV \<longrightarrow> (v,w) \<in> induced_by_strategy V\<^sub>\<alpha> \<sigma>"
+    moreover have "\<forall>v w. (v,w) \<in> induced_by_strategy V\<^sub>\<alpha> ?\<tau> - dom \<sigma>' \<times> UNIV \<longrightarrow> (v,w) \<in> induced_by_strategy V\<^sub>\<alpha> \<sigma>"
     proof (intro allI; rule impI)
       fix v w
-      assume in_\<sigma>': "(v,w) \<in> induced_by_strategy V\<^sub>\<alpha> \<sigma>' - dom s \<times> UNIV"
+      assume in_\<sigma>': "(v,w) \<in> induced_by_strategy V\<^sub>\<alpha> ?\<tau> - dom \<sigma>' \<times> UNIV"
       hence edge_in_E[simp]: "(v,w) \<in> E" by force
 
-      from in_\<sigma>' consider (own_node) "v \<in> dom \<sigma>' - dom s" | (opponent_node) "v \<in> -V\<^sub>\<alpha>"
-        using ind_subgraph_edge_src by blast
-      then show "(v,w) \<in> induced_by_strategy V\<^sub>\<alpha> \<sigma>" proof cases
+      from in_\<sigma>' consider (own_node) "v \<in> dom ?\<tau> - dom \<sigma>'" | (opponent_node) "v \<in> -V\<^sub>\<alpha>"
+        using ind_subgraph_edge_src by fastforce
+      thus "(v,w) \<in> induced_by_strategy V\<^sub>\<alpha> \<sigma>" proof cases
         case own_node
-        with in_\<sigma>' strat_of_\<sigma>' have "\<sigma>' v = Some w"
-          using ind_subgraph_to_strategy by blast
-        with own_node \<sigma>'_def doms_disj have "\<sigma> v = Some w"
+        with in_\<sigma>' strat_of_\<tau> have "?\<tau> v = Some w"
+          using ind_subgraph_to_strategy by fastforce
+        with own_node doms_disj have "\<sigma> v = Some w"
           using map_add_comm by blast
         thus ?thesis using strategy_to_ind_subgraph by force
       next
@@ -853,8 +855,10 @@ begin
 
           from our_node dom_\<sigma> have "x \<notin> dom \<sigma>" by blast
           hence doms_disj: "dom \<sigma> \<inter> dom [x\<mapsto>y] = {}" by simp
-          from ind_subgraph_add_subs[OF \<sigma>'_def doms_disj strat_\<sigma>]
-          have \<sigma>_subgraph_\<sigma>':  "induced_by_strategy V\<^sub>\<alpha> \<sigma> \<subseteq> induced_by_strategy V\<^sub>\<alpha> \<sigma>'" .
+          from ind_subgraph_add_disjoint_doms'[OF doms_disj strat_\<sigma> strat_assign_x_y]
+          have \<sigma>_subgraph_\<sigma>':  "induced_by_strategy V\<^sub>\<alpha> \<sigma> = induced_by_strategy V\<^sub>\<alpha> \<sigma>' - {x} \<times> UNIV"
+            using \<sigma>'_def by simp
+          hence no_x_edges_in_\<sigma>: "induced_by_strategy V\<^sub>\<alpha> \<sigma> \<inter> {x} \<times> UNIV = {}" by auto
 
           have "x\<in>V" using V\<^sub>\<alpha>_subset our_node(2) by auto
 
