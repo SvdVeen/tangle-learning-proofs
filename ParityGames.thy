@@ -825,12 +825,6 @@ begin
 
     lemma attractor_eq_nodes_in_rank: "attractor X = \<Union>(nodes_in_rank`UNIV)"
       using attractor_ss_nodes_in_rank nodes_in_rank_ss_attractor by auto
-    find_theorems "?a ++ ?b"
-    find_theorems induced_by_strategy
-    find_theorems ran
-
-    find_theorems path'
-    thm path'_alt
 
     lemma nodes_in_rank_forces_X: "x\<in>nodes_in_rank n \<Longrightarrow> \<exists>\<sigma>.
        strategy_of V\<^sub>\<alpha> \<sigma> \<and> dom \<sigma> \<subseteq> nodes_in_rank n - X
@@ -857,6 +851,7 @@ begin
           by fastforce
       next
         case our_node
+        hence x_in_suc_n: "x \<in> nodes_in_rank (Suc n)" by auto
 
         from Suc.IH[OF \<open>y\<in>nodes_in_rank n\<close>] obtain \<sigma> where
           strat_\<sigma>: "strategy_of V\<^sub>\<alpha> \<sigma>" and
@@ -895,18 +890,45 @@ begin
           fix xs z
           assume PATH_XS: "path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>') x xs z"
             and LEN_XS: "Suc n < length xs"
-          thm Suc.IH
           have "x\<notin>dom \<sigma>" using dom_\<sigma> our_node(1) by blast
           then have "(x,yy)\<in>induced_by_strategy V\<^sub>\<alpha> \<sigma>' \<Longrightarrow> yy=y" for yy
             using \<open>x\<in>V\<^sub>\<alpha>\<close> by (auto simp: induced_by_strategy_def E_of_strat_def \<sigma>'_def)
 
-          thm subgraph_path'
           then obtain xs' where xs': "xs=x#xs'" "path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>') y xs' z"
             using PATH_XS LEN_XS
             apply (cases xs)
             by auto
 
-          have "x \<notin> set xs'" sorry
+          from closed_\<sigma>' our_node(4) xs'(2)
+          have "X \<inter> set xs' \<noteq> {} \<or> path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) y xs' z"
+          proof (induction xs' arbitrary: y n)
+            case Nil
+            from Nil(3) have "z=y" by fastforce
+            thus ?case by fastforce
+          next
+            case (Cons a xs')
+            from Cons(4) have a_is_y[simp]: "a=y" by simp
+            from Cons(3) consider "y \<in> X" | " y \<in> nodes_in_rank n - X" by blast
+            then show ?case proof cases
+              case 1 thus ?thesis by auto
+            next
+              case 2
+              hence "y \<in> nodes_in_rank (Suc n) - X" by simp
+              with Cons(2)
+              have y_succs: "\<forall>y'\<in> induced_by_strategy V\<^sub>\<alpha> \<sigma>' `` {y}. y' \<in> nodes_in_rank (Suc n - 1)"
+                by blast
+              from Cons(4) obtain y' where y'_path:
+              "(y,y') \<in> (induced_by_strategy V\<^sub>\<alpha> \<sigma>')" "path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>') y' xs' z "
+                by auto
+              with y_succs have "y' \<in> nodes_in_rank n" by fastforce
+              from Cons.IH[OF Cons(2) this y'_path(2)]
+              have y'_path_\<sigma>: "X \<inter>  set xs' \<noteq> {} \<or> path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) y' xs' z" .
+              from y'_path(1) have "(y,y') \<in> (induced_by_strategy V\<^sub>\<alpha> \<sigma>)"
+              with y'_path_\<sigma> show ?thesis by force
+            qed
+          qed
+
+          find_theorems induced_by_strategy
           hence PATH_XS': "path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) y xs' z" sorry
           from LEN_XS xs'(1) have LEN_XS': "n < length xs'" by auto
           from PATH_XS' LEN_XS' forces_\<sigma> have "set xs \<inter> X \<noteq> {}" using xs'(1) by auto
@@ -924,82 +946,6 @@ begin
         then show ?thesis sorry
       qed
     qed
-     (** case (base x)
-      then show ?case
-        apply -
-        apply (rule exI[where x=Map.empty])
-        by (auto simp: neq_Nil_conv)
-
-    next
-      case (own x y i)
-
-      from own have x_in_attr: "x\<in>attractor X" by (blast intro: attractor.own)
-
-      from own obtain \<sigma> where
-        IH_strat: "strategy_of V\<^sub>\<alpha> \<sigma>" and
-        IH_dom: "dom \<sigma> \<subseteq> attractor X - X"  and
-        IH_lasso: "(\<forall>xs. lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) y xs \<longrightarrow> X \<inter> set xs \<noteq> {})"
-        by blast
-
-      show ?case proof (intro exI[where x="\<sigma>(x\<mapsto>y)"] conjI)
-        show "strategy_of V\<^sub>\<alpha> (\<sigma>(x \<mapsto> y))" using IH_strat \<open>x\<in>V\<^sub>\<alpha>-X\<close> \<open>(x,y)\<in>E\<close>
-          unfolding strategy_of_def E_of_strat_def
-          by (auto split: if_splits)
-        show "dom (\<sigma>(x \<mapsto> y)) \<subseteq> attractor X - X"
-          using IH_dom \<open>x\<in>V\<^sub>\<alpha>-X\<close> x_in_attr by simp
-
-        show "\<forall>xs. lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> (\<sigma>(x \<mapsto> y))) x xs \<longrightarrow> X \<inter> set xs \<noteq> {}"
-        proof (intro allI impI)
-          fix xs
-          assume A: "lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> (\<sigma>(x \<mapsto> y))) x xs"
-          hence [simp]: "xs\<noteq>[]" by auto
-
-          have EDGE_DET: "y'=y" if "(x, y') \<in> induced_by_strategy V\<^sub>\<alpha> (\<sigma>(x \<mapsto> y))" for y'
-            using that \<open>x\<in>V\<^sub>\<alpha>-X\<close> unfolding induced_by_strategy_def E_of_strat_def
-            by auto
-
-          from A obtain z where "path' (induced_by_strategy V\<^sub>\<alpha> (\<sigma>(x \<mapsto> y))) x xs z" "z\<in>set xs"
-            using lasso'_iff_path by fast
-
-          then obtain xs' where [simp]: "xs=x#xs'" and path_xs': "path' (induced_by_strategy V\<^sub>\<alpha> (\<sigma>(x \<mapsto> y))) y xs' z"
-            apply (cases xs; simp)
-            apply (auto dest: EDGE_DET)
-            done
-
-          show "X \<inter> set xs \<noteq> {}" proof (cases "z\<in>set xs'")
-            case True with path_xs' have "lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> (\<sigma>(x \<mapsto> y))) y xs'"
-              using lasso'_iff_path by fastforce
-            with own.IH show ?thesis by simp
-          next
-            case False show ?thesis proof
-              assume xs_no_X: "X \<inter> set xs = {}"
-              from False z_back have [simp]: "x = z" by fast
-              show False proof (cases xs')
-                case Nil with path_xs' x_lasso' xs_no_X own.IH show ?thesis by fastforce
-              next
-                case (Cons a list)
-                hence "xs'\<noteq>[]" by simp
-                from lasso'_close_loop[OF path_xs' this] x'_edge
-                have "lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X)) y (xs' @ [x])" by auto
-                with own.IH xs_no_X show ?thesis by fastforce
-              qed
-            qed
-          qed
-
-
-
-          show "X \<inter> set xs \<noteq> {}"
-
-
-
-
-      then show ?case sorry
-    next
-      case (opponent x i)
-      then show ?case sorry
-    qed *)
-
-
   end
 end
 
