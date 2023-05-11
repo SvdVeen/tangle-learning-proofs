@@ -485,6 +485,9 @@ begin
   lemma ind_subgraph: "induced_by_strategy V\<^sub>\<alpha> \<sigma> \<subseteq> E"
     unfolding induced_by_strategy_def by auto
 
+  lemma ind_subgraph_not_in_dom: "\<lbrakk> (v,w) \<in> E; v \<notin> V\<^sub>\<alpha> \<rbrakk> \<Longrightarrow> (v,w) \<in> induced_by_strategy V\<^sub>\<alpha> \<sigma>"
+    unfolding induced_by_strategy_def E_of_strat_def by fast
+
   lemma ind_subgraph_edge_in_E[simp]: "(v,w) \<in> induced_by_strategy V\<^sub>\<alpha> \<sigma> \<Longrightarrow> (v,w) \<in> E"
     using ind_subgraph by blast
 
@@ -923,15 +926,15 @@ begin
               with y_succs have "y' \<in> nodes_in_rank n" by fastforce
               from Cons.IH[OF Cons(2) this y'_path(2)]
               have y'_path_\<sigma>: "X \<inter>  set xs' \<noteq> {} \<or> path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) y' xs' z" .
-              from y'_path(1) have "(y,y') \<in> (induced_by_strategy V\<^sub>\<alpha> \<sigma>)"
+              from y'_path(1) have "(y,y') \<in> (induced_by_strategy V\<^sub>\<alpha> \<sigma>)" (* I need something more *)
               with y'_path_\<sigma> show ?thesis by force
             qed
           qed
 
-          find_theorems induced_by_strategy
-          hence PATH_XS': "path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) y xs' z" sorry
+          with xs'(1) have PATH_XS': "set xs \<inter> X \<noteq> {} \<or> path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) y xs' z"
+            by auto
           from LEN_XS xs'(1) have LEN_XS': "n < length xs'" by auto
-          from PATH_XS' LEN_XS' forces_\<sigma> have "set xs \<inter> X \<noteq> {}" using xs'(1) by auto
+          from xs'(1) PATH_XS' LEN_XS' forces_\<sigma> have "set xs \<inter> X \<noteq> {}" by auto
         } note forces_\<sigma>' = this
 
         show ?thesis
@@ -940,10 +943,15 @@ begin
 
       next
         case opponent_node
-        with Suc.IH have "\<forall>y \<in> E `` {x}.
-           \<exists>\<sigma>. strategy_of V\<^sub>\<alpha> \<sigma> \<and> dom \<sigma> \<subseteq> nodes_in_rank n - X \<and>
-          (\<forall>xs z. path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) y xs z \<and> n < length xs \<longrightarrow> set xs \<inter> X \<noteq> {})" by blast
-        then show ?thesis sorry
+        from Suc.IH opponent_node(3) have "\<forall>y \<in> E `` {x}. \<exists>\<sigma>.
+          strategy_of V\<^sub>\<alpha> \<sigma> \<and>  dom \<sigma> \<subseteq> nodes_in_rank n - X \<and>
+          (\<forall>x'\<in>nodes_in_rank n - X. \<forall>y\<in>induced_by_strategy V\<^sub>\<alpha> \<sigma> `` {x'}. y \<in> nodes_in_rank (n - 1)) \<and>
+          (\<forall>xs z. path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) y xs z \<and> n < length xs \<longrightarrow> set xs \<inter> X \<noteq> {})"
+          by blast
+        (* I would have to find one strategy that forces the play to X from all y, but all I know is
+           that for each y, there exists a separate strategy to force the play to X *)
+        show ?thesis sorry
+        qed
       qed
     qed
   end
