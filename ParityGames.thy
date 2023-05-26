@@ -1004,7 +1004,9 @@ begin
   qed
 qed
 
+end
 
+(*
     
                   
         have PATH: "path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) x xs z" sorry
@@ -1149,7 +1151,9 @@ qed
   qed
   end
 end
+*)
 
+end
 
 context player_arena begin
 
@@ -1318,14 +1322,18 @@ proof -
 
     interpret player_arena E V V\<^sub>0 prio V\<^sub>\<alpha> winningP by fact
 
-    obtain E' :: "'v rel" and V' V\<^sub>0' V\<^sub>\<alpha>'
-      where ARENA': "player_arena E' V' V\<^sub>0' V\<^sub>\<alpha>'" and FIN: "finite V'" and LESS: "card V' < card V"
+    define E' :: "'v rel" where "E'=undefined"
+    define V' :: "'v set" where "V'=undefined"
+    define V\<^sub>0' :: "'v set" where "V\<^sub>0'=undefined"
+    define V\<^sub>\<alpha>' :: "'v set" where "V\<^sub>\<alpha>'=undefined"
+    
+    have ARENA': "player_arena E' V' V\<^sub>0' V\<^sub>\<alpha>'" and FIN: "finite V'" and LESS: "card V' < card V"
       sorry
 
     interpret subgame: player_arena E' V' V\<^sub>0' prio V\<^sub>\<alpha>' winningP
       using ARENA' by auto
 
-    note IH = less.IH[OF FIN LESS ARENA'[unfolded X]]
+    note IH = less.IH[OF FIN LESS ARENA']
 
     show "won_by_player v \<or> won_by_opponent v" sorry
   qed
