@@ -833,24 +833,200 @@ begin
     apply (induction n') by auto
 
   (*  \<and> (\<forall>x' \<in> nodes_in_rank n - X. (\<forall>y \<in> (induced_by_strategy V\<^sub>\<alpha> \<sigma>) `` {x'}. y \<in> nodes_in_rank (n-1))) *)
-  lemma nodes_in_rank_forces_X: "x\<in>nodes_in_rank n \<Longrightarrow> \<exists>\<sigma>.
+  lemma nodes_in_rank_forces_X: "\<exists>\<sigma>. 
          strategy_of V\<^sub>\<alpha> \<sigma> \<and> dom \<sigma> \<subseteq> nodes_in_rank n - X
          \<and> (\<forall>n'. \<forall>x' \<in> nodes_in_rank n' - X. (\<forall>y' \<in> (induced_by_strategy V\<^sub>\<alpha> \<sigma>) `` {x'}. y' \<in> nodes_in_rank (n')))
-         \<and> (\<forall>xs z. path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) x xs z \<and> n<length xs \<longrightarrow> set xs \<inter> X \<noteq> {})"
-  proof (induction n arbitrary: x)
+         \<and> (\<forall>x\<in>nodes_in_rank n. \<forall>xs z. path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) x xs z \<and> n<length xs \<longrightarrow> set xs \<inter> X \<noteq> {})"
+  proof (induction n)
     case 0
     then show ?case
       apply (rule_tac exI[where x=Map.empty])
-      apply (intro conjI)
-      subgoal by auto
-      subgoal by auto
-      subgoal using nodes_in_rank_edges_lower by auto
-      subgoal by (auto simp: neq_Nil_conv)
+      apply auto
+      subgoal using nodes_in_rank_edges_lower by blast
+      subgoal using origin_in_path' by fastforce
       done
 
   (* using E_in_V apply (auto simp: neq_Nil_conv) *)
   next
     case (Suc n)
+    
+    from Suc.IH obtain \<sigma> where
+      strat_\<sigma>: "strategy_of V\<^sub>\<alpha> \<sigma>" and
+      dom_\<sigma>: "dom \<sigma> \<subseteq> nodes_in_rank n - X" and
+      closed_\<sigma>: "(\<forall>n'. \<forall>x' \<in> nodes_in_rank n' - X. (\<forall>y' \<in> (induced_by_strategy V\<^sub>\<alpha> \<sigma>) `` {x'}. y' \<in> nodes_in_rank (n')))" and
+      forces_\<sigma>: "\<And>x xs z. \<lbrakk>x\<in>nodes_in_rank n; path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) x xs z; n < length xs\<rbrakk> \<Longrightarrow> set xs \<inter> X \<noteq> {}"
+      by blast  
+
+    define new_player_nodes where "new_player_nodes = (nodes_in_rank (Suc n) - nodes_in_rank n) \<inter> V\<^sub>\<alpha>"
+    
+    define target where "target = (\<lambda>x. SOME x'. x'\<in>nodes_in_rank n \<and> (x,x')\<in>E)"
+    
+    {
+      fix x
+      assume "x\<in>new_player_nodes"
+      then have "target x\<in>nodes_in_rank n" "(x,target x)\<in>E"
+        unfolding new_player_nodes_def target_def
+        apply (simp_all)
+        by (metis (no_types, lifting) someI)+
+        
+    } note target=this
+
+    have target_eq: "x\<in>new_player_nodes \<longleftrightarrow> (x\<in>nodes_in_rank (Suc n) \<and> x\<in>V\<^sub>\<alpha> \<and> x\<notin>nodes_in_rank n \<and> target x\<in>nodes_in_rank n\<and> (x,target x)\<in>E)" for x
+      unfolding new_player_nodes_def target_def
+      apply (simp_all) 
+      apply auto []
+      by (metis (no_types, lifting) someI)+
+        
+    
+    define \<sigma>' where "\<sigma>' = (\<lambda>x. if x \<in> new_player_nodes then Some (target x) else \<sigma> x)"
+        
+    
+    
+    show ?case 
+    proof (intro exI[where x=\<sigma>'] conjI allI ballI impI; (elim conjE)?)
+      show "strategy_of V\<^sub>\<alpha> \<sigma>'"
+        using strat_\<sigma>
+        unfolding \<sigma>'_def strategy_of_def E_of_strat_def
+        apply (auto split: if_splits)
+        by (auto simp: target_eq)
+        
+        
+    show "dom \<sigma>' \<subseteq> nodes_in_rank (Suc n) - X"
+      unfolding \<sigma>'_def
+      using dom_\<sigma> 
+      apply (auto split: if_splits)
+      unfolding new_player_nodes_def
+      apply auto
+      by (metis bot_nat_0.extremum in_mono nodes_in_rank.simps(1) nodes_in_rank_mono)
+
+    {
+      fix n' x' y'
+      assume "x' \<in> nodes_in_rank n' - X" "y' \<in> induced_by_strategy V\<^sub>\<alpha> \<sigma>' `` {x'}"
+      then show "y' \<in> nodes_in_rank n'"
+        using closed_\<sigma> nodes_in_rank_mono
+        unfolding \<sigma>'_def induced_by_strategy_def E_of_strat_def 
+        apply (auto split: if_splits)
+        apply (auto simp: target_eq)
+        using nodes_in_rank_mono
+        by (meson in_mono linorder_linear)
+    } note closed_\<sigma>'=this
+    
+    
+    {
+      fix x xs z
+      
+      assume "x\<in>nodes_in_rank n"
+      and "path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>') x xs z"
+      and "X \<inter> set xs = {}"
+      then have "path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) x xs z"          
+      proof (induction xs arbitrary: x)
+        case Nil thus ?case by fastforce
+      next
+        case (Cons a xs')
+        
+        from Cons(3) have a_is_x[simp]: "a=x" by simp
+        with Cons obtain x' where x'_edge: "(x,x') \<in> induced_by_strategy V\<^sub>\<alpha> \<sigma>'"
+          and x'_path_\<sigma>': "path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>')  x' xs' z" by auto
+      
+        from x'_edge closed_\<sigma>' have "x' \<in> nodes_in_rank n"
+          using Cons.prems(1) Cons.prems(3) by auto
+        from Cons.IH[OF this x'_path_\<sigma>'] Cons.prems have x'_path_\<sigma>:
+          "path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) x' xs' z" by simp
+
+        have "(x,x') \<in> induced_by_strategy V\<^sub>\<alpha> \<sigma>"
+          using Cons.prems(1) x'_edge
+          unfolding \<sigma>'_def new_player_nodes_def induced_by_strategy_def E_of_strat_def
+          by simp
+          
+        then show ?case using x'_path_\<sigma> by auto
+      qed  
+    } note xfer_lower_rank_path = this
+    
+    
+    
+    {
+      fix x xs z
+      assume 
+          X_IN_SUCN: "x \<in> nodes_in_rank (Suc n)" 
+      and PATH': "path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>') x xs z" 
+      and LEN: "Suc n < length xs"  
+      
+      from X_IN_SUCN consider
+      (already_in) "x\<in>nodes_in_rank n"
+      | (our_node) "x\<notin>nodes_in_rank n" "x\<in>V\<^sub>\<alpha>" "(x,target x)\<in>E" "target x\<in>nodes_in_rank n"
+      | (opponent_node) "x\<notin>nodes_in_rank n" "x\<in>V-V\<^sub>\<alpha>" "\<forall>y\<in>E``{x}. y\<in>nodes_in_rank n"
+      apply auto
+      using X_IN_SUCN new_player_nodes_def target(1) target(2) by blast
+      
+      then show "set xs \<inter> X \<noteq> {}"
+      proof cases
+        case already_in thus ?thesis
+          by (metis Int_commute Suc_lessD PATH' LEN forces_\<sigma> xfer_lower_rank_path)
+          
+      next
+        case our_node
+
+        then have "(x,x')\<in>induced_by_strategy V\<^sub>\<alpha> \<sigma>' \<Longrightarrow> x'=target x" for x'
+          unfolding induced_by_strategy_def E_of_strat_def \<sigma>'_def
+          using X_IN_SUCN
+          by (auto split: if_splits simp: target_eq) 
+        then obtain xs' where xs': "xs=x#xs'" "path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>') (target x) xs' z"
+          using LEN PATH'
+          by (cases xs) auto
+        
+        show "set xs \<inter> X \<noteq> {}"
+        proof
+          assume XS_dj_X: "set xs \<inter> X = {}"  
+          
+          
+          from xfer_lower_rank_path[OF _ xs'(2)] XS_dj_X xs'(1) \<open>target x \<in> nodes_in_rank n\<close> 
+          have "path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) (target x) xs' z" by auto
+          from forces_\<sigma>[OF _ this] LEN \<open>target x \<in> nodes_in_rank n\<close> xs'(1) XS_dj_X show False by auto
+        qed  
+      next
+        case opponent_node    
+        
+        then obtain xs' y where xs': "xs=x#xs'" "path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>') y xs' z" "y\<in>nodes_in_rank n"
+          using LEN PATH'
+          by (cases xs) auto
+
+        show "set xs \<inter> X \<noteq> {}"
+        proof
+          assume XS_dj_X: "set xs \<inter> X = {}"  
+          
+          from xfer_lower_rank_path[OF _ xs'(2)] XS_dj_X xs'(1,3) 
+          have "path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) y xs' z" by auto
+          
+          from forces_\<sigma>[OF _ this] LEN \<open>y \<in> nodes_in_rank n\<close> xs'(1) XS_dj_X show False by auto
+        qed  
+      qed
+    }
+  qed
+qed
+
+
+    
+                  
+        have PATH: "path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) x xs z" sorry
+        
+        from forces_\<sigma>[OF _ PATH]
+        
+        
+        
+        thus ?thesis 
+          
+          
+          
+
+        have "x\<notin>dom \<sigma>" using dom_\<sigma> our_node(1) by bl ast
+        then have "(x,yy)\<in>induced_by_strategy V\<^sub>\<alpha> \<sigma>' \<Longrightarrow> yy=y" for yy
+          using \<open>x\<in>V\<^sub>\<alpha>\<close> by (auto simp: induced_by_strategy_def E_of_strat_def \<sigma>'_def)
+
+                  
+        
+    }
+    
+    
 
     from Suc.prems consider
       (already_in) "x\<in>nodes_in_rank n"
@@ -873,7 +1049,7 @@ begin
         dom_\<sigma>: "dom \<sigma> \<subseteq> nodes_in_rank n - X" and
         closed_\<sigma>: "(\<forall>n'. \<forall>x' \<in> nodes_in_rank n' - X. (\<forall>y' \<in> (induced_by_strategy V\<^sub>\<alpha> \<sigma>) `` {x'}. y' \<in> nodes_in_rank (n')))" and
         forces_\<sigma>: "(\<forall>xs z. path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) y xs z \<and> n < length xs \<longrightarrow> set xs \<inter> X \<noteq> {})"
-        by blast
+        by bl ast
 
       define \<sigma>' where "\<sigma>' = \<sigma> ++ [x\<mapsto>y]"
       from strategy_of_map_assign[OF our_node(2) our_node(3)]
@@ -882,7 +1058,7 @@ begin
       have strat_\<sigma>': "strategy_of V\<^sub>\<alpha> \<sigma>'" by simp
 
       from our_node dom_\<sigma> have "x \<notin> dom \<sigma>" by blast
-      hence doms_disj: "dom \<sigma> \<inter> dom [x\<mapsto>y] = {}" by simp
+      hence doms_disj: "dom \<sigma> \<inter> dom [x\<mapsto>y] = {}" by simpE_of_strat
       from ind_subgraph_add_disjoint_doms'[OF doms_disj strat_\<sigma> strat_assign_x_y]
       have \<sigma>_subgraph_\<sigma>':  "induced_by_strategy V\<^sub>\<alpha> \<sigma> = induced_by_strategy V\<^sub>\<alpha> \<sigma>' - {x} \<times> UNIV"
         using \<sigma>'_def by simp
@@ -900,7 +1076,7 @@ begin
         using closed_\<sigma> our_node(1,4) nodes_in_rank_mono
         unfolding \<sigma>'_def induced_by_strategy_def E_of_strat_def
         apply (safe; simp split: if_splits)
-        by (meson in_mono linorder_linear)
+        by (meson in_mono linorde r_linear)
 
       {
         fix xs z
@@ -912,7 +1088,7 @@ begin
 
         then obtain xs' where xs': "xs=x#xs'" "path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>') y xs' z"
           using PATH_XS LEN_XS
-          apply (cases xs)
+          apply (cases xs)E_of_strat
           by auto
 
         from our_node(4) xs'(2)
