@@ -641,7 +641,6 @@ begin
 
 end
 
-
 locale player_arena = arena_defs E V V\<^sub>0 prio
   for E V and V\<^sub>0 :: "'v set" and prio
  +
@@ -829,330 +828,166 @@ begin
     lemma attractor_eq_nodes_in_rank: "attractor X = \<Union>(nodes_in_rank`UNIV)"
       using attractor_ss_nodes_in_rank nodes_in_rank_ss_attractor by auto
 
-  lemma nodes_in_rank_edges_lower: "\<lbrakk>x' \<in> nodes_in_rank n'; x' \<notin> X; (x', y') \<in> E; x' \<notin> V\<^sub>\<alpha>\<rbrakk> \<Longrightarrow> y' \<in> nodes_in_rank n'"
-    apply (induction n') by auto
-
-  (*  \<and> (\<forall>x' \<in> nodes_in_rank n - X. (\<forall>y \<in> (induced_by_strategy V\<^sub>\<alpha> \<sigma>) `` {x'}. y \<in> nodes_in_rank (n-1))) *)
-  lemma nodes_in_rank_forces_X: "\<exists>\<sigma>. 
-         strategy_of V\<^sub>\<alpha> \<sigma> \<and> dom \<sigma> \<subseteq> nodes_in_rank n - X
-         \<and> (\<forall>n'. \<forall>x' \<in> nodes_in_rank n' - X. (\<forall>y' \<in> (induced_by_strategy V\<^sub>\<alpha> \<sigma>) `` {x'}. y' \<in> nodes_in_rank (n')))
-         \<and> (\<forall>x\<in>nodes_in_rank n. \<forall>xs z. path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) x xs z \<and> n<length xs \<longrightarrow> set xs \<inter> X \<noteq> {})"
-  proof (induction n)
-    case 0
-    then show ?case
-      apply (rule_tac exI[where x=Map.empty])
-      apply auto
-      subgoal using nodes_in_rank_edges_lower by blast
-      subgoal using origin_in_path' by fastforce
-      done
-
-  (* using E_in_V apply (auto simp: neq_Nil_conv) *)
-  next
-    case (Suc n)
+    lemma nodes_in_rank_edges_lower: "\<lbrakk>x' \<in> nodes_in_rank n'; x' \<notin> X; (x', y') \<in> E; x' \<notin> V\<^sub>\<alpha>\<rbrakk> \<Longrightarrow> y' \<in> nodes_in_rank n'"
+      apply (induction n') by auto
+  
+  lemma nodes_in_rank_forces_X: "\<exists>\<sigma>.
+             strategy_of V\<^sub>\<alpha> \<sigma> \<and> dom \<sigma> \<subseteq> nodes_in_rank n - X
+             \<and> (\<forall>n'. \<forall>x' \<in> nodes_in_rank n' - X. (\<forall>y' \<in> (induced_by_strategy V\<^sub>\<alpha> \<sigma>) `` {x'}. y' \<in> nodes_in_rank (n')))
+             \<and> (\<forall>x\<in>nodes_in_rank n. \<forall>xs z. path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) x xs z \<and> n<length xs \<longrightarrow> set xs \<inter> X \<noteq> {})"
+      proof (induction n)
+        case 0
+        then show ?case
+          apply (rule_tac exI[where x=Map.empty])
+          apply auto
+          subgoal using nodes_in_rank_edges_lower by blast
+          subgoal using origin_in_path' by fastforce
+          done
     
-    from Suc.IH obtain \<sigma> where
-      strat_\<sigma>: "strategy_of V\<^sub>\<alpha> \<sigma>" and
-      dom_\<sigma>: "dom \<sigma> \<subseteq> nodes_in_rank n - X" and
-      closed_\<sigma>: "(\<forall>n'. \<forall>x' \<in> nodes_in_rank n' - X. (\<forall>y' \<in> (induced_by_strategy V\<^sub>\<alpha> \<sigma>) `` {x'}. y' \<in> nodes_in_rank (n')))" and
-      forces_\<sigma>: "\<And>x xs z. \<lbrakk>x\<in>nodes_in_rank n; path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) x xs z; n < length xs\<rbrakk> \<Longrightarrow> set xs \<inter> X \<noteq> {}"
-      by blast  
-
-    define new_player_nodes where "new_player_nodes = (nodes_in_rank (Suc n) - nodes_in_rank n) \<inter> V\<^sub>\<alpha>"
-    
-    define target where "target = (\<lambda>x. SOME x'. x'\<in>nodes_in_rank n \<and> (x,x')\<in>E)"
-    
-    {
-      fix x
-      assume "x\<in>new_player_nodes"
-      then have "target x\<in>nodes_in_rank n" "(x,target x)\<in>E"
-        unfolding new_player_nodes_def target_def
-        apply (simp_all)
-        by (metis (no_types, lifting) someI)+
-        
-    } note target=this
-
-    have target_eq: "x\<in>new_player_nodes \<longleftrightarrow> (x\<in>nodes_in_rank (Suc n) \<and> x\<in>V\<^sub>\<alpha> \<and> x\<notin>nodes_in_rank n \<and> target x\<in>nodes_in_rank n\<and> (x,target x)\<in>E)" for x
-      unfolding new_player_nodes_def target_def
-      apply (simp_all) 
-      apply auto []
-      by (metis (no_types, lifting) someI)+
-        
-    
-    define \<sigma>' where "\<sigma>' = (\<lambda>x. if x \<in> new_player_nodes then Some (target x) else \<sigma> x)"
-        
-    
-    
-    show ?case 
-    proof (intro exI[where x=\<sigma>'] conjI allI ballI impI; (elim conjE)?)
-      show "strategy_of V\<^sub>\<alpha> \<sigma>'"
-        using strat_\<sigma>
-        unfolding \<sigma>'_def strategy_of_def E_of_strat_def
-        apply (auto split: if_splits)
-        by (auto simp: target_eq)
-        
-        
-    show "dom \<sigma>' \<subseteq> nodes_in_rank (Suc n) - X"
-      unfolding \<sigma>'_def
-      using dom_\<sigma> 
-      apply (auto split: if_splits)
-      unfolding new_player_nodes_def
-      apply auto
-      by (metis bot_nat_0.extremum in_mono nodes_in_rank.simps(1) nodes_in_rank_mono)
-
-    {
-      fix n' x' y'
-      assume "x' \<in> nodes_in_rank n' - X" "y' \<in> induced_by_strategy V\<^sub>\<alpha> \<sigma>' `` {x'}"
-      then show "y' \<in> nodes_in_rank n'"
-        using closed_\<sigma> nodes_in_rank_mono
-        unfolding \<sigma>'_def induced_by_strategy_def E_of_strat_def 
-        apply (auto split: if_splits)
-        apply (auto simp: target_eq)
-        using nodes_in_rank_mono
-        by (meson in_mono linorder_linear)
-    } note closed_\<sigma>'=this
-    
-    
-    {
-      fix x xs z
-      
-      assume "x\<in>nodes_in_rank n"
-      and "path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>') x xs z"
-      and "X \<inter> set xs = {}"
-      then have "path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) x xs z"          
-      proof (induction xs arbitrary: x)
-        case Nil thus ?case by fastforce
       next
-        case (Cons a xs')
-        
-        from Cons(3) have a_is_x[simp]: "a=x" by simp
-        with Cons obtain x' where x'_edge: "(x,x') \<in> induced_by_strategy V\<^sub>\<alpha> \<sigma>'"
-          and x'_path_\<sigma>': "path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>')  x' xs' z" by auto
-      
-        from x'_edge closed_\<sigma>' have "x' \<in> nodes_in_rank n"
-          using Cons.prems(1) Cons.prems(3) by auto
-        from Cons.IH[OF this x'_path_\<sigma>'] Cons.prems have x'_path_\<sigma>:
-          "path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) x' xs' z" by simp
-
-        have "(x,x') \<in> induced_by_strategy V\<^sub>\<alpha> \<sigma>"
-          using Cons.prems(1) x'_edge
-          unfolding \<sigma>'_def new_player_nodes_def induced_by_strategy_def E_of_strat_def
-          by simp
-          
-        then show ?case using x'_path_\<sigma> by auto
-      qed  
-    } note xfer_lower_rank_path = this
+        case (Suc n)
+        from Suc.IH obtain \<sigma> where
+          strat_\<sigma>: "strategy_of V\<^sub>\<alpha> \<sigma>" and
+          dom_\<sigma>: "dom \<sigma> \<subseteq> nodes_in_rank n - X" and
+          closed_\<sigma>: "(\<forall>n'. \<forall>x' \<in> nodes_in_rank n' - X. (\<forall>y' \<in> (induced_by_strategy V\<^sub>\<alpha> \<sigma>) `` {x'}. y' \<in> nodes_in_rank (n')))" and
+          forces_\<sigma>: "\<And>x xs z. \<lbrakk>x\<in>nodes_in_rank n; path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) x xs z; n < length xs\<rbrakk> \<Longrightarrow> set xs \<inter> X \<noteq> {}"
+          by blast
     
+        define new_player_nodes where "new_player_nodes = (nodes_in_rank (Suc n) - nodes_in_rank n) \<inter> V\<^sub>\<alpha>"
+        define target where "target = (\<lambda>x. SOME x'. x'\<in>nodes_in_rank n \<and> (x,x')\<in>E)"
     
+        {
+          fix x
+          assume "x\<in>new_player_nodes"
+          then have "target x\<in>nodes_in_rank n" "(x,target x)\<in>E"
+            unfolding new_player_nodes_def target_def
+            apply (simp_all)
+            by (metis (no_types, lifting) someI)+
+        } note target=this
     
-    {
-      fix x xs z
-      assume 
-          X_IN_SUCN: "x \<in> nodes_in_rank (Suc n)" 
-      and PATH': "path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>') x xs z" 
-      and LEN: "Suc n < length xs"  
-      
-      from X_IN_SUCN consider
-      (already_in) "x\<in>nodes_in_rank n"
-      | (our_node) "x\<notin>nodes_in_rank n" "x\<in>V\<^sub>\<alpha>" "(x,target x)\<in>E" "target x\<in>nodes_in_rank n"
-      | (opponent_node) "x\<notin>nodes_in_rank n" "x\<in>V-V\<^sub>\<alpha>" "\<forall>y\<in>E``{x}. y\<in>nodes_in_rank n"
-      apply auto
-      using X_IN_SUCN new_player_nodes_def target(1) target(2) by blast
-      
-      then show "set xs \<inter> X \<noteq> {}"
-      proof cases
-        case already_in thus ?thesis
-          by (metis Int_commute Suc_lessD PATH' LEN forces_\<sigma> xfer_lower_rank_path)
-          
-      next
-        case our_node
-
-        then have "(x,x')\<in>induced_by_strategy V\<^sub>\<alpha> \<sigma>' \<Longrightarrow> x'=target x" for x'
-          unfolding induced_by_strategy_def E_of_strat_def \<sigma>'_def
-          using X_IN_SUCN
-          by (auto split: if_splits simp: target_eq) 
-        then obtain xs' where xs': "xs=x#xs'" "path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>') (target x) xs' z"
-          using LEN PATH'
-          by (cases xs) auto
-        
-        show "set xs \<inter> X \<noteq> {}"
-        proof
-          assume XS_dj_X: "set xs \<inter> X = {}"  
-          
-          
-          from xfer_lower_rank_path[OF _ xs'(2)] XS_dj_X xs'(1) \<open>target x \<in> nodes_in_rank n\<close> 
-          have "path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) (target x) xs' z" by auto
-          from forces_\<sigma>[OF _ this] LEN \<open>target x \<in> nodes_in_rank n\<close> xs'(1) XS_dj_X show False by auto
-        qed  
-      next
-        case opponent_node    
-        
-        then obtain xs' y where xs': "xs=x#xs'" "path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>') y xs' z" "y\<in>nodes_in_rank n"
-          using LEN PATH'
-          by (cases xs) auto
-
-        show "set xs \<inter> X \<noteq> {}"
-        proof
-          assume XS_dj_X: "set xs \<inter> X = {}"  
-          
-          from xfer_lower_rank_path[OF _ xs'(2)] XS_dj_X xs'(1,3) 
-          have "path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) y xs' z" by auto
-          
-          from forces_\<sigma>[OF _ this] LEN \<open>y \<in> nodes_in_rank n\<close> xs'(1) XS_dj_X show False by auto
-        qed  
-      qed
-    }
-  qed
-qed
-
-end
-
-(*
+        have target_eq: "x\<in>new_player_nodes \<longleftrightarrow> (x\<in>nodes_in_rank (Suc n) \<and> x\<in>V\<^sub>\<alpha> \<and> x\<notin>nodes_in_rank n \<and> target x\<in>nodes_in_rank n\<and> (x,target x)\<in>E)" for x
+          unfolding new_player_nodes_def target_def
+          apply (simp_all)
+          apply auto []
+          by (metis (no_types, lifting) someI)+
     
-                  
-        have PATH: "path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) x xs z" sorry
-        
-        from forces_\<sigma>[OF _ PATH]
-        
-        
-        
-        thus ?thesis 
-          
-          
-          
-
-        have "x\<notin>dom \<sigma>" using dom_\<sigma> our_node(1) by bl ast
-        then have "(x,yy)\<in>induced_by_strategy V\<^sub>\<alpha> \<sigma>' \<Longrightarrow> yy=y" for yy
-          using \<open>x\<in>V\<^sub>\<alpha>\<close> by (auto simp: induced_by_strategy_def E_of_strat_def \<sigma>'_def)
-
-                  
-        
-    }
+        define \<sigma>' where "\<sigma>' = (\<lambda>x. if x \<in> new_player_nodes then Some (target x) else \<sigma> x)"
     
+        show ?case
+        proof (intro exI[where x=\<sigma>'] conjI allI ballI impI; (elim conjE)?)
+          show "strategy_of V\<^sub>\<alpha> \<sigma>'"
+            using strat_\<sigma>
+            unfolding \<sigma>'_def strategy_of_def E_of_strat_def
+            apply (auto split: if_splits)
+            by (auto simp: target_eq)
     
-
-    from Suc.prems consider
-      (already_in) "x\<in>nodes_in_rank n"
-      | (our_node) y where "x\<notin>nodes_in_rank n" "x\<in>V\<^sub>\<alpha>" "(x,y)\<in>E" "y\<in>nodes_in_rank n"
-      | (opponent_node) "x\<notin>nodes_in_rank n" "x\<in>V-V\<^sub>\<alpha>" "\<forall>y\<in>E``{x}. y\<in>nodes_in_rank n"
-      by auto
-    then show ?case proof cases
-      case already_in thus ?thesis
-        using Suc.IH[of x] nodes_in_rank_increasing ind_subgraph_edge_src
-        apply (clarsimp)
-        apply (rule exI)
-        by fastforce
-    next
-      case our_node
-      hence "x \<notin> X"
-        using nodes_in_rank.simps(1) nodes_in_rank_mono by blast
-
-      from Suc.IH[OF \<open>y\<in>nodes_in_rank n\<close>] obtain \<sigma> where
-        strat_\<sigma>: "strategy_of V\<^sub>\<alpha> \<sigma>" and
-        dom_\<sigma>: "dom \<sigma> \<subseteq> nodes_in_rank n - X" and
-        closed_\<sigma>: "(\<forall>n'. \<forall>x' \<in> nodes_in_rank n' - X. (\<forall>y' \<in> (induced_by_strategy V\<^sub>\<alpha> \<sigma>) `` {x'}. y' \<in> nodes_in_rank (n')))" and
-        forces_\<sigma>: "(\<forall>xs z. path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) y xs z \<and> n < length xs \<longrightarrow> set xs \<inter> X \<noteq> {})"
-        by bl ast
-
-      define \<sigma>' where "\<sigma>' = \<sigma> ++ [x\<mapsto>y]"
-      from strategy_of_map_assign[OF our_node(2) our_node(3)]
-      have strat_assign_x_y: "strategy_of V\<^sub>\<alpha> [x\<mapsto>y]" .
-      from strategy_of_add_same[OF strat_\<sigma> this] \<sigma>'_def
-      have strat_\<sigma>': "strategy_of V\<^sub>\<alpha> \<sigma>'" by simp
-
-      from our_node dom_\<sigma> have "x \<notin> dom \<sigma>" by blast
-      hence doms_disj: "dom \<sigma> \<inter> dom [x\<mapsto>y] = {}" by simpE_of_strat
-      from ind_subgraph_add_disjoint_doms'[OF doms_disj strat_\<sigma> strat_assign_x_y]
-      have \<sigma>_subgraph_\<sigma>':  "induced_by_strategy V\<^sub>\<alpha> \<sigma> = induced_by_strategy V\<^sub>\<alpha> \<sigma>' - {x} \<times> UNIV"
-        using \<sigma>'_def by simp
-      hence no_x_edges_in_\<sigma>: "induced_by_strategy V\<^sub>\<alpha> \<sigma> \<inter> {x} \<times> UNIV = {}" by auto
-      have "induced_by_strategy V\<^sub>\<alpha> \<sigma> \<subseteq> induced_by_strategy V\<^sub>\<alpha> \<sigma>'" using \<sigma>_subgraph_\<sigma>' by simp
-
-      have "x\<in>V" using V\<^sub>\<alpha>_subset our_node(2) by auto
-
-      have dom_\<sigma>': "dom \<sigma>' \<subseteq> nodes_in_rank (Suc n) - X"
-        unfolding \<sigma>'_def
-        using \<open>x\<in>V\<close> our_node dom_\<sigma> apply simp
-        using nodes_in_rank.simps(1) nodes_in_rank_mono our_node(1) by blast
-
-      have closed_\<sigma>': "(\<forall>n'. \<forall>x' \<in> nodes_in_rank n' - X. (\<forall>y' \<in> (induced_by_strategy V\<^sub>\<alpha> \<sigma>') `` {x'}. y' \<in> nodes_in_rank (n')))"
-        using closed_\<sigma> our_node(1,4) nodes_in_rank_mono
-        unfolding \<sigma>'_def induced_by_strategy_def E_of_strat_def
-        apply (safe; simp split: if_splits)
-        by (meson in_mono linorde r_linear)
-
-      {
-        fix xs z
-        assume PATH_XS: "path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>') x xs z"
-          and LEN_XS: "Suc n < length xs"
-        have "x\<notin>dom \<sigma>" using dom_\<sigma> our_node(1) by blast
-        then have "(x,yy)\<in>induced_by_strategy V\<^sub>\<alpha> \<sigma>' \<Longrightarrow> yy=y" for yy
-          using \<open>x\<in>V\<^sub>\<alpha>\<close> by (auto simp: induced_by_strategy_def E_of_strat_def \<sigma>'_def)
-
-        then obtain xs' where xs': "xs=x#xs'" "path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>') y xs' z"
-          using PATH_XS LEN_XS
-          apply (cases xs)E_of_strat
-          by auto
-
-        from our_node(4) xs'(2)
-        have "X \<inter> set xs' \<noteq> {} \<or> path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) y xs' z"
-        proof (induction xs' arbitrary: y)
-          case Nil thus ?case by fastforce
-        next
-          case (Cons a xs')
-          from Cons(3) have a_is_y[simp]: "a=y" by simp
-          with Cons obtain y' where y'_edge: "(y,y') \<in> induced_by_strategy V\<^sub>\<alpha> \<sigma>'"
-            and y'_path_\<sigma>': "path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>')  y' xs' z" by auto
-
-          from Cons(2) consider (y_in_X)"y \<in> X" | (y_notin_X) "y \<in> nodes_in_rank n - X" by blast
-          thus ?case proof cases
-            case y_in_X thus ?thesis by simp
+        show "dom \<sigma>' \<subseteq> nodes_in_rank (Suc n) - X"
+          unfolding \<sigma>'_def
+          using dom_\<sigma>
+          apply (auto split: if_splits)
+          unfolding new_player_nodes_def
+          apply auto
+          by (metis bot_nat_0.extremum in_mono nodes_in_rank.simps(1) nodes_in_rank_mono)
+    
+        {
+          fix n' x' y'
+          assume "x' \<in> nodes_in_rank n' - X" "y' \<in> induced_by_strategy V\<^sub>\<alpha> \<sigma>' `` {x'}"
+          then show "y' \<in> nodes_in_rank n'"
+            using closed_\<sigma> nodes_in_rank_mono
+            unfolding \<sigma>'_def induced_by_strategy_def E_of_strat_def
+            apply (auto split: if_splits)
+            apply (auto simp: target_eq)
+            using nodes_in_rank_mono
+            by (meson in_mono linorder_linear)
+        } note closed_\<sigma>'=this
+    
+        {
+          fix x xs z
+    
+          assume "x\<in>nodes_in_rank n"
+          and "path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>') x xs z"
+          and "X \<inter> set xs = {}"
+          then have "path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) x xs z"
+          proof (induction xs arbitrary: x)
+            case Nil thus ?case by fastforce
           next
-            case y_notin_X
-            with y'_edge closed_\<sigma>' have "y' \<in> nodes_in_rank n" by blast
-            from Cons.IH[OF this y'_path_\<sigma>'] have y'_path_\<sigma>:
-              "X \<inter> set xs' \<noteq> {} \<or> path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) y' xs' z" .
-
-            from y'_edge consider "y = x" | "y \<in> dom \<sigma>" | "y \<in> -V\<^sub>\<alpha>"
-              using \<sigma>'_def ind_subgraph_edge_src by fastforce
-            then have "(y,y') \<in> induced_by_strategy V\<^sub>\<alpha> \<sigma>"
-              using y'_edge unfolding \<sigma>'_def
-              apply cases
-              subgoal using Cons.prems(1) our_node(1) by auto
-              subgoal using doms_disj ind_subgraph_add_edge_dom_\<sigma> by blast
-              subgoal using ind_subgraph_add_edge_outside_strat by blast
-              done
-
-            with y'_path_\<sigma> show ?thesis by auto
+            case (Cons a xs')
+    
+            from Cons(3) have a_is_x[simp]: "a=x" by simp
+            with Cons obtain x' where x'_edge: "(x,x') \<in> induced_by_strategy V\<^sub>\<alpha> \<sigma>'"
+              and x'_path_\<sigma>': "path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>')  x' xs' z" by auto
+    
+            from x'_edge closed_\<sigma>' have "x' \<in> nodes_in_rank n"
+              using Cons.prems(1) Cons.prems(3) by auto
+            from Cons.IH[OF this x'_path_\<sigma>'] Cons.prems have x'_path_\<sigma>:
+              "path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) x' xs' z" by simp
+    
+            have "(x,x') \<in> induced_by_strategy V\<^sub>\<alpha> \<sigma>"
+              using Cons.prems(1) x'_edge
+              unfolding \<sigma>'_def new_player_nodes_def induced_by_strategy_def E_of_strat_def
+              by simp
+    
+            then show ?case using x'_path_\<sigma> by auto
           qed
-        qed
-
-        with xs'(1) have PATH_XS': "set xs \<inter> X \<noteq> {} \<or> path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) y xs' z"
-          by auto
-        from LEN_XS xs'(1) have LEN_XS': "n < length xs'" by auto
-        from xs'(1) PATH_XS' LEN_XS' forces_\<sigma> have "set xs \<inter> X \<noteq> {}" by auto
-      } note forces_\<sigma>' = this
-
-      show ?thesis
-        apply (rule exI[where x=\<sigma>'])
-        using strat_\<sigma>' dom_\<sigma>' closed_\<sigma>' forces_\<sigma>' by blast
-
-    next
-      case opponent_node
-      from Suc.IH opponent_node(3) have "\<forall>y \<in> E `` {x}. \<exists>\<sigma>.
-            strategy_of V\<^sub>\<alpha> \<sigma> \<and>  dom \<sigma> \<subseteq> nodes_in_rank n - X \<and>
-            (\<forall>n'. \<forall>x'\<in>nodes_in_rank n' - X. \<forall>y'\<in>induced_by_strategy V\<^sub>\<alpha> \<sigma> `` {x'}. y' \<in> nodes_in_rank n') \<and>
-            (\<forall>xs z. path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) y xs z \<and> n < length xs \<longrightarrow> set xs \<inter> X \<noteq> {})"
-        by blast
-
-  (* I would have to find one strategy that forces the play to X from all y, but all I know is
-             that for each y, there exists a separate strategy to force the play to X *)
-      show ?thesis sorry
+        } note xfer_lower_rank_path = this
+    
+        {
+          fix x xs z
+          assume
+              X_IN_SUCN: "x \<in> nodes_in_rank (Suc n)"
+          and PATH': "path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>') x xs z"
+          and LEN: "Suc n < length xs"
+    
+          from X_IN_SUCN consider
+          (already_in) "x\<in>nodes_in_rank n"
+          | (our_node) "x\<notin>nodes_in_rank n" "x\<in>V\<^sub>\<alpha>" "(x,target x)\<in>E" "target x\<in>nodes_in_rank n"
+          | (opponent_node) "x\<notin>nodes_in_rank n" "x\<in>V-V\<^sub>\<alpha>" "\<forall>y\<in>E``{x}. y\<in>nodes_in_rank n"
+          apply auto
+          using X_IN_SUCN new_player_nodes_def target(1) target(2) by blast
+    
+          then show "set xs \<inter> X \<noteq> {}"
+          proof cases
+            case already_in thus ?thesis
+              by (metis Int_commute Suc_lessD PATH' LEN forces_\<sigma> xfer_lower_rank_path)
+          next
+            case our_node
+    
+            then have "(x,x')\<in>induced_by_strategy V\<^sub>\<alpha> \<sigma>' \<Longrightarrow> x'=target x" for x'
+              unfolding induced_by_strategy_def E_of_strat_def \<sigma>'_def
+              using X_IN_SUCN
+              by (auto split: if_splits simp: target_eq)
+            then obtain xs' where xs': "xs=x#xs'" "path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>') (target x) xs' z"
+              using LEN PATH'
+              by (cases xs) auto
+    
+            show "set xs \<inter> X \<noteq> {}"
+            proof
+              assume XS_dj_X: "set xs \<inter> X = {}"
+              from xfer_lower_rank_path[OF _ xs'(2)] XS_dj_X xs'(1) \<open>target x \<in> nodes_in_rank n\<close>
+              have "path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) (target x) xs' z" by auto
+              from forces_\<sigma>[OF _ this] LEN \<open>target x \<in> nodes_in_rank n\<close> xs'(1) XS_dj_X show False by auto
+            qed
+          next
+            case opponent_node
+    
+            then obtain xs' y where xs': "xs=x#xs'" "path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>') y xs' z" "y\<in>nodes_in_rank n"
+              using LEN PATH'
+              by (cases xs) auto
+    
+            show "set xs \<inter> X \<noteq> {}"
+            proof
+              assume XS_dj_X: "set xs \<inter> X = {}"
+    
+              from xfer_lower_rank_path[OF _ xs'(2)] XS_dj_X xs'(1,3)
+              have "path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) y xs' z" by auto
+    
+              from forces_\<sigma>[OF _ this] LEN \<open>y \<in> nodes_in_rank n\<close> xs'(1) XS_dj_X show False by auto
+            qed
+          qed
+        }
+      qed
     qed
-  qed
   end
-end
-*)
-
 end
 
 context player_arena begin
@@ -1241,7 +1076,6 @@ context player_arena begin
   qed
 
   corollary "\<not>(won_by_player v \<and> won_by_opponent v)" using w1 by blast
-
 end
 
 term "player_arena.won_by_player E V prio V\<^sub>\<alpha> winningP"
@@ -1301,10 +1135,6 @@ context player_arena begin
 
 end
 
-
-
-
-
 lemma aux:
   fixes v :: 'v
   assumes player_arena: "player_arena E V V\<^sub>0 V\<^sub>\<alpha>"
@@ -1326,7 +1156,7 @@ proof -
     define V' :: "'v set" where "V'=undefined"
     define V\<^sub>0' :: "'v set" where "V\<^sub>0'=undefined"
     define V\<^sub>\<alpha>' :: "'v set" where "V\<^sub>\<alpha>'=undefined"
-    
+
     have ARENA': "player_arena E' V' V\<^sub>0' V\<^sub>\<alpha>'" and FIN: "finite V'" and LESS: "card V' < card V"
       sorry
 
@@ -1337,9 +1167,7 @@ proof -
 
     show "won_by_player v \<or> won_by_opponent v" sorry
   qed
-
-
-  sorry
+qed
 
 context player_arena begin
 
@@ -1348,807 +1176,7 @@ context player_arena begin
 
 end
 
-
-
-  term won_by_even
-
-  find_consts name: won
-
-
-
-
-
-
-  print_context
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    lemma attractor'_intros:
-      "\<And>x. x \<in> X \<Longrightarrow> x \<in> attractor' X 0"
-      "\<And>x y i. \<lbrakk>x \<in> V\<^sub>\<alpha> - X; (x, y) \<in> E; y\<in>attractor' X i\<rbrakk> \<Longrightarrow> x \<in> attractor' X (Suc i)"
-      "\<And>x i. \<lbrakk>x \<in> V - V\<^sub>\<alpha> - X; \<forall>y. (x, y) \<in> E \<longrightarrow> y\<in>attractor' X i\<rbrakk> \<Longrightarrow> x \<in> attractor' X (Suc i)"
-      unfolding attractor'_def
-      by (auto intro: attractor'p.intros)
-
-    lemma attractor'_subset: assumes "x\<in>attractor' X i" shows "x\<in>attractor X"
-      using assms apply (induction rule: attractor'_induct)
-      by (auto intro: attractor.intros)
-
-    lemma attractor_subset': assumes "x\<in>attractor X" shows "\<exists>i. x\<in>attractor' X i"
-      using assms
-    proof (induction rule: attractor.induct)
-      case (base x)
-      then show ?case by (auto intro: attractor'_intros)
-    next
-      case (own x y)
-      then show ?case by (auto intro: attractor'_intros)
-    next
-      case (opponent x)
-      obtain y where E: "(x,y)\<in>E" using opponent.hyps succ by auto
-      with opponent.IH obtain i where "y \<in> attractor X" "y \<in> attractor' X i" by blast
-      hence "x \<in> attractor' X (Suc i)"
-        using opponent E
-
-        apply (rule_tac attractor'_intros(3))
-        apply (auto)
-
-
-      show ?case
-    qed
-      apply (auto intro: attractor'p.intros)
-
-      using attractor'p.intros
-
-
-
-    lemma attractor_strategy_forces_X: "y\<in>attractor' X n \<Longrightarrow> \<exists>\<sigma>.
-       strategy_of V\<^sub>\<alpha> \<sigma> \<and> dom \<sigma> \<subseteq> attractor X - X
-       \<and> (\<forall>xs z. path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) y xs z \<and> n<length xs \<longrightarrow> xs!n \<in> X)"
-    proof (induction rule: attractor'_induct)
-      case (base x)
-      then show ?case
-        apply -
-        apply (rule exI[where x=Map.empty])
-        by (auto simp: neq_Nil_conv)
-
-    next
-      case (own x y i)
-
-      from own have x_in_attr: "x\<in>attractor X" by (blast intro: attractor.own)
-
-      from own obtain \<sigma> where
-        IH_strat: "strategy_of V\<^sub>\<alpha> \<sigma>" and
-        IH_dom: "dom \<sigma> \<subseteq> attractor X - X"  and
-        IH_lasso: "(\<forall>xs. lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) y xs \<longrightarrow> X \<inter> set xs \<noteq> {})"
-        by blast
-
-      show ?case proof (intro exI[where x="\<sigma>(x\<mapsto>y)"] conjI)
-        show "strategy_of V\<^sub>\<alpha> (\<sigma>(x \<mapsto> y))" using IH_strat \<open>x\<in>V\<^sub>\<alpha>-X\<close> \<open>(x,y)\<in>E\<close>
-          unfolding strategy_of_def E_of_strat_def
-          by (auto split: if_splits)
-        show "dom (\<sigma>(x \<mapsto> y)) \<subseteq> attractor X - X"
-          using IH_dom \<open>x\<in>V\<^sub>\<alpha>-X\<close> x_in_attr by simp
-
-        show "\<forall>xs. lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> (\<sigma>(x \<mapsto> y))) x xs \<longrightarrow> X \<inter> set xs \<noteq> {}"
-        proof (intro allI impI)
-          fix xs
-          assume A: "lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> (\<sigma>(x \<mapsto> y))) x xs"
-          hence [simp]: "xs\<noteq>[]" by auto
-
-          have EDGE_DET: "y'=y" if "(x, y') \<in> induced_by_strategy V\<^sub>\<alpha> (\<sigma>(x \<mapsto> y))" for y'
-            using that \<open>x\<in>V\<^sub>\<alpha>-X\<close> unfolding induced_by_strategy_def E_of_strat_def
-            by auto
-
-          from A obtain z where "path' (induced_by_strategy V\<^sub>\<alpha> (\<sigma>(x \<mapsto> y))) x xs z" "z\<in>set xs"
-            using lasso'_iff_path by fast
-
-          then obtain xs' where [simp]: "xs=x#xs'" and path_xs': "path' (induced_by_strategy V\<^sub>\<alpha> (\<sigma>(x \<mapsto> y))) y xs' z"
-            apply (cases xs; simp)
-            apply (auto dest: EDGE_DET)
-            done
-
-          show "X \<inter> set xs \<noteq> {}" proof (cases "z\<in>set xs'")
-            case True with path_xs' have "lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> (\<sigma>(x \<mapsto> y))) y xs'"
-              using lasso'_iff_path by fastforce
-            with own.IH show ?thesis by simp
-          next
-            case False show ?thesis proof
-              assume xs_no_X: "X \<inter> set xs = {}"
-              from False z_back have [simp]: "x = z" by fast
-              show False proof (cases xs')
-                case Nil with path_xs' x_lasso' xs_no_X own.IH show ?thesis by fastforce
-              next
-                case (Cons a list)
-                hence "xs'\<noteq>[]" by simp
-                from lasso'_close_loop[OF path_xs' this] x'_edge
-                have "lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X)) y (xs' @ [x])" by auto
-                with own.IH xs_no_X show ?thesis by fastforce
-              qed
-            qed
-          qed
-
-
-
-          show "X \<inter> set xs \<noteq> {}"
-
-
-
-
-      then show ?case sorry
-    next
-      case (opponent x i)
-      then show ?case sorry
-    qed
-
-
-(**  Commenting this out because it breaks everything else.
-    lemma attractor_strategy_forces_X: "y\<in>attractor X \<Longrightarrow> \<exists>\<sigma> n.
-       strategy_of V\<^sub>\<alpha> \<sigma> \<and> dom \<sigma> \<subseteq> attractor X - X
-       \<and> (\<forall>xs z. path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) y xs z \<and> n\<le>length xs \<longrightarrow> X \<inter> set xs \<noteq> {})"
-    proof (induction rule: attractor.induct)
-      case (base x) then show ?case
-        apply (rule_tac exI[where x=Map.empty])
-        using origin_in_lasso' by fastforce
-    next
-      case (own x y)
-
-      from own have x_in_attr: "x\<in>attractor X" by (blast intro: attractor.own)
-
-      from own obtain \<sigma> where
-        IH_strat: "strategy_of V\<^sub>\<alpha> \<sigma>" and
-        IH_dom: "dom \<sigma> \<subseteq> attractor X - X"  and
-        IH_lasso: "(\<forall>xs. lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) y xs \<longrightarrow> X \<inter> set xs \<noteq> {})"
-        by blast
-
-      show ?case proof (intro exI[where x="\<sigma>(x\<mapsto>y)"] conjI)
-        show "strategy_of V\<^sub>\<alpha> (\<sigma>(x \<mapsto> y))" using IH_strat \<open>x\<in>V\<^sub>\<alpha>-X\<close> \<open>(x,y)\<in>E\<close>
-          unfolding strategy_of_def E_of_strat_def
-          by (auto split: if_splits)
-        show "dom (\<sigma>(x \<mapsto> y)) \<subseteq> attractor X - X"
-          using IH_dom \<open>x\<in>V\<^sub>\<alpha>-X\<close> x_in_attr by simp
-
-        show "\<forall>xs. lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> (\<sigma>(x \<mapsto> y))) x xs \<longrightarrow> X \<inter> set xs \<noteq> {}"
-        proof (intro allI impI)
-          fix xs
-          assume A: "lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> (\<sigma>(x \<mapsto> y))) x xs"
-          hence [simp]: "xs\<noteq>[]" by auto
-
-          have EDGE_DET: "y'=y" if "(x, y') \<in> induced_by_strategy V\<^sub>\<alpha> (\<sigma>(x \<mapsto> y))" for y'
-            using that \<open>x\<in>V\<^sub>\<alpha>-X\<close> unfolding induced_by_strategy_def E_of_strat_def
-            by auto
-
-          from A obtain z where "path' (induced_by_strategy V\<^sub>\<alpha> (\<sigma>(x \<mapsto> y))) x xs z" "z\<in>set xs"
-            using lasso'_iff_path by fast
-
-          then obtain xs' where [simp]: "xs=x#xs'" and path_xs': "path' (induced_by_strategy V\<^sub>\<alpha> (\<sigma>(x \<mapsto> y))) y xs' z"
-            apply (cases xs; simp)
-            apply (auto dest: EDGE_DET)
-            done
-
-          show "X \<inter> set xs \<noteq> {}" proof (cases "z\<in>set xs'")
-            case True with path_xs' have "lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> (\<sigma>(x \<mapsto> y))) y xs'"
-              using lasso'_iff_path by fastforce
-            with own.IH show ?thesis by simp
-          next
-            case False show ?thesis proof
-              assume xs_no_X: "X \<inter> set xs = {}"
-              from False z_back have [simp]: "x = z" by fast
-              show False proof (cases xs')
-                case Nil with path_xs' x_lasso' xs_no_X own.IH show ?thesis by fastforce
-              next
-                case (Cons a list)
-                hence "xs'\<noteq>[]" by simp
-                from lasso'_close_loop[OF path_xs' this] x'_edge
-                have "lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X)) y (xs' @ [x])" by auto
-                with own.IH xs_no_X show ?thesis by fastforce
-              qed
-            qed
-          qed
-
-
-
-          show "X \<inter> set xs \<noteq> {}"
-
-
-      then show ?case
-      hence "(x,y) \<in> attractor_edges X" using ae_own attractor_edges_complete by blast
-      hence y_only_succ: "induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X) `` {x} = {y}"
-        (** Intuitively this is true, but I need some way to prove this, probably some lemma *) sorry
-      show ?case proof (rule allI; rule impI)
-        fix xs assume x_lasso': "lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X)) x xs"
-        from x_lasso' obtain z where x_path': "path' (induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X)) x xs z" "z \<in> set xs"
-          using lasso'_iff_path by fast
-        then obtain x' xs' where
-          [simp]:"xs=x#xs'"
-          and x'_edge: "(x,x')\<in>(induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X))"
-          and path_xs': "path' (induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X)) x' xs' z"
-          and z_back: "z\<in>insert x (set xs')"
-          using path'D by fastforce
-        with y_only_succ have [simp]: "x' = y" by blast
-        show "X \<inter> set xs \<noteq> {}" proof (cases "z\<in>set xs'")
-          case True with path_xs' have "lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X)) y xs'"
-            using lasso'_iff_path by fastforce
-          with own.IH show ?thesis by simp
-        next
-          case False show ?thesis proof
-            assume xs_no_X: "X \<inter> set xs = {}"
-            from False z_back have [simp]: "x = z" by fast
-            show False proof (cases xs')
-              case Nil with path_xs' x_lasso' xs_no_X own.IH show ?thesis by fastforce
-            next
-              case (Cons a list)
-              hence "xs'\<noteq>[]" by simp
-              from lasso'_close_loop[OF path_xs' this] x'_edge
-              have "lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X)) y (xs' @ [x])" by auto
-              with own.IH xs_no_X show ?thesis by fastforce
-            qed
-          qed
-        qed
-      qed
-    next
-      case (opponent x) show ?case proof (rule allI; rule impI)
-        fix xs assume x_lasso': "lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X)) x xs"
-        from x_lasso' obtain z where x_path': "path' (induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X)) x xs z" "z \<in> set xs"
-          using lasso'_iff_path by fast
-        then obtain x' xs' where
-          [simp]:"xs=x#xs'"
-          and x'_edge: "(x,x')\<in>(induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X))"
-          and path_xs': "path' (induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X)) x' xs' z"
-          and z_back: "z\<in>insert x (set xs')"
-          using path'D by fastforce
-        show "X \<inter> set xs \<noteq> {}" proof (cases "z\<in>set xs'")
-          case True
-          with path_xs' have "lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X)) x' xs'"
-            using lasso'_iff_path by fast
-          with x'_edge opponent.IH show ?thesis by force
-        next
-          case False show ?thesis proof
-            assume xs_no_X: "X \<inter> set xs = {}"
-            from False z_back have [simp]: "x = z" by fast
-            show False proof (cases xs')
-              case Nil with path_xs' x'_edge x_lasso' xs_no_X opponent.IH show ?thesis by force
-            next
-              case (Cons a list)
-              hence "xs'\<noteq>[]" by fast
-              from lasso'_close_loop[OF path_xs' this] x'_edge
-              have "lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X)) x' (xs' @ [x])" by simp
-              with opponent.IH x'_edge xs_no_X show ?thesis by force
-            qed
-          qed
-        qed
-      qed
-    qed *)
-
-    lemma attractor_strategy_forces_X: "y\<in>attractor X
-       \<Longrightarrow> \<forall>xs. lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X)) y xs \<longrightarrow> X \<inter> set xs \<noteq> {}"
-    proof (induction rule: attractor.induct)
-      case (base x) show ?case proof (rule allI; rule impI)
-        fix xs assume "lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X)) x xs"
-        from base origin_in_lasso'[OF this] show "X \<inter> set xs \<noteq> {}" by auto
-      qed
-    next
-      case (own x y)
-      hence "(x,y) \<in> attractor_edges X" using ae_own attractor_edges_complete by blast
-      hence y_only_succ: "induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X) `` {x} = {y}"
-        (** Intuitively this is true, but I need some way to prove this, probably some lemma *) sorry
-      show ?case proof (rule allI; rule impI)
-        fix xs assume x_lasso': "lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X)) x xs"
-        from x_lasso' obtain z where x_path': "path' (induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X)) x xs z" "z \<in> set xs"
-          using lasso'_iff_path by fast
-        then obtain x' xs' where
-          [simp]:"xs=x#xs'"
-          and x'_edge: "(x,x')\<in>(induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X))"
-          and path_xs': "path' (induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X)) x' xs' z"
-          and z_back: "z\<in>insert x (set xs')"
-          using path'D by fastforce
-        with y_only_succ have [simp]: "x' = y" by blast
-        show "X \<inter> set xs \<noteq> {}" proof (cases "z\<in>set xs'")
-          case True with path_xs' have "lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X)) y xs'"
-            using lasso'_iff_path by fastforce
-          with own.IH show ?thesis by simp
-        next
-          case False show ?thesis proof
-            assume xs_no_X: "X \<inter> set xs = {}"
-            from False z_back have [simp]: "x = z" by fast
-            show False proof (cases xs')
-              case Nil with path_xs' x_lasso' xs_no_X own.IH show ?thesis by fastforce
-            next
-              case (Cons a list)
-              hence "xs'\<noteq>[]" by simp
-              from lasso'_close_loop[OF path_xs' this] x'_edge
-              have "lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X)) y (xs' @ [x])" by auto
-              with own.IH xs_no_X show ?thesis by fastforce
-            qed
-          qed
-        qed
-      qed
-    next
-      case (opponent x) show ?case proof (rule allI; rule impI)
-        fix xs assume x_lasso': "lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X)) x xs"
-        from x_lasso' obtain z where x_path': "path' (induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X)) x xs z" "z \<in> set xs"
-          using lasso'_iff_path by fast
-        then obtain x' xs' where
-          [simp]:"xs=x#xs'"
-          and x'_edge: "(x,x')\<in>(induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X))"
-          and path_xs': "path' (induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X)) x' xs' z"
-          and z_back: "z\<in>insert x (set xs')"
-          using path'D by fastforce
-        show "X \<inter> set xs \<noteq> {}" proof (cases "z\<in>set xs'")
-          case True
-          with path_xs' have "lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X)) x' xs'"
-            using lasso'_iff_path by fast
-          with x'_edge opponent.IH show ?thesis by force
-        next
-          case False show ?thesis proof
-            assume xs_no_X: "X \<inter> set xs = {}"
-            from False z_back have [simp]: "x = z" by fast
-            show False proof (cases xs')
-              case Nil with path_xs' x'_edge x_lasso' xs_no_X opponent.IH show ?thesis by force
-            next
-              case (Cons a list)
-              hence "xs'\<noteq>[]" by fast
-              from lasso'_close_loop[OF path_xs' this] x'_edge
-              have "lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> (attractor_strategy X)) x' (xs' @ [x])" by simp
-              with opponent.IH x'_edge xs_no_X show ?thesis by force
-            qed
-          qed
-        qed
-      qed
-    qed
-
-    lemma "\<exists>\<sigma>.
-        strategy_of V\<^sub>\<alpha> \<sigma>
-      \<and> dom \<sigma> \<subseteq> attractor X
-      \<and> (\<forall>y\<in>attractor X. \<forall>xs. lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) y xs \<longrightarrow> X \<inter> set xs \<noteq> {})"
-    proof -
-      fix \<sigma>
-      define \<sigma> where "\<sigma> = attractor_strategy X"
-      show ?thesis proof (rule exI[where x="\<sigma>"]; intro conjI)
-        show "strategy_of V\<^sub>\<alpha> \<sigma>" using \<sigma>_def attractor_strategy_of_V\<^sub>\<alpha> by blast
-      next
-        show "dom \<sigma> \<subseteq> attractor X" using \<sigma>_def dom_attractor_strategy by blast
-      next
-        show "\<forall>y\<in>attractor X. \<forall>xs. lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) y xs \<longrightarrow> X \<inter> set xs \<noteq> {}"
-          using \<sigma>_def attractor_strategy_forces_X by blast
-      qed
-    qed
-
-    lemma attract_strategy_aux: "is_attractor X Y \<Longrightarrow> \<exists>\<sigma>.
-          strategy_of V\<^sub>\<alpha> \<sigma> \<and> dom \<sigma> \<subseteq> Y \<and> (induced_by_strategy V\<^sub>\<alpha> \<sigma> `` (Y-X) \<subseteq> Y)
-          \<and> (\<forall>y\<in>Y. \<forall>xs. lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) y xs \<longrightarrow> X \<inter> set xs \<noteq> {})"
-    proof (induction rule: is_attractor.induct)
-      case base thus ?case
-        apply (rule exI[where x=Map.empty]; simp)
-        using origin_in_lasso' by fastforce
-    next
-      case (step Y Y')
-      note Y'_def = step.hyps
-      from step.IH obtain \<sigma> where
-       PLAYER_\<sigma> [simp]: "strategy_of V\<^sub>\<alpha> \<sigma>"
-       and DOM_\<sigma>: "dom \<sigma> \<subseteq> Y"
-       and Y_CLOSED_\<sigma>: "(induced_by_strategy V\<^sub>\<alpha> \<sigma> `` (Y-X) \<subseteq> Y)"
-       and ATTR_\<sigma>: "(\<forall>y\<in>Y. \<forall>xs. lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) y xs \<longrightarrow> X \<inter> set xs \<noteq> {})"
-        by blast
-
-      fix \<sigma>' :: "'v \<rightharpoonup> 'v"
-      let ?dom' = "owned_target Y - Y"
-      define \<sigma>' where "\<sigma>' = (\<lambda>v. (
-        if v\<in>?dom' then Some (SOME v'. v'\<in>E``{v} \<inter> Y)
-        else None))"
-      have EDGE_\<sigma>': "\<forall>u v. \<sigma>' u = Some v \<longrightarrow> (u,v)\<in>E"
-        unfolding \<sigma>'_def apply (auto) by (metis (no_types, lifting) someI)
-      have DOM_\<sigma>': "dom \<sigma>' = owned_target Y - Y"
-        unfolding \<sigma>'_def by (auto split: if_splits)
-      have RAN_\<sigma>': "ran \<sigma>' \<subseteq> Y"
-        unfolding \<sigma>'_def apply (auto simp: ran_def) by (metis (no_types, lifting) someI)
-      have PLAYER_\<sigma>'[simp]: "strategy_of V\<^sub>\<alpha> \<sigma>'"
-        unfolding strategy_of_def E_of_strat_def using DOM_\<sigma>' EDGE_\<sigma>' by auto
-
-      from DOM_\<sigma> DOM_\<sigma>' have DOMS_DISJ[simp]: "dom \<sigma> \<inter> dom \<sigma>' = {}" by auto
-
-      let ?iE' = "(induced_by_strategy V\<^sub>\<alpha> \<sigma> \<union> E_of_strat \<sigma>')"
-      have NO_Y_\<sigma>': "fst`E_of_strat \<sigma>' \<inter> Y = {}"
-        using DOM_\<sigma>' by (simp add: E_of_strat_dom inf_commute)
-      with Y_CLOSED_\<sigma> have Y_CLOSED_\<sigma>': "?iE'``(Y-X) \<subseteq> Y" by auto
-
-      {
-        fix y xs
-        assume y: "y\<in>Y"
-        assume y_lasso': "lasso_from_node' ?iE' y xs"
-        from y_lasso' obtain y' where y_path': "path' ?iE' y xs y'" "y'\<in>set xs"
-          by (auto simp: lasso'_iff_path)
-
-        from simulate_path_aux[OF Y_CLOSED_\<sigma>' y y_path'(1)] have "X \<inter> set xs \<noteq> {}"
-        proof
-          assume "path' (?iE' \<inter> (Y - X) \<times> Y) y xs y'"
-          moreover have "?iE' \<inter> (Y - X) \<times> Y \<subseteq> induced_by_strategy V\<^sub>\<alpha> \<sigma>" using NO_Y_\<sigma>' by auto
-          ultimately have "path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) y xs y'" using subgraph_path' by meson
-          with y_path'(2) have "lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) y xs"
-            by (auto simp: lasso'_iff_path)
-          with ATTR_\<sigma>[rule_format, OF y] show "X \<inter> set xs \<noteq> {}" by blast
-        qed
-      } note IN_Y_DONE = this
-
-      {
-        fix y xs
-        assume y: "y \<in> Y'" and y_lasso: "lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> (\<sigma> ++ \<sigma>')) y xs"
-        from subgraph_lasso'[OF ind_subgraph_addD, OF y_lasso]
-        have y_lasso': "lasso_from_node' ?iE' y xs" .
-
-        have "X \<inter> set xs \<noteq> {}"
-        proof cases
-          assume "y\<in>X"
-          moreover from y_lasso origin_in_lasso' have "y\<in>set xs" by fast
-          ultimately show ?thesis by auto
-        next
-          assume "y\<notin>X"
-          from y consider "y\<in>Y" | "y\<in>?dom'" | "y\<in>opponent_target Y" unfolding Y'_def by blast
-          then have "X \<inter> set xs \<noteq> {}"
-          proof cases
-            assume "y\<in>Y" thus ?thesis using IN_Y_DONE y_lasso' by blast
-          next
-            assume y_in_dom': "y\<in>?dom'"
-            from y_lasso' obtain y'' where y_path': "path' ?iE' y xs y''" "y''\<in>set xs"
-              by (auto simp: lasso'_iff_path)
-
-            have "?iE' `` {y} \<subseteq> Y"
-            proof -
-              have "E_of_strat \<sigma>' `` {y} \<subseteq> Y" using RAN_\<sigma>' by simp
-              moreover have "induced_by_strategy V\<^sub>\<alpha> \<sigma> `` {y} \<subseteq> Y"
-                using y_in_dom' DOM_\<sigma> unfolding induced_by_strategy_def E_of_strat_def by auto
-              ultimately show ?thesis by auto
-            qed
-
-            with y_path' obtain y' xs' where
-              [simp]: "xs=y#xs'"
-              and y'_in_Y: "y'\<in>Y"
-              and path_xs': "path' ?iE' y' xs' y''"
-              and y''_back: "y''\<in>insert y (set xs')"
-              apply (cases xs) by auto
-
-            show ?thesis
-            proof (cases "y''\<in> set xs'")
-              case True thus ?thesis
-                using IN_Y_DONE[OF y'_in_Y] path_xs' lasso'_iff_path by fastforce
-            next
-              case False show ?thesis proof
-                assume xs_no_X: "X \<inter> set xs = {}"
-
-                from False y''_back have [simp]: "y''=y" by auto
-                have "path' (induced_by_strategy V\<^sub>\<alpha> \<sigma> \<inter> UNIV \<times> Y) y' xs' y"
-                proof -
-                  from simulate_path_aux[OF Y_CLOSED_\<sigma>' y'_in_Y path_xs']
-                  have "path' (?iE' \<inter> (Y - X) \<times> Y) y' xs' y" using xs_no_X by simp
-                  moreover have "(?iE') \<inter> (Y - X) \<times> Y \<subseteq> induced_by_strategy V\<^sub>\<alpha> \<sigma> \<inter> UNIV \<times> Y"
-                    using NO_Y_\<sigma>' by auto
-                  ultimately show ?thesis by (simp add: subgraph_path')
-                qed
-                thus False
-                  apply (cases xs' rule: rev_cases)
-                  using y_in_dom' y'_in_Y by auto
-              qed
-            qed
-          next
-            assume y_in_opponent_target: "y\<in>opponent_target Y"
-            from y_lasso' obtain y'' where y_path': "path' ?iE' y xs y''" "y''\<in>set xs"
-              by (auto simp: lasso'_iff_path)
-
-            have "?iE'``{y} \<subseteq> Y"
-            proof -
-              from y_in_opponent_target have "E``{y} \<subseteq> Y" by fast
-              moreover have "?iE' \<subseteq> E" using PLAYER_\<sigma>' strategy_of_def by auto
-              ultimately show ?thesis by blast
-            qed
-
-            with y_path' obtain y' xs' where
-              [simp]: "xs=y#xs'"
-              and y'_in_Y: "y'\<in>Y"
-              and path_xs': "path' ?iE' y' xs' y''"
-              and y''_back: "y''\<in>insert y (set xs')"
-              apply (cases xs)
-              by auto
-
-            show ?thesis
-            proof (cases "y''\<in> set xs'")
-              case True thus ?thesis
-                using IN_Y_DONE[OF y'_in_Y] path_xs' lasso'_iff_path
-                by fastforce
-            next
-              case False show ?thesis proof
-                assume xs_no_X: "X \<inter> set xs = {}"
-
-                from False y''_back have [simp]: "y''=y" by auto
-                have "path' (induced_by_strategy V\<^sub>\<alpha> \<sigma> \<inter> UNIV \<times> Y) y' xs' y"
-                proof -
-                  from simulate_path_aux[OF Y_CLOSED_\<sigma>' y'_in_Y path_xs']
-                  have "path' (?iE' \<inter> (Y - X) \<times> Y) y' xs' y" using xs_no_X by simp
-                  moreover have "(?iE') \<inter> (Y - X) \<times> Y \<subseteq> induced_by_strategy V\<^sub>\<alpha> \<sigma> \<inter> UNIV \<times> Y"
-                    using NO_Y_\<sigma>' by auto
-                  ultimately show ?thesis by (simp add: subgraph_path')
-                qed
-                thus False
-                  apply (cases xs' rule: rev_cases)
-                  using IN_Y_DONE[OF y'_in_Y] y_lasso' xs_no_X apply fastforce
-                  apply simp
-                  using IN_Y_DONE y_lasso' xs_no_X by blast
-              qed
-            qed
-          qed
-          thus ?thesis .
-        qed
-      } note aux = this
-
-      have aux2: "induced_by_strategy V\<^sub>\<alpha> (\<sigma> ++ \<sigma>') `` (Y' - X) \<subseteq> Y'"
-      proof clarify
-        fix x y
-        assume edge: "(x,y) \<in> induced_by_strategy V\<^sub>\<alpha> (\<sigma> ++ \<sigma>')" "x \<in> Y'" "x \<notin> X"
-        then consider "x\<in>Y" | "x\<in>?dom'" | "x\<in>opponent_target Y" unfolding Y'_def by blast
-        thus "y \<in> Y'" proof cases
-          case 1
-          have "(x,y) \<in> induced_by_strategy V\<^sub>\<alpha> \<sigma>"
-          proof -
-            from ind_subgraph_add_edge_src[OF edge(1)] have "x \<in> dom \<sigma> \<or> x \<in> dom \<sigma>' \<or> x \<in> (-V\<^sub>\<alpha>)" .
-            with 1 consider "x \<in> dom \<sigma>" | "x \<in> (-V\<^sub>\<alpha>)" using DOM_\<sigma>' by force
-            thus ?thesis proof cases
-              case 1 from ind_subgraph_add_edge_dom_\<sigma>[OF edge(1) DOMS_DISJ this] show ?thesis .
-            next
-              case 2 from ind_subgraph_add_edge_outside_strat[OF edge(1) this] show ?thesis ..
-            qed
-          qed
-          moreover from 1 edge have "x \<in> Y-X" by blast
-          ultimately show ?thesis
-            using Y_CLOSED_\<sigma> unfolding Y'_def by auto
-        next
-          case 2
-          with DOM_\<sigma>' have "x \<in> dom \<sigma>'" by simp
-          from ind_subgraph_add_edge_dom_\<sigma>'[OF edge(1) this]
-          have xy_in_\<sigma>'_subgraph:"(x,y) \<in> induced_by_strategy V\<^sub>\<alpha> \<sigma>'" .
-          from 2 have x_V\<^sub>0: "x \<in> V\<^sub>\<alpha>" unfolding Y'_def by fast
-          from ind_subgraph_edge_dst[OF xy_in_\<sigma>'_subgraph x_V\<^sub>0] RAN_\<sigma>'
-          show ?thesis unfolding Y'_def by auto
-        next
-          case 3
-          hence "E``{x} \<subseteq> Y" by blast
-          moreover from edge have "(x,y) \<in> E" by simp
-          ultimately show ?thesis unfolding Y'_def by auto
-        qed
-      qed
-
-      show ?case
-        apply (rule exI[where x="\<sigma> ++ \<sigma>'"])
-        apply (auto simp: aux aux2)
-        using DOM_\<sigma> DOM_\<sigma>' by (auto simp: Y'_def)
-    qed
-
-
-   (** lemma attract_strategy_aux: "is_attractor X Y \<Longrightarrow> \<exists>\<sigma>.
-          strategy_of V\<^sub>\<alpha> \<sigma> \<and> dom \<sigma> \<subseteq> Y \<and> (induced_by_strategy V\<^sub>\<alpha> \<sigma> `` (Y-X) \<subseteq> Y)
-          \<and> (\<forall>y\<in>Y. \<forall>xs. lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) y xs \<longrightarrow> X \<inter> set xs \<noteq> {})"
-    proof (induction rule: is_attractor.induct)
-      case base thus ?case
-        apply (rule exI[where x=Map.empty]; simp)
-        using origin_in_lasso' by fastforce
-    next
-      case (step Y Y')
-      note Y'_def = step.hyps
-      from step.IH obtain \<sigma> where
-       PLAYER_\<sigma> [simp]: "strategy_of V\<^sub>\<alpha> \<sigma>"
-       and DOM_\<sigma>: "dom \<sigma> \<subseteq> Y"
-       and Y_CLOSED_\<sigma>: "(induced_by_strategy V\<^sub>\<alpha> \<sigma> `` (Y-X) \<subseteq> Y)"
-       and ATTR_\<sigma>: "(\<forall>y\<in>Y. \<forall>xs. lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) y xs \<longrightarrow> X \<inter> set xs \<noteq> {})"
-        by blast
-
-      fix \<sigma>' :: "'v \<rightharpoonup> 'v"
-      let ?dom' = "owned_target Y - Y"
-      define \<sigma>' where "\<sigma>' = (\<lambda>v. (
-        if v\<in>?dom' then Some (SOME v'. v'\<in>E``{v} \<inter> Y)
-        else None))"
-      have EDGE_\<sigma>': "\<forall>u v. \<sigma>' u = Some v \<longrightarrow> (u,v)\<in>E"
-        unfolding \<sigma>'_def apply (auto) by (metis (no_types, lifting) someI)
-      have DOM_\<sigma>': "dom \<sigma>' = owned_target Y - Y"
-        unfolding \<sigma>'_def by (auto split: if_splits)
-      have RAN_\<sigma>': "ran \<sigma>' \<subseteq> Y"
-        unfolding \<sigma>'_def apply (auto simp: ran_def) by (metis (no_types, lifting) someI)
-      have PLAYER_\<sigma>'[simp]: "strategy_of V\<^sub>\<alpha> \<sigma>'"
-        unfolding strategy_of_def E_of_strat_def using DOM_\<sigma>' EDGE_\<sigma>' by auto
-
-      from DOM_\<sigma> DOM_\<sigma>' have DOMS_DISJ[simp]: "dom \<sigma> \<inter> dom \<sigma>' = {}" by auto
-
-      let ?iE' = "(induced_by_strategy V\<^sub>\<alpha> \<sigma> \<union> E_of_strat \<sigma>')"
-      have NO_Y_\<sigma>': "fst`E_of_strat \<sigma>' \<inter> Y = {}"
-        using DOM_\<sigma>' by (simp add: E_of_strat_dom inf_commute)
-      with Y_CLOSED_\<sigma> have Y_CLOSED_\<sigma>': "?iE'``(Y-X) \<subseteq> Y" by auto
-
-      {
-        fix y xs
-        assume y: "y\<in>Y"
-        assume y_lasso': "lasso_from_node' ?iE' y xs"
-        from y_lasso' obtain y' where y_path': "path' ?iE' y xs y'" "y'\<in>set xs"
-          by (auto simp: lasso'_iff_path)
-
-        from simulate_path_aux[OF Y_CLOSED_\<sigma>' y y_path'(1)] have "X \<inter> set xs \<noteq> {}"
-        proof
-          assume "path' (?iE' \<inter> (Y - X) \<times> Y) y xs y'"
-          moreover have "?iE' \<inter> (Y - X) \<times> Y \<subseteq> induced_by_strategy V\<^sub>\<alpha> \<sigma>" using NO_Y_\<sigma>' by auto
-          ultimately have "path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) y xs y'" using subgraph_path' by meson
-          with y_path'(2) have "lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) y xs"
-            by (auto simp: lasso'_iff_path)
-          with ATTR_\<sigma>[rule_format, OF y] show "X \<inter> set xs \<noteq> {}" by blast
-        qed
-      } note IN_Y_DONE = this
-
-      {
-        fix y xs
-        assume y: "y \<in> Y'" and y_lasso: "lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> (\<sigma> ++ \<sigma>')) y xs"
-        from subgraph_lasso'[OF ind_subgraph_addD, OF y_lasso]
-        have y_lasso': "lasso_from_node' ?iE' y xs" .
-
-        have "X \<inter> set xs \<noteq> {}"
-        proof cases
-          assume "y\<in>X"
-          moreover from y_lasso origin_in_lasso' have "y\<in>set xs" by fast
-          ultimately show ?thesis by auto
-        next
-          assume "y\<notin>X"
-          from y consider "y\<in>Y" | "y\<in>?dom'" | "y\<in>opponent_target Y" unfolding Y'_def by blast
-          then have "X \<inter> set xs \<noteq> {}"
-          proof cases
-            assume "y\<in>Y" thus ?thesis using IN_Y_DONE y_lasso' by blast
-          next
-            assume y_in_dom': "y\<in>?dom'"
-            from y_lasso' obtain y'' where y_path': "path' ?iE' y xs y''" "y''\<in>set xs"
-              by (auto simp: lasso'_iff_path)
-
-            have "?iE' `` {y} \<subseteq> Y"
-            proof -
-              have "E_of_strat \<sigma>' `` {y} \<subseteq> Y" using RAN_\<sigma>' by simp
-              moreover have "induced_by_strategy V\<^sub>\<alpha> \<sigma> `` {y} \<subseteq> Y"
-                using y_in_dom' DOM_\<sigma> unfolding induced_by_strategy_def E_of_strat_def by auto
-              ultimately show ?thesis by auto
-            qed
-
-            with y_path' obtain y' xs' where
-              [simp]: "xs=y#xs'"
-              and y'_in_Y: "y'\<in>Y"
-              and path_xs': "path' ?iE' y' xs' y''"
-              and y''_back: "y''\<in>insert y (set xs')"
-              apply (cases xs) by auto
-
-            show ?thesis
-            proof (cases "y''\<in> set xs'")
-              case True thus ?thesis
-                using IN_Y_DONE[OF y'_in_Y] path_xs' lasso'_iff_path by fastforce
-            next
-              case False show ?thesis proof
-                assume xs_no_X: "X \<inter> set xs = {}"
-
-                from False y''_back have [simp]: "y''=y" by auto
-                have "path' (induced_by_strategy V\<^sub>\<alpha> \<sigma> \<inter> UNIV \<times> Y) y' xs' y"
-                proof -
-                  from simulate_path_aux[OF Y_CLOSED_\<sigma>' y'_in_Y path_xs']
-                  have "path' (?iE' \<inter> (Y - X) \<times> Y) y' xs' y" using xs_no_X by simp
-                  moreover have "(?iE') \<inter> (Y - X) \<times> Y \<subseteq> induced_by_strategy V\<^sub>\<alpha> \<sigma> \<inter> UNIV \<times> Y"
-                    using NO_Y_\<sigma>' by auto
-                  ultimately show ?thesis by (simp add: subgraph_path')
-                qed
-                thus False
-                  apply (cases xs' rule: rev_cases)
-                  using y_in_dom' y'_in_Y by auto
-              qed
-            qed
-          next
-            assume y_in_opponent_target: "y\<in>opponent_target Y"
-            from y_lasso' obtain y'' where y_path': "path' ?iE' y xs y''" "y''\<in>set xs"
-              by (auto simp: lasso'_iff_path)
-
-            have "?iE'``{y} \<subseteq> Y"
-            proof -
-              from y_in_opponent_target have "E``{y} \<subseteq> Y" by fast
-              moreover have "?iE' \<subseteq> E" using PLAYER_\<sigma>' strategy_of_def by auto
-              ultimately show ?thesis by blast
-            qed
-
-            with y_path' obtain y' xs' where
-              [simp]: "xs=y#xs'"
-              and y'_in_Y: "y'\<in>Y"
-              and path_xs': "path' ?iE' y' xs' y''"
-              and y''_back: "y''\<in>insert y (set xs')"
-              apply (cases xs)
-              by auto
-
-            show ?thesis
-            proof (cases "y''\<in> set xs'")
-              case True thus ?thesis
-                using IN_Y_DONE[OF y'_in_Y] path_xs' lasso'_iff_path
-                by fastforce
-            next
-              case False show ?thesis proof
-                assume xs_no_X: "X \<inter> set xs = {}"
-
-                from False y''_back have [simp]: "y''=y" by auto
-                have "path' (induced_by_strategy V\<^sub>\<alpha> \<sigma> \<inter> UNIV \<times> Y) y' xs' y"
-                proof -
-                  from simulate_path_aux[OF Y_CLOSED_\<sigma>' y'_in_Y path_xs']
-                  have "path' (?iE' \<inter> (Y - X) \<times> Y) y' xs' y" using xs_no_X by simp
-                  moreover have "(?iE') \<inter> (Y - X) \<times> Y \<subseteq> induced_by_strategy V\<^sub>\<alpha> \<sigma> \<inter> UNIV \<times> Y"
-                    using NO_Y_\<sigma>' by auto
-                  ultimately show ?thesis by (simp add: subgraph_path')
-                qed
-                thus False
-                  apply (cases xs' rule: rev_cases)
-                  using IN_Y_DONE[OF y'_in_Y] y_lasso' xs_no_X apply fastforce
-                  apply simp
-                  using IN_Y_DONE y_lasso' xs_no_X by blast
-              qed
-            qed
-          qed
-          thus ?thesis .
-        qed
-      } note aux = this
-
-      have aux2: "induced_by_strategy V\<^sub>\<alpha> (\<sigma> ++ \<sigma>') `` (Y' - X) \<subseteq> Y'"
-      proof clarify
-        fix x y
-        assume edge: "(x,y) \<in> induced_by_strategy V\<^sub>\<alpha> (\<sigma> ++ \<sigma>')" "x \<in> Y'" "x \<notin> X"
-        then consider "x\<in>Y" | "x\<in>?dom'" | "x\<in>opponent_target Y" unfolding Y'_def by blast
-        thus "y \<in> Y'" proof cases
-          case 1
-          have "(x,y) \<in> induced_by_strategy V\<^sub>\<alpha> \<sigma>"
-          proof -
-            from ind_subgraph_add_edge_src[OF edge(1)] have "x \<in> dom \<sigma> \<or> x \<in> dom \<sigma>' \<or> x \<in> (-V\<^sub>\<alpha>)" .
-            with 1 consider "x \<in> dom \<sigma>" | "x \<in> (-V\<^sub>\<alpha>)" using DOM_\<sigma>' by force
-            thus ?thesis proof cases
-              case 1 from ind_subgraph_add_edge_dom_\<sigma>[OF edge(1) DOMS_DISJ this] show ?thesis .
-            next
-              case 2 from ind_subgraph_add_edge_outside_strat[OF edge(1) this] show ?thesis ..
-            qed
-          qed
-          moreover from 1 edge have "x \<in> Y-X" by blast
-          ultimately show ?thesis
-            using Y_CLOSED_\<sigma> unfolding Y'_def by auto
-        next
-          case 2
-          with DOM_\<sigma>' have "x \<in> dom \<sigma>'" by simp
-          from ind_subgraph_add_edge_dom_\<sigma>'[OF edge(1) this]
-          have xy_in_\<sigma>'_subgraph:"(x,y) \<in> induced_by_strategy V\<^sub>\<alpha> \<sigma>'" .
-          from 2 have x_V\<^sub>0: "x \<in> V\<^sub>\<alpha>" unfolding Y'_def by fast
-          from ind_subgraph_edge_dst[OF xy_in_\<sigma>'_subgraph x_V\<^sub>0] RAN_\<sigma>'
-          show ?thesis unfolding Y'_def by auto
-        next
-          case 3
-          hence "E``{x} \<subseteq> Y" by blast
-          moreover from edge have "(x,y) \<in> E" by simp
-          ultimately show ?thesis unfolding Y'_def by auto
-        qed
-      qed
-
-      show ?case
-        apply (rule exI[where x="\<sigma> ++ \<sigma>'"])
-        apply (auto simp: aux aux2)
-        using DOM_\<sigma> DOM_\<sigma>' by (auto simp: Y'_def)
-    qed *)
-
-    theorem attract_strategy:
-      assumes "is_attractor X Y"
-      obtains \<sigma> where
-        "strategy_of V\<^sub>\<alpha> \<sigma>"
-        "dom \<sigma> \<subseteq> Y"
-        "(\<forall>y\<in>Y. \<forall>xs. lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) y xs \<longrightarrow> X \<inter> set xs \<noteq> {})"
-      using attract_strategy_aux[OF assms] by blast
-
-  end
+end
 
   abbreviation "attr_even \<equiv> attractor V\<^sub>0"
   abbreviation "attr_odd \<equiv> attractor V\<^sub>1"
