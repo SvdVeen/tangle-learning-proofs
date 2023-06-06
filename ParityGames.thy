@@ -403,7 +403,15 @@ locale arena_defs = finite_graph_V +
 begin
   definition V\<^sub>1 where "V\<^sub>1 = V - V\<^sub>0"
 
-  lemma "V\<^sub>0 = V - V\<^sub>1" using V\<^sub>0_in_V unfolding V\<^sub>1_def by auto
+  lemma V\<^sub>0_eq_V_min_V\<^sub>1: "V\<^sub>0 = V - V\<^sub>1"
+    using V\<^sub>0_in_V
+    unfolding V\<^sub>1_def
+    by auto
+
+  lemma V\<^sub>1_in_V: "V\<^sub>1 \<subseteq> V"
+    using V\<^sub>0_in_V
+    unfolding V\<^sub>1_def
+    by blast
 
   lemma V_fst_E: "v \<in> V \<longleftrightarrow> v \<in> fst`E"
     apply rule
@@ -756,8 +764,6 @@ begin
 
   definition "attractor' X i \<equiv> Collect (attractor'p X i)"
 
-  print_statement attractor'p.induct[of _ i x]
-
   lemma attractor'_induct[consumes 1, case_names base own opponent]:
     assumes "x\<in>attractor' X i"
       and "\<And>x. x \<in> X \<Longrightarrow> P 0 x"
@@ -984,25 +990,19 @@ begin
       qed
     qed (** proof nodes_in_rank_forces_X *)
   end (** context fixed X *)
-  
-  
-  find_theorems name: lasso
-  
-  find_theorems attractor nodes_in_rank
-  
-  lemma nodes_in_rank_ss: "nodes_in_rank X n \<subseteq> X \<union> V" 
+
+  lemma nodes_in_rank_ss: "nodes_in_rank X n \<subseteq> X \<union> V"
     apply (induction n)
     using V\<^sub>\<alpha>_subset
-    by auto 
-  
+    by auto
+
   lemma nodes_in_rank_finite[simp, intro!]: "finite X \<Longrightarrow> finite (nodes_in_rank X n)"
     by (metis fin_V finite_Un finite_subset nodes_in_rank_ss)
 
   lemma nodes_in_rank_finite': "finite (nodes_in_rank X n - X)"
     by (meson Diff_subset_conv fin_V finite_subset nodes_in_rank_ss)
-    
-    
-  lemma attractor_ss: "attractor X \<subseteq> X \<union> V" 
+
+  lemma attractor_ss: "attractor X \<subseteq> X \<union> V"
   proof
     fix x
     assume "x\<in>attractor X"
@@ -1010,79 +1010,79 @@ begin
       apply (induction rule: attractor.induct)
       using V\<^sub>\<alpha>_subset
       by auto
-  qed    
-    
+  qed
+
   lemma finite_union_nat_range_bound:
     fixes f :: "nat \<Rightarrow> 'a set"
     assumes FIN: "finite (\<Union>(range f))"
     assumes MONO: "\<And>n n'. n\<le>n' \<Longrightarrow> f n \<subseteq> f n'"
     shows "\<exists>n. \<Union>(range f) = f n"
-  proof -  
-  
-    obtain n where "\<Union>(range f) = \<Union>{f i | i . i\<le>n}" 
+  proof -
+    obtain n where "\<Union>(range f) = \<Union>{f i | i . i\<le>n}"
     proof -
-      from finite_subset_image[OF finite_UnionD[OF FIN] order_refl] 
+      from finite_subset_image[OF finite_UnionD[OF FIN] order_refl]
       obtain C where 1: "finite C" "range f = f`C" by auto
       then obtain n where "C \<subseteq> {0..n}"
         by (meson atLeastAtMost_iff finite_nat_set_iff_bounded_le subset_eq zero_le)
       with 1 have "range f = f`{0..n}" by auto
       thus thesis by (force intro!: that[of n])
-    qed  
+    qed
     also have "\<dots> = f n"
       using MONO
       by auto
     finally show ?thesis ..
-  qed    
-  
-  lemma finite_attractor: "finite (attractor X - X)"  
+  qed
+
+  lemma finite_attractor: "finite (attractor X - X)"
     by (meson Diff_subset_conv attractor_ss fin_V rev_finite_subset)
-    
+
   lemma attractor_max_rank_eq: "\<exists>n. attractor X = nodes_in_rank X n"
   proof -
     have 1: "\<Union>(range (nodes_in_rank X)) - X = \<Union>(range (\<lambda>x. nodes_in_rank X x - X))" by auto
-  
-    have "\<exists>n. attractor X - X = nodes_in_rank X n - X" 
+
+    have "\<exists>n. attractor X - X = nodes_in_rank X n - X"
       using finite_attractor
       unfolding attractor_eq_nodes_in_rank
       apply (subst 1)
       apply (rule finite_union_nat_range_bound)
       apply simp
       by (simp add: Diff_mono nodes_in_rank_mono)
-    
+
     thus ?thesis
       by (metis Diff_partition attractor_subset bot_nat_0.extremum nodes_in_rank.simps(1) nodes_in_rank_mono)
-      
-  qed  
-    
-    
-  
+  qed
+
   find_theorems nodes_in_rank finite
-  
+
   lemma attractor_attracts: "\<exists>\<sigma>.
     strategy_of V\<^sub>\<alpha> \<sigma> \<and> (\<forall>v\<in>attractor X. \<forall>xs. lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) v xs \<longrightarrow> set xs \<inter> X \<noteq> {})"
   proof -
-    obtain n where "attractor X = nodes_in_rank X n"
+    obtain n where attr_x_rank_n: "attractor X = nodes_in_rank X n"
       using attractor_max_rank_eq by blast
-    
+
     from nodes_in_rank_forces_X[of X n] obtain \<sigma> where
       "strategy_of V\<^sub>\<alpha> \<sigma>"
       "dom \<sigma> \<subseteq> nodes_in_rank X n - X"
       "(\<forall>n'. \<forall>x'\<in>nodes_in_rank X n' - X. \<forall>y'\<in>induced_by_strategy V\<^sub>\<alpha> \<sigma> `` {x'}. y' \<in> nodes_in_rank X n')"
       "(\<forall>x\<in>nodes_in_rank X n. \<forall>xs z. path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) x xs z \<and> n < length xs \<longrightarrow> set xs \<inter> X \<noteq> {})"
       by blast
-    
-    show ?thesis 
+
+    show ?thesis
     proof (rule exI[where x=\<sigma>]; intro conjI ballI impI allI)
       show "strategy_of V\<^sub>\<alpha> \<sigma>" by fact
-      
-      fix v xs 
-      assume "v \<in> attractor X" "lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) v xs" 
+
+      fix v xs
+      assume v_in_attr: "v \<in> attractor X"
+         and lasso_v_xs: "lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) v xs"
+
+      from v_in_attr attr_x_rank_n have v_in_rank_n: "v \<in> nodes_in_rank X n" by simp
+
+      from lasso_v_xs obtain z where "path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) v xs z"
+        using lasso'_impl_path by fast
+
       show "set xs \<inter> X \<noteq> {}" xxx, ctd here sorry
-    qed      
-  qed    
-  
-  
-  
+    qed
+  qed
 end (** locale player_arena *)
 
 context player_arena begin
@@ -1235,58 +1235,47 @@ datatype player = EVEN | ODD
 
 fun opponent where
   "opponent EVEN = ODD"
-| "opponent ODD = EVEN"  
+| "opponent ODD = EVEN"
 
 lemma opponent2[simp]: "opponent (opponent p) = p"
   by (cases p) auto
 
 
 context arena_defs begin
-  term V\<^sub>0
-  term V\<^sub>1
 
-  (* TODO: Move *)
-  lemma V\<^sub>1_in_V: "V\<^sub>1 \<subseteq> V"
-    using V\<^sub>1_def by auto
-  
   sublocale P0: player_arena E V V\<^sub>0 prio V\<^sub>0 even
     apply unfold_locales
     by (rule V\<^sub>0_in_V)
-  
+
   sublocale P1: player_arena E V V\<^sub>0 prio V\<^sub>1 odd
-    apply unfold_locales 
+    apply unfold_locales
     by (rule V\<^sub>1_in_V)
 
   fun V_player where
     "V_player EVEN = V\<^sub>0"
   | "V_player ODD = V\<^sub>1"
-    
+
   fun attractor where
     "attractor EVEN = P0.attractor"
   | "attractor ODD = P1.attractor"
-    
+
   fun won_by where
     "won_by EVEN = P0.won_by_player"
   | "won_by ODD = P1.won_by_player"
-      
-  
+
   lemma V_diff_diff_V0: "(V - (V - V\<^sub>0)) = V\<^sub>0"
     by (simp add: V\<^sub>0_in_V double_diff)
-  
+
   lemma won_by_opponent_simps[simp]:
     "P1.won_by_opponent = P0.won_by_player"
     "P0.won_by_opponent = P1.won_by_player"
     unfolding P0.won_by_opponent_def P1.won_by_opponent_def P0.won_by_player_def P1.won_by_player_def
     unfolding V\<^sub>1_def
     by (auto simp: V_diff_diff_V0)
-    
-    
+
   term P0.attractor
   term P1.attractor
-    
-
 end
-
 
 lemma mark: "False" (* Just to mark where the most recent proof attempt begins *) oops
 
