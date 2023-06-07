@@ -838,7 +838,7 @@ begin
       apply (induction n') by auto
 
     lemma nodes_in_rank_edges_lower: "\<lbrakk>x \<in> nodes_in_rank (Suc n); x \<notin> X; (x,y) \<in> E; x \<notin> V\<^sub>\<alpha>\<rbrakk> \<Longrightarrow> y \<in> nodes_in_rank n"
-      apply (induction n arbitrary: x)  by auto
+      apply (induction n arbitrary: x) by auto
 
     lemma nodes_in_rank_forces_X: "\<exists>\<sigma>.
       strategy_of V\<^sub>\<alpha> \<sigma> \<and> dom \<sigma> \<subseteq> nodes_in_rank n - X
@@ -849,7 +849,7 @@ begin
       then show ?case
         apply (rule_tac exI[where x=Map.empty])
         apply (intro conjI; simp)
-        subgoal using nodes_in_rank_edges_lower by blast
+        subgoal using nodes_in_rank_edges_same by blast
         subgoal using origin_in_path' by fastforce
         done
 
