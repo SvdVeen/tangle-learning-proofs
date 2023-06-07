@@ -1080,8 +1080,12 @@ begin
 
       from v_in_attr attr_x_rank_n have v_in_rank_n: "v \<in> nodes_in_rank X n" by simp
 
-      from lasso_v_xs obtain z where "path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) v xs z"
-        using lasso'_impl_path by fast
+      find_theorems lasso_from_node'
+      from lasso_v_xs obtain v' xs1 xs2 where paths'_xs:
+        "xs = xs1@xs2" "path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) v xs1 v'" "path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) v' xs2 v'" "xs2 \<noteq> []"
+        using lasso_from_node'_def by metis
+      hence path'_xs: "path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) v xs v'"
+        by auto
 
       show "set xs \<inter> X \<noteq> {}" xxx, ctd here sorry
     qed
