@@ -1276,8 +1276,8 @@ fun opponent where
   "opponent EVEN = ODD"
 | "opponent ODD = EVEN"
 
-lemma opponent2[simp]: "opponent (opponent p) = p"
-  by (cases p) auto
+lemma opponent2[simp]: "opponent (opponent \<alpha>) = \<alpha>"
+  by (cases \<alpha>) auto
 
 
 context arena_defs begin
@@ -1293,6 +1293,16 @@ context arena_defs begin
   fun V_player where
     "V_player EVEN = V\<^sub>0"
   | "V_player ODD = V\<^sub>1"
+
+  fun V_opponent where
+    "V_opponent EVEN = V\<^sub>1"
+  | "V_opponent ODD = V\<^sub>0"
+
+  lemma V_player_opponent: "V_player (opponent \<alpha>) = V_opponent \<alpha>"
+    by (cases \<alpha>) auto
+
+  lemma V_opponent_opponent: "V_opponent (opponent \<alpha>) = V_player \<alpha>"
+    by (cases \<alpha>) auto
 
   fun attractor where
     "attractor EVEN = P0.attractor"
@@ -1312,11 +1322,11 @@ context arena_defs begin
     unfolding V\<^sub>1_def
     by (auto simp: V_diff_diff_V0)
 
-  term P0.attractor
-  term P1.attractor
-end
+  lemma attractor_attracts: "\<exists>\<sigma>.
+      strategy_of (V_player \<alpha>) \<sigma> \<and> (\<forall>v\<in>attractor \<alpha> X. \<forall>xs. lasso_from_node' (induced_by_strategy (V_player \<alpha>) \<sigma>) v xs \<longrightarrow> set xs \<inter> X \<noteq> {})"
+    using P0.attractor_attracts P1.attractor_attracts by (cases \<alpha>) auto
 
-lemma mark: "False" (* Just to mark where the most recent proof attempt begins *) oops
+end
 
 lemma aux:
   fixes v :: 'v
