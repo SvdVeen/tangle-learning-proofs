@@ -222,6 +222,9 @@ begin
   lemma lasso_from_node'_not_empty[simp]: "\<not>lasso_from_node' v []"
     unfolding lasso_from_node'_def by auto
 
+  lemma lasso_from_node'_length: "lasso_from_node' v vs \<Longrightarrow> 0 < length vs"
+    unfolding lasso_from_node'_def by fast
+
   lemma cycle_impl_lasso': "cycle_node v xs \<Longrightarrow> lasso_from_node' v xs"
     unfolding cycle_node_def lasso_from_node'_def by fastforce
 
@@ -256,6 +259,33 @@ begin
 
   lemma lasso'_close_loop: "\<lbrakk> path' v' vs v; vs \<noteq> []; (v,v') \<in> E \<rbrakk> \<Longrightarrow> lasso_from_node' v' (vs@[v])"
     unfolding lasso_from_node'_def by fastforce
+
+  lemma lasso'_extend_loop: "lasso_from_node' v vs \<Longrightarrow> \<exists>vs'. length vs < length vs' \<and> set vs = set vs' \<and> lasso_from_node' v vs'"
+  proof -
+    assume lasso: "lasso_from_node' v vs"
+    then obtain v' vs1 vs2 where
+      vs_decomp: "vs = vs1@vs2" and
+      path_vs1: "path' v vs1 v'" and
+      path_vs2: "path' v' vs2 v'" and
+      vs2_not_empty: "vs2 \<noteq> []"
+      unfolding lasso_from_node'_def by blast
+    define vs' where "vs' = vs1@vs2@vs2"
+    show ?thesis
+    proof (rule exI[where x=vs']; intro conjI)
+      from vs_decomp vs2_not_empty show "length vs < length vs'"
+        unfolding vs'_def by fastforce
+      from vs_decomp show "set vs = set vs'"
+        unfolding vs'_def by simp
+      from path_vs1 path_vs2 vs2_not_empty show "lasso_from_node' v vs'"
+        unfolding lasso_from_node'_def vs'_def by fastforce
+    qed
+  qed
+
+  lemma lasso'_extend_any_length: "lasso_from_node' v vs \<Longrightarrow> \<exists>vs'. n < length vs' \<and> set vs = set vs' \<and> lasso_from_node' v vs'"
+    apply (induction n)
+    subgoal using lasso_from_node'_length by blast
+    subgoal using lasso'_extend_loop Suc_lessI by metis
+    done
 
   lemma lasso_from_equiv_cycle_from: "cycle_from_node v ys \<longleftrightarrow> (\<exists>xs. lasso_from_node v xs ys)"
     unfolding lasso_from_node_def cycle_from_node_def cycle_node_def
@@ -1055,8 +1085,6 @@ begin
       by (metis Diff_partition attractor_subset bot_nat_0.extremum nodes_in_rank.simps(1) nodes_in_rank_mono)
   qed
 
-  find_theorems nodes_in_rank finite
-
   lemma attractor_attracts: "\<exists>\<sigma>.
     strategy_of V\<^sub>\<alpha> \<sigma> \<and> (\<forall>v\<in>attractor X. \<forall>xs. lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) v xs \<longrightarrow> set xs \<inter> X \<noteq> {})"
   proof -
@@ -1064,10 +1092,10 @@ begin
       using attractor_max_rank_eq by blast
 
     from nodes_in_rank_forces_X[of X n] obtain \<sigma> where
-      "strategy_of V\<^sub>\<alpha> \<sigma>"
-      "dom \<sigma> \<subseteq> nodes_in_rank X n - X"
-      "(\<forall>n'. \<forall>x'\<in>nodes_in_rank X n' - X. \<forall>y'\<in>induced_by_strategy V\<^sub>\<alpha> \<sigma> `` {x'}. y' \<in> nodes_in_rank X n')"
-      "(\<forall>x\<in>nodes_in_rank X n. \<forall>xs z. path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) x xs z \<and> n < length xs \<longrightarrow> set xs \<inter> X \<noteq> {})"
+      strat_\<sigma>: "strategy_of V\<^sub>\<alpha> \<sigma>" and
+      dom_\<sigma>: "dom \<sigma> \<subseteq> nodes_in_rank X n - X" and
+      closed_\<sigma>: "(\<forall>n'. \<forall>x'\<in>nodes_in_rank X n' - X. \<forall>y'\<in>induced_by_strategy V\<^sub>\<alpha> \<sigma> `` {x'}. y' \<in> nodes_in_rank X n')" and
+      forces_\<sigma>: "(\<forall>x\<in>nodes_in_rank X n. \<forall>xs z. path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) x xs z \<and> n < length xs \<longrightarrow> set xs \<inter> X \<noteq> {})"
       by blast
 
     show ?thesis
@@ -1080,14 +1108,18 @@ begin
 
       from v_in_attr attr_x_rank_n have v_in_rank_n: "v \<in> nodes_in_rank X n" by simp
 
-      find_theorems lasso_from_node'
-      from lasso_v_xs obtain v' xs1 xs2 where paths'_xs:
-        "xs = xs1@xs2" "path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) v xs1 v'" "path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) v' xs2 v'" "xs2 \<noteq> []"
-        using lasso_from_node'_def by metis
-      hence path'_xs: "path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) v xs v'"
-        by auto
+      from lasso'_extend_any_length[of "(induced_by_strategy V\<^sub>\<alpha> \<sigma>)" v xs n, OF lasso_v_xs]
+      obtain xs' where
+        len_xs': "n < length xs'" and
+        set_xs'_eq: "set xs = set xs'" and
+        lasso_xs': "lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) v xs'"
+        by blast
 
-      show "set xs \<inter> X \<noteq> {}" xxx, ctd here sorry
+      from lasso'_impl_path[of "(induced_by_strategy V\<^sub>\<alpha> \<sigma>)" v xs', OF lasso_xs']
+      obtain v' where "path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) v xs' v'" ..
+
+      hence "set xs' \<inter> X \<noteq> {}" using forces_\<sigma> v_in_rank_n len_xs' by blast
+      with set_xs'_eq show "set xs \<inter> X \<noteq> {}" by simp
     qed
   qed
 end (** locale player_arena *)
