@@ -1108,14 +1108,14 @@ begin
 
       from v_in_attr attr_x_rank_n have v_in_rank_n: "v \<in> nodes_in_rank X n" by simp
 
-      from lasso'_extend_any_length[of "(induced_by_strategy V\<^sub>\<alpha> \<sigma>)" v xs n, OF lasso_v_xs]
+      from lasso'_extend_any_length[OF lasso_v_xs]
       obtain xs' where
         len_xs': "n < length xs'" and
         set_xs'_eq: "set xs = set xs'" and
         lasso_xs': "lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) v xs'"
         by blast
 
-      from lasso'_impl_path[of "(induced_by_strategy V\<^sub>\<alpha> \<sigma>)" v xs', OF lasso_xs']
+      from lasso'_impl_path[OF lasso_xs']
       obtain v' where "path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) v xs' v'" ..
 
       hence "set xs' \<inter> X \<noteq> {}" using forces_\<sigma> v_in_rank_n len_xs' by blast
