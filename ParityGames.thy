@@ -706,6 +706,9 @@ begin
   lemma attractor_subset: "X \<subseteq> attractor X"
     by (auto intro: base)
 
+  lemma notin_attractor_succ: "\<lbrakk>v\<in>V; v \<notin> attractor X\<rbrakk> \<Longrightarrow> E `` {v} - attractor X \<noteq> {}"
+    using attractor.simps succ V\<^sub>\<alpha>_subset by fast
+
   inductive_set attractor_edges :: "'v set \<Rightarrow> ('v \<times> 'v) set" for X where
     ae_base: "x \<in> X \<Longrightarrow> (x,x) \<in> attractor_edges X"
   | ae_own: "\<lbrakk> x \<in> V\<^sub>\<alpha>; (x,y)\<in>E; (y,y_tgt)\<in>attractor_edges X \<rbrakk> \<Longrightarrow> (x,y) \<in> attractor_edges X"
@@ -1272,6 +1275,11 @@ end
 
 datatype player = EVEN | ODD
 
+lemma player_cases:
+  fixes \<alpha> :: player
+  shows "\<alpha> = EVEN \<or> \<alpha> = ODD"
+  using player.exhaust by blast
+
 fun opponent where
   "opponent EVEN = ODD"
 | "opponent ODD = EVEN"
@@ -1280,7 +1288,10 @@ lemma opponent2[simp]: "opponent (opponent \<alpha>) = \<alpha>"
   by (cases \<alpha>) auto
 
 definition player_of_prio :: "nat \<Rightarrow> player" where "player_of_prio p \<equiv> if even p then EVEN else ODD"
-  
+
+fun player_winningP :: "player \<Rightarrow> nat \<Rightarrow> bool" where
+  "player_winningP EVEN = even"
+| "player_winningP ODD = odd"
 
 context arena_defs begin
 
@@ -1314,6 +1325,11 @@ context arena_defs begin
     "won_by EVEN = P0.won_by_player"
   | "won_by ODD = P1.won_by_player"
 
+  lemma won_by_strat: "won_by \<alpha> v = (v \<in> V \<and> (\<exists>\<sigma>. strategy_of (V_player \<alpha>) \<sigma> \<and>
+    (\<forall>xs. cycle_from_node (induced_by_strategy (dom \<sigma>) \<sigma>) v xs \<longrightarrow> player_winningP \<alpha> (top_priority xs))))"
+    by (cases \<alpha>; simp add: P0.won_by_player_def P1.won_by_player_def)
+
+
   lemma V_diff_diff_V0: "(V - (V - V\<^sub>0)) = V\<^sub>0"
     by (simp add: V\<^sub>0_in_V double_diff)
 
@@ -1324,16 +1340,15 @@ context arena_defs begin
     unfolding V\<^sub>1_def
     by (auto simp: V_diff_diff_V0)
 
+  lemma attractor_subset: "X \<subseteq> attractor \<alpha> X"
+    by (cases \<alpha>; simp add: P0.attractor_subset P1.attractor_subset)
+
+  lemma notin_attractor_succ: "\<lbrakk>v \<in> V ; v \<notin> attractor \<alpha> X\<rbrakk> \<Longrightarrow> E `` {v} - attractor \<alpha> X \<noteq> {}"
+    using P0.notin_attractor_succ P1.notin_attractor_succ by (cases \<alpha>; simp)
+
   lemma attractor_attracts: "\<exists>\<sigma>.
       strategy_of (V_player \<alpha>) \<sigma> \<and> (\<forall>v\<in>attractor \<alpha> X. \<forall>xs. lasso_from_node' (induced_by_strategy (V_player \<alpha>) \<sigma>) v xs \<longrightarrow> set xs \<inter> X \<noteq> {})"
     using P0.attractor_attracts P1.attractor_attracts by (cases \<alpha>) auto
-
-    
-  lemma attractor_subset: "X \<subseteq> attractor \<alpha> X"  
-    by (cases \<alpha>; simp add: P0.attractor_subset P1.attractor_subset)
-  
-    
-    
 end
 
 
@@ -1343,6 +1358,149 @@ thm arena_defs.won_by.simps
 
 thm finite_psubset_induct
 
+lemma aux:
+  fixes v :: 'v
+  assumes "arena_defs E V V\<^sub>0"
+  assumes "v\<in>V"
+  shows "arena_defs.won_by E V V\<^sub>0 prio EVEN v \<or> arena_defs.won_by E V V\<^sub>0 prio ODD v"
+proof -
+  have "finite V" proof -
+    interpret arena_defs E V V\<^sub>0 by fact
+    show ?thesis by blast
+  qed
+  then show ?thesis using assms
+  proof (induction arbitrary: E V\<^sub>0 v rule: finite_psubset_induct)
+    case (psubset V)
+
+    interpret arena_defs E V V\<^sub>0 by fact
+
+    (* The highest priority in V *)
+    define p :: "nat" where "p = (MAX v' \<in> V. prio v')"
+
+    have "finite (prio`V)" by simp
+
+    have "prio v \<le> p" if "v\<in>V" for v
+      using Max_ge[OF \<open>finite (prio`V)\<close>] that unfolding p_def by simp
+
+    define \<alpha> :: player where "\<alpha> = player_of_prio p"
+    have \<alpha>_cases: "\<alpha> = EVEN \<or> \<alpha> = ODD" using player_cases by simp
+    let ?V\<^sub>\<alpha> = "V_player \<alpha>"
+
+    obtain v' where "v'\<in>V" "prio v' = p"
+      using Max_in[OF \<open>finite (prio`V)\<close>] \<open>v\<in>V\<close> unfolding p_def by fastforce
+
+    (* Attract to that v' for the player that wins p. *)
+    define A :: "'v set" where  "A = attractor \<alpha> {v'}"
+
+    have A_notempty: "A \<noteq> {}" unfolding A_def using attractor_subset by blast
+    have A_forces_v': "\<exists>\<sigma>. strategy_of ?V\<^sub>\<alpha> \<sigma> \<and>
+      (\<forall>v\<in>A. \<forall>xs. lasso_from_node' (induced_by_strategy ?V\<^sub>\<alpha> \<sigma>) v xs \<longrightarrow> set xs \<inter> {v'} \<noteq> {})"
+      unfolding A_def using attractor_attracts by blast
+
+    define V' :: "'v set" where "V' = V - A"
+    define E' :: "'v rel" where "E' = ((V - A) \<times> (V - A)) \<inter> E"
+    define V\<^sub>0' :: "'v set" where "V\<^sub>0'= V\<^sub>0 - A"
+
+
+    interpret subgame: arena_defs E' V' V\<^sub>0' prio
+      unfolding E'_def V'_def V\<^sub>0'_def
+      unfolding A_def
+      apply unfold_locales
+      apply simp_all
+      subgoal for v using notin_attractor_succ[of v \<alpha> "{v'}"] xxx, ctd here sorry
+      subgoal using V\<^sub>0_in_V by force
+      done
+
+    have propagate_top_priority: "\<forall>xs. subgame.top_priority xs = top_priority xs"
+      by simp
+
+    have propagate_V_player: "\<forall>\<alpha>. subgame.V_player \<alpha> \<subseteq> V_player \<alpha>"
+    proof (rule allI)
+      show "subgame.V_player \<alpha> \<subseteq> V_player \<alpha>" for \<alpha> proof (cases \<alpha>)
+        case EVEN
+        hence "subgame.V_player \<alpha> = V\<^sub>0 - A"
+          using V\<^sub>0'_def subgame.V_player.simps(1) by auto
+        moreover from EVEN have "V_player \<alpha> = V\<^sub>0" by simp
+        ultimately show ?thesis by simp
+      next
+        case ODD
+        hence "subgame.V_player \<alpha> = V\<^sub>1 - A"
+          using V\<^sub>1_def V'_def V\<^sub>0'_def subgame.V\<^sub>1_def subgame.V_player.simps(2) by blast
+        moreover from ODD have "V_player \<alpha> = V\<^sub>1" by simp
+        ultimately show ?thesis by simp
+      qed
+    qed
+
+    have "E' \<subseteq> E" unfolding E'_def unfolding A_def using E_in_V by simp
+
+    hence propagate_strategy_of: "\<forall>V\<^sub>\<alpha> \<sigma>. subgame.strategy_of V\<^sub>\<alpha> \<sigma> \<longrightarrow> strategy_of V\<^sub>\<alpha> \<sigma>"
+      unfolding subgame.strategy_of_def strategy_of_def E_of_strat_def by auto
+
+    have subset: "V' \<subset> V" proof -
+      have "V' \<subseteq> V" unfolding V'_def by auto
+      moreover note \<open>v'\<in>V\<close>
+      moreover have "v'\<in>A" unfolding A_def
+        using attractor_subset by auto
+      ultimately show ?thesis unfolding V'_def by blast
+    qed
+
+    note IH =  psubset.IH[OF subset subgame.arena_defs_axioms]
+    from IH obtain W\<^sub>\<alpha> W\<^sub>\<beta> where
+     W\<^sub>\<alpha>: "W\<^sub>\<alpha> = {w \<in> V'. subgame.won_by \<alpha> w}" and
+     W\<^sub>\<beta>: "W\<^sub>\<beta> = {w \<in> V'. subgame.won_by (opponent \<alpha>) w}"
+      by blast
+    then have "\<forall>w \<in> V'. w \<in> W\<^sub>\<alpha> \<or> w \<in> W\<^sub>\<beta>"
+      using IH \<alpha>_cases by fastforce
+
+    have "\<forall>v \<in> V'. \<forall>\<alpha>. subgame.won_by \<alpha> v \<longrightarrow> won_by \<alpha> v"
+    proof (rule ballI; rule allI; rule impI)
+      fix v \<alpha>
+      assume v_in_V': "v \<in>  V'" and
+             sub_won_by_\<alpha>: "subgame.won_by \<alpha> v"
+      from subgame.won_by_strat[of \<alpha> v] sub_won_by_\<alpha> have "(v \<in> V' \<and>
+        (\<exists>\<sigma>. strategy_of (V_player \<alpha>) \<sigma> \<and>
+        (\<forall>xs. cycle_from_node (subgame.induced_by_strategy (dom \<sigma>) \<sigma>) v xs \<longrightarrow> player_winningP \<alpha> (top_priority xs))))"
+        by (metis propagate_V_player propagate_strategy_of subgame.strategy_of_def subset_iff)
+
+      show "won_by p v" sorry
+    qed
+
+    define B :: "'v set" where "B = attractor (opponent \<alpha>) W\<^sub>\<beta>"
+
+    have B_forces_W\<^sub>\<beta>: "\<exists>\<sigma>. strategy_of (V_player (opponent \<alpha>)) \<sigma> \<and>
+      (\<forall>v\<in>B. \<forall>xs. lasso_from_node' (induced_by_strategy (V_player (opponent \<alpha>)) \<sigma>) v xs \<longrightarrow> set xs \<inter> W\<^sub>\<beta> \<noteq> {})"
+      unfolding B_def using attractor_attracts .
+    then obtain \<sigma> where
+      "strategy_of (V_player (opponent \<alpha>)) \<sigma> \<and>
+       (\<forall>v\<in>B. \<forall>xs. lasso_from_node' (induced_by_strategy (V_player (opponent \<alpha>)) \<sigma>) v xs \<longrightarrow> set xs \<inter> W\<^sub>\<beta> \<noteq> {})"
+      by blast
+    hence "\<forall>v\<in>W\<^sub>\<beta>. \<forall>xs. lasso_from_node' (induced_by_strategy (V_player (opponent \<alpha>)) \<sigma>) v xs \<longrightarrow> set xs \<inter> B - W\<^sub>\<beta> = {}"
+      sorry
+    have "\<forall>v\<in>B. won_by (opponent \<alpha>) v"
+    proof (rule ballI)
+      fix v
+      assume v_in_B: "v \<in> B"
+      then consider (in_W\<^sub>\<beta>) "v \<in> W\<^sub>\<beta>" | (in_B_min_W\<^sub>\<beta>)  "v \<in> B - W\<^sub>\<beta>" by blast
+      then show "won_by (opponent \<alpha>) v" proof cases
+        case in_W\<^sub>\<beta>
+        with W\<^sub>\<beta> have "subgame.won_by (opponent \<alpha>) v" by blast
+        then show ?thesis sorry
+      next
+        case in_B_min_W\<^sub>\<beta>
+        then show ?thesis sorry
+      qed
+    qed
+
+    consider  (notempty) "B \<noteq> {}" | (empty) "B = {}" by blast
+    then show "won_by EVEN v \<or> won_by ODD v" proof cases
+      case notempty
+      then show ?thesis sorry
+    next
+      case empty
+      then show ?thesis sorry
+    qed
+  qed
+qed
 
 lemma aux:
   fixes v :: 'v
@@ -1355,76 +1513,143 @@ proof -
     show ?thesis by blast
   qed
   then show ?thesis using assms
-  proof (induction arbitrary: E V\<^sub>0 \<alpha> v rule: finite_psubset_induct)
+  proof (induction arbitrary: E V\<^sub>0 v \<alpha> rule: finite_psubset_induct)
     case (psubset V)
 
     interpret arena_defs E V V\<^sub>0 by fact
 
-    (* Maybe we can construct a smaller graph by following the proof sketched by Tom *)
     (* The highest priority in V *)
     define p :: "nat" where "p = (MAX v' \<in> V. prio v')"
-    
+
     have "finite (prio`V)" by simp
-    
+
     have "prio v \<le> p" if "v\<in>V" for v
       using Max_ge[OF \<open>finite (prio`V)\<close>] that unfolding p_def by simp
-    
+
+    let ?\<alpha> = "player_of_prio p"
+    let ?V\<^sub>\<alpha> = "V_player ?\<alpha>"
+
     obtain v' where "v'\<in>V" "prio v' = p"
       using Max_in[OF \<open>finite (prio`V)\<close>] \<open>v\<in>V\<close> unfolding p_def by fastforce
-      
-    
-    
-    (* Attract to that v' for the player that wins p.
-       In the context of player_arena, this is not possible!
-       We can only attract for the player that owns V\<^sub>\<alpha>, which might not be the one who wins p!*)
-    define A :: "'v set" where  "A = attractor (player_of_prio p) {v'}"
 
-    (*
-    (* My first attempt to just construct something without thinking about specifics: removing v from the graph *)
-    define E' :: "'v rel" where "E'=E-(UNIV \<times> {v} \<union> {v} \<times> UNIV)"
-    define V' :: "'v set" where "V'=V-{v}"
-    define V\<^sub>0' :: "'v set" where "V\<^sub>0'=V\<^sub>0-{v}"
-    define V\<^sub>\<alpha>' :: "'v set" where "V\<^sub>\<alpha>'=V\<^sub>\<alpha>-{v}"
+    (* Attract to that v' for the player that wins p. *)
+    define A :: "'v set" where  "A = attractor ?\<alpha> {v'}"
 
-    have ARENA': "player_arena E' V' V\<^sub>0' V\<^sub>\<alpha>'" and FIN: "finite V'" and LESS: "card V' < card V"
-      unfolding E'_def V'_def V\<^sub>0'_def V\<^sub>\<alpha>'_def
-      apply unfold_locales
-      apply simp_all
-        subgoal using E_in_V by blast
-        subgoal for v' sorry (* constructing the new graph by just removing v does not ensure successors *)
-        subgoal using V\<^sub>0_in_V by blast
-        subgoal using V\<^sub>\<alpha>_subset by blast
-        subgoal using less.prems(2) psubset_card_mono[OF fin_V] by force
-        done
-
-    *)
+    have A_notempty: "A \<noteq> {}" unfolding A_def using attractor_subset by blast
+    have A_forces_v': "\<exists>\<sigma>. strategy_of ?V\<^sub>\<alpha> \<sigma> \<and>
+      (\<forall>v\<in>A. \<forall>xs. lasso_from_node' (induced_by_strategy ?V\<^sub>\<alpha> \<sigma>) v xs \<longrightarrow> set xs \<inter> {v'} \<noteq> {})"
+      unfolding A_def using attractor_attracts by blast
 
     define V' :: "'v set" where "V' = V - A"
-        
-    define E' :: "'v rel" where "E'=undefined"
-    define V\<^sub>0' :: "'v set" where "V\<^sub>0'=undefined"
-        
-    interpret subgame: arena_defs E' V' V\<^sub>0' prio sorry
+    define E' :: "'v rel" where "E' = (V - A) \<times> (V - A)"
+    define V\<^sub>0' :: "'v set" where "V\<^sub>0'= V\<^sub>0 - A"
+
+    interpret subgame: arena_defs E' V' V\<^sub>0' prio
+      unfolding E'_def V'_def V\<^sub>0'_def
+      unfolding A_def
+      apply unfold_locales
+      apply simp_all
+      subgoal using notin_attractor_succ by blast
+      subgoal using V\<^sub>0_in_V by force
+      done
 
     have subset: "V' \<subset> V" proof -
       have "V' \<subseteq> V" unfolding V'_def by auto
-      moreover note \<open>v'\<in>V\<close> 
+      moreover note \<open>v'\<in>V\<close>
       moreover have "v'\<in>A" unfolding A_def
         using attractor_subset by auto
       ultimately show ?thesis unfolding V'_def by blast
     qed
-    
+
     note IH =  psubset.IH[OF subset subgame.arena_defs_axioms]
-    
-    show "won_by \<alpha> v \<or> won_by (opponent \<alpha>) v" sorry
+    from IH obtain W\<^sub>\<alpha> W\<^sub>\<beta> where
+      "W\<^sub>\<alpha> = {v \<in> V'. won_by ?\<alpha> v}" and
+      "W\<^sub>\<beta> = {v \<in> V'. won_by (opponent ?\<alpha>) v}"
+      by blast
+
+    define B :: "'v set" where "B = attractor (opponent ?\<alpha>) W\<^sub>\<beta>"
+    consider  (notempty) "B \<noteq> {}" | (empty) "B = {}" by blast
+    then show "won_by \<alpha> v \<or> won_by (opponent \<alpha>) v" proof cases
+      case notempty
+      then show ?thesis sorry
+    next
+      case empty
+      then show ?thesis sorry
+    qed
   qed
 qed
 
 
+lemma aux:
+  fixes v :: 'v
+  assumes "arena_defs E V V\<^sub>0"
+  assumes "v\<in>V"
+  shows "arena_defs.won_by E V V\<^sub>0 prio EVEN v \<or> arena_defs.won_by E V V\<^sub>0 prio ODD v"
+proof -
+  have "finite V" proof -
+    interpret arena_defs E V V\<^sub>0 by fact
+    show ?thesis by blast
+  qed
+  then show ?thesis using assms
+  proof (induction arbitrary: E V\<^sub>0 v rule: finite_psubset_induct)
+    case (psubset V)
 
+    interpret arena_defs E V V\<^sub>0 by fact
 
+    (* The highest priority in V *)
+    define p :: "nat" where "p = (MAX v' \<in> V. prio v')"
 
+    have "finite (prio`V)" by simp
 
+    have "prio v \<le> p" if "v\<in>V" for v
+      using Max_ge[OF \<open>finite (prio`V)\<close>] that unfolding p_def by simp
+
+    let ?\<alpha> = "player_of_prio p"
+
+    obtain v' where "v'\<in>V" "prio v' = p"
+      using Max_in[OF \<open>finite (prio`V)\<close>] \<open>v\<in>V\<close> unfolding p_def by fastforce
+
+    (* Attract to that v' for the player that wins p. *)
+    define A :: "'v set" where  "A = attractor ?\<alpha> {v'}"
+
+    define V' :: "'v set" where "V' = V - A"
+    define E' :: "'v rel" where "E' = (V - A) \<times> (V - A)"
+    define V\<^sub>0' :: "'v set" where "V\<^sub>0'= V\<^sub>0 - A"
+
+    interpret subgame: arena_defs E' V' V\<^sub>0' prio
+      unfolding E'_def V'_def V\<^sub>0'_def
+      unfolding A_def
+      apply unfold_locales
+      apply simp_all
+      subgoal using notin_attractor_succ by blast
+      subgoal using V\<^sub>0_in_V by force
+      done
+
+    have subset: "V' \<subset> V" proof -
+      have "V' \<subseteq> V" unfolding V'_def by auto
+      moreover note \<open>v'\<in>V\<close>
+      moreover have "v'\<in>A" unfolding A_def
+        using attractor_subset by auto
+      ultimately show ?thesis unfolding V'_def by blast
+    qed
+
+    note IH =  psubset.IH[OF subset subgame.arena_defs_axioms]
+    from IH obtain W\<^sub>\<alpha> W\<^sub>\<beta> where
+      "W\<^sub>\<alpha> = {v \<in> V'. won_by ?\<alpha> v}" and
+      "W\<^sub>\<beta> = {v \<in> V'. won_by (opponent ?\<alpha>) v}" by blast
+    hence "V' = W\<^sub>\<alpha> \<union> W\<^sub>\<beta>" sorry
+
+    define B :: "'v set" where "B = attractor (opponent ?\<alpha>) W\<^sub>\<beta>"
+    consider  (notempty) "B \<noteq> {}" | (empty) "B = {}" by blast
+    then show "won_by EVEN v \<or> won_by ODD v" proof cases
+      case notempty
+      then show ?thesis sorry
+    next
+      case empty
+      then show ?thesis sorry
+    qed
+  qed
+qed
 
 
 
@@ -1432,7 +1657,7 @@ lemma aux:
   fixes v :: 'v
   assumes player_arena: "player_arena E V V\<^sub>0 V\<^sub>\<alpha>"
   assumes "v\<in>V"
-  shows "player_arena.won_by_player E V prio V\<^sub>\<alpha> winningP v \<or> player_arena.won_by_opponent E V prio V\<^sub>\<alpha> winningP v"
+  shows "\<exists>W\<^sub>0 W\<^sub>1. V = W\<^sub>0 \<union> W\<^sub>21"
 proof -
   have "finite V" proof -
     interpret player_arena E V V\<^sub>0 prio V\<^sub>\<alpha> winningP by fact
