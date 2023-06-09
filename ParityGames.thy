@@ -1328,6 +1328,12 @@ context arena_defs begin
       strategy_of (V_player \<alpha>) \<sigma> \<and> (\<forall>v\<in>attractor \<alpha> X. \<forall>xs. lasso_from_node' (induced_by_strategy (V_player \<alpha>) \<sigma>) v xs \<longrightarrow> set xs \<inter> X \<noteq> {})"
     using P0.attractor_attracts P1.attractor_attracts by (cases \<alpha>) auto
 
+    
+  lemma attractor_subset: "X \<subseteq> attractor \<alpha> X"  
+    by (cases \<alpha>; simp add: P0.attractor_subset P1.attractor_subset)
+  
+    
+    
 end
 
 
@@ -1357,8 +1363,17 @@ proof -
     (* Maybe we can construct a smaller graph by following the proof sketched by Tom *)
     (* The highest priority in V *)
     define p :: "nat" where "p = (MAX v' \<in> V. prio v')"
-    (* Some vertex of that highest priority *)
-    define v' :: "'v" where "v' =(SOME w. w \<in> V \<and> prio w = p)"
+    
+    have "finite (prio`V)" by simp
+    
+    have "prio v \<le> p" if "v\<in>V" for v
+      using Max_ge[OF \<open>finite (prio`V)\<close>] that unfolding p_def by simp
+    
+    obtain v' where "v'\<in>V" "prio v' = p"
+      using Max_in[OF \<open>finite (prio`V)\<close>] \<open>v\<in>V\<close> unfolding p_def by fastforce
+      
+    
+    
     (* Attract to that v' for the player that wins p.
        In the context of player_arena, this is not possible!
        We can only attract for the player that owns V\<^sub>\<alpha>, which might not be the one who wins p!*)
@@ -1383,14 +1398,21 @@ proof -
         done
 
     *)
-    
+
+    define V' :: "'v set" where "V' = V - A"
+        
     define E' :: "'v rel" where "E'=undefined"
-    define V' :: "'v set" where "V'=undefined"
     define V\<^sub>0' :: "'v set" where "V\<^sub>0'=undefined"
         
     interpret subgame: arena_defs E' V' V\<^sub>0' prio sorry
 
-    have subset: "V' \<subset> V" sorry
+    have subset: "V' \<subset> V" proof -
+      have "V' \<subseteq> V" unfolding V'_def by auto
+      moreover note \<open>v'\<in>V\<close> 
+      moreover have "v'\<in>A" unfolding A_def
+        using attractor_subset by auto
+      ultimately show ?thesis unfolding V'_def by blast
+    qed
     
     note IH =  psubset.IH[OF subset subgame.arena_defs_axioms]
     
