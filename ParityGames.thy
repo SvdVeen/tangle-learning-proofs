@@ -1279,6 +1279,8 @@ fun opponent where
 lemma opponent2[simp]: "opponent (opponent \<alpha>) = \<alpha>"
   by (cases \<alpha>) auto
 
+definition player_of_prio :: "nat \<Rightarrow> player" where "player_of_prio p \<equiv> if even p then EVEN else ODD"
+  
 
 context arena_defs begin
 
@@ -1327,6 +1329,82 @@ context arena_defs begin
     using P0.attractor_attracts P1.attractor_attracts by (cases \<alpha>) auto
 
 end
+
+
+term arena_defs.won_by
+
+thm arena_defs.won_by.simps
+
+thm finite_psubset_induct
+
+
+lemma aux:
+  fixes v :: 'v
+  assumes "arena_defs E V V\<^sub>0"
+  assumes "v\<in>V"
+  shows "arena_defs.won_by E V V\<^sub>0 prio \<alpha> v \<or> arena_defs.won_by E V V\<^sub>0 prio (opponent \<alpha>) v"
+proof -
+  have "finite V" proof -
+    interpret arena_defs E V V\<^sub>0 by fact
+    show ?thesis by blast
+  qed
+  then show ?thesis using assms
+  proof (induction arbitrary: E V\<^sub>0 \<alpha> v rule: finite_psubset_induct)
+    case (psubset V)
+
+    interpret arena_defs E V V\<^sub>0 by fact
+
+    (* Maybe we can construct a smaller graph by following the proof sketched by Tom *)
+    (* The highest priority in V *)
+    define p :: "nat" where "p = (MAX v' \<in> V. prio v')"
+    (* Some vertex of that highest priority *)
+    define v' :: "'v" where "v' =(SOME w. w \<in> V \<and> prio w = p)"
+    (* Attract to that v' for the player that wins p.
+       In the context of player_arena, this is not possible!
+       We can only attract for the player that owns V\<^sub>\<alpha>, which might not be the one who wins p!*)
+    define A :: "'v set" where  "A = attractor (player_of_prio p) {v'}"
+
+    (*
+    (* My first attempt to just construct something without thinking about specifics: removing v from the graph *)
+    define E' :: "'v rel" where "E'=E-(UNIV \<times> {v} \<union> {v} \<times> UNIV)"
+    define V' :: "'v set" where "V'=V-{v}"
+    define V\<^sub>0' :: "'v set" where "V\<^sub>0'=V\<^sub>0-{v}"
+    define V\<^sub>\<alpha>' :: "'v set" where "V\<^sub>\<alpha>'=V\<^sub>\<alpha>-{v}"
+
+    have ARENA': "player_arena E' V' V\<^sub>0' V\<^sub>\<alpha>'" and FIN: "finite V'" and LESS: "card V' < card V"
+      unfolding E'_def V'_def V\<^sub>0'_def V\<^sub>\<alpha>'_def
+      apply unfold_locales
+      apply simp_all
+        subgoal using E_in_V by blast
+        subgoal for v' sorry (* constructing the new graph by just removing v does not ensure successors *)
+        subgoal using V\<^sub>0_in_V by blast
+        subgoal using V\<^sub>\<alpha>_subset by blast
+        subgoal using less.prems(2) psubset_card_mono[OF fin_V] by force
+        done
+
+    *)
+    
+    define E' :: "'v rel" where "E'=undefined"
+    define V' :: "'v set" where "V'=undefined"
+    define V\<^sub>0' :: "'v set" where "V\<^sub>0'=undefined"
+        
+    interpret subgame: arena_defs E' V' V\<^sub>0' prio sorry
+
+    have subset: "V' \<subset> V" sorry
+    
+    note IH =  psubset.IH[OF subset subgame.arena_defs_axioms]
+    
+    show "won_by \<alpha> v \<or> won_by (opponent \<alpha>) v" sorry
+  qed
+qed
+
+
+
+
+
+
+
+
 
 lemma aux:
   fixes v :: 'v
