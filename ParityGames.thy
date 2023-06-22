@@ -1506,39 +1506,79 @@ proof -
       qed
 
       note IH = psubset.IH[OF V'_subset subgame.arena_defs_axioms]
-      then obtain W\<^sub>\<alpha> W\<^sub>\<beta> where
-        V'_comp: "V' = W\<^sub>\<alpha> \<union> W\<^sub>\<beta>" and
-        W_disjoint: "W\<^sub>\<alpha> \<inter> W\<^sub>\<beta> = {}" and
-        W\<^sub>\<alpha>_def: "\<forall>w \<in> W\<^sub>\<alpha>. subgame.won_by \<alpha> w" and
-        W\<^sub>\<beta>_def: "\<forall>w \<in> W\<^sub>\<beta>. subgame.won_by (opponent \<alpha>) w"
-        apply (cases \<alpha>)
-        subgoal by fastforce
-        subgoal using opponent.simps Int_commute Un_commute by metis
-        done
+      then obtain W\<^sub>0 W\<^sub>1 where
+        V'_comp: "V' = W\<^sub>0 \<union> W\<^sub>1" and
+        W_disjoint: "W\<^sub>0 \<inter> W\<^sub>1 = {}" and
+        W\<^sub>0_def: "\<forall>w \<in> W\<^sub>0. subgame.won_by EVEN w" and
+        W\<^sub>1_def: "\<forall>w \<in> W\<^sub>1. subgame.won_by ODD w"
+        by blast
 
-      with V_composed_of have V_composed_of': "V = W\<^sub>\<alpha> \<union> W\<^sub>\<beta> \<union> A" by simp
+      with V_composed_of have V_composed_of': "V = W\<^sub>0 \<union> W\<^sub>1 \<union> A" by simp
+
+      (** Take the winning region for the opponent of \<alpha> *)
+      define W :: "'v set" where
+      "W \<equiv> if \<alpha> = EVEN then W\<^sub>1 else W\<^sub>0"
 
       (** Attract for the opponent to their winning region in V' *)
-      define B :: "'v set" where "B = attractor (opponent \<alpha>) W\<^sub>\<beta>"
+      define B :: "'v set" where "B = attractor (opponent \<alpha>) W"
 
-      (** All plays in B must reach W\<^sub>\<beta> *)
+      (** All plays in B must reach W *)
       obtain \<sigma> where
         \<sigma>_strat: "strategy_of (V_player (opponent \<alpha>)) \<sigma>" and
-        \<sigma>_forces_W\<^sub>\<beta>: "\<forall>v\<in>B. \<forall>xs. lasso_from_node' (induced_by_strategy (V_player (opponent \<alpha>)) \<sigma>) v xs \<longrightarrow> set xs \<inter> W\<^sub>\<beta> \<noteq> {}"
+        \<sigma>_forces_W: "\<forall>v\<in>B. \<forall>xs. lasso_from_node' (induced_by_strategy (V_player (opponent \<alpha>)) \<sigma>) v xs \<longrightarrow> set xs \<inter> W \<noteq> {}"
         unfolding B_def using attractor_attracts by blast
-      (** TODO: There are no plays from W\<^sub>\<beta> to B-W\<^sub>\<beta> under \<sigma> *)
+      (** TODO: There are no plays from W\<^sub>\<beta> to B-W under \<sigma> *)
       (** TODO: B is the winning region for the opponent *)
 
       consider (B_nonempty) "B \<noteq> {}" | (empty) "B = {}" by blast
       then show ?thesis proof cases
         case B_nonempty
-        then show ?thesis sorry
+        (** take the subgame of G-B *)
+        (** This feels like a lot to do over again *)
+        define V'' :: "'v set" where "V'' = V - B"
+        define E'' :: "'v rel" where "E'' = ((V-B) \<times> (V-B)) \<inter> E"
+        define V\<^sub>0'' :: "'v set" where "V\<^sub>0'' = V\<^sub>0 - B"
+
+        have edge_E_to_E'': "\<forall>v v'. (v,v')\<in>E \<and> v \<notin> B \<and> v' \<notin> B \<longleftrightarrow> (v,v') \<in> E''"
+        unfolding E''_def using E_in_V by auto
+
+        have E''_succ: "\<forall>v'. v' \<in> V \<and> v' \<notin> B \<longrightarrow> E'' `` {v'} \<noteq> {}"
+        proof (rule allI; rule impI; erule conjE)
+          fix v'
+          assume "v' \<in> V" "v' \<notin> B"
+          from notin_attractor_succ[OF this(1)] this(2)
+          have "E `` {v'} - attractor (opponent \<alpha>) W \<noteq> {}" unfolding B_def by simp
+          then obtain w where w_def: "(v',w) \<in> E \<and> w \<in> V - attractor (opponent \<alpha>) W" using E_in_V by blast
+          hence "w \<notin> B" unfolding B_def by blast
+          with  \<open>v' \<notin> B\<close> w_def edge_E_to_E'' have "(v',w) \<in> E''" by blast
+          thus "E'' `` {v'} \<noteq> {}" by blast
+        qed
+
+        interpret subgame':  arena_defs E'' V'' V\<^sub>0'' prio
+          unfolding E''_def V''_def V\<^sub>0''_def
+          unfolding B_def
+          apply unfold_locales
+          apply simp_all
+          subgoal for v using B_def E''_def E''_succ by auto
+          subgoal using V\<^sub>0_in_V by force
+          done
+
+        have V''_subset: "V'' \<subset> V" (** TODO: I am not sure if this can even be proven now *) sorry
+
+        note IH' = psubset.IH[OF V''_subset subgame'.arena_defs_axioms]
+        then obtain X\<^sub>0 X\<^sub>1 where
+          V''_comp: "V'' = X\<^sub>0 \<union> X\<^sub>1" and
+          X_disjoint: "X\<^sub>0 \<inter> X\<^sub>1 = {}" and
+          X\<^sub>0_def: "\<forall>x \<in> X\<^sub>0. subgame'.won_by EVEN x" and
+          X\<^sub>1_def: "\<forall>x \<in> X\<^sub>1. subgame'.won_by ODD x"
+          by blast
+
+        (** What remains to show is that W\<^sub>0 \<union> X\<^sub>0 is the winning region for EVEN
+            and W\<^sub>1 \<union> X\<^sub>1 is the winning region for ODD.*)
+        show ?thesis sorry
       next
         case empty
-        with V_composed_of' have "V = W\<^sub>\<alpha> \<union> A"
-          unfolding B_def using attractor_subset by blast
-        then have W\<^sub>\<alpha>_A_disjoint: "W\<^sub>\<alpha> \<inter> A = {}"
-          using V'_comp V'_def by blast
+        (** Because B is empty, all that remains is the player's winning region and A *)
         (** What remains to show is that every v' in V is won by \<alpha>
             We know that every v' in W\<^sub>\<alpha> is won by \<alpha>, unless a new path into A has been introduced.
             That path must then pass trough v, which has the highest possible priority, won by \<alpha>.*)
