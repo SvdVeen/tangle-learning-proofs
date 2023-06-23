@@ -1151,21 +1151,47 @@ context player_arena begin
   abbreviation "winning_player xs \<equiv> winningP (top_priority xs)"
   abbreviation "winning_opponent xs \<equiv> \<not>winningP (top_priority xs)"
 
-  definition won_by_player :: "'v set \<Rightarrow> bool" where
-    "won_by_player W \<equiv> (\<exists>\<sigma>. strategy_of V\<^sub>\<alpha> \<sigma> \<and>
-    (\<forall>v\<in>W. \<forall>xs. cycle_from_node (induced_by_strategy (dom \<sigma>) \<sigma>) v xs \<longrightarrow> winning_player xs))"
+  definition winning_region :: "'v set \<Rightarrow> bool" where
+    "winning_region W \<equiv> (W\<subseteq>V \<and> (\<exists>\<sigma>. strategy_of V\<^sub>\<alpha> \<sigma> \<and>
+    (\<forall>v\<in>W. \<forall>xs. cycle_from_node (induced_by_strategy (dom \<sigma>) \<sigma>) v xs \<longrightarrow> winning_player xs)))"
 
-  lemma "won_by_player v \<Longrightarrow> (\<exists>\<sigma>. strategy_of V\<^sub>\<alpha> \<sigma> \<and>
-    (\<forall>xs. cycle_from_node (induced_by_strategy (dom \<sigma>) \<sigma>) v xs \<longrightarrow> \<not>winning_opponent xs))"
+  (** Pointless lemma *)
+  lemma winning_region_lost_by_opponent:
+    "winning_region W \<Longrightarrow> (W\<subseteq>V \<and> (\<exists>\<sigma>. strategy_of V\<^sub>\<alpha> \<sigma> \<and>
+      (\<forall>v\<in>W. \<forall>xs. cycle_from_node (induced_by_strategy (dom \<sigma>) \<sigma>) v xs \<longrightarrow> \<not>winning_opponent xs)))"
+    unfolding winning_region_def by blast
+
+  definition losing_region :: "'v set \<Rightarrow> bool" where
+    "losing_region W \<equiv> (W\<subseteq>V \<and> (\<exists>\<sigma>. strategy_of (V-V\<^sub>\<alpha>) \<sigma> \<and>
+    (\<forall>v\<in>W. \<forall>xs. cycle_from_node (induced_by_strategy (dom \<sigma>) \<sigma>) v xs \<longrightarrow> winning_opponent xs)))"
+
+  (** Pointless lemma *)
+  lemma losing_region_lost_by_player:
+    "losing_region W \<Longrightarrow> (W\<subseteq>V \<and> (\<exists>\<sigma>. strategy_of (V-V\<^sub>\<alpha>) \<sigma> \<and>
+    (\<forall>v\<in>W. \<forall>xs. cycle_from_node (induced_by_strategy (dom \<sigma>) \<sigma>) v xs \<longrightarrow> \<not>winning_player xs)))"
+    unfolding losing_region_def by blast
+
+  definition won_by_player :: "'v \<Rightarrow> bool" where
+    "won_by_player v \<equiv> (v\<in>V \<and> (\<exists>\<sigma>. strategy_of V\<^sub>\<alpha> \<sigma> \<and>
+    (\<forall>xs. cycle_from_node (induced_by_strategy (dom \<sigma>) \<sigma>) v xs \<longrightarrow> winning_player xs)))"
+
+  lemma "won_by_player v \<Longrightarrow> (v\<in>V \<and> (\<exists>\<sigma>. strategy_of V\<^sub>\<alpha> \<sigma> \<and>
+    (\<forall>xs. cycle_from_node (induced_by_strategy (dom \<sigma>) \<sigma>) v xs \<longrightarrow> \<not>winning_opponent xs)))"
     unfolding won_by_player_def by auto
 
   definition won_by_opponent :: "'v \<Rightarrow> bool" where
-    "won_by_opponent v \<equiv> v\<in>V \<and> (\<exists>\<sigma>. strategy_of (V-V\<^sub>\<alpha>) \<sigma> \<and>
-    (\<forall>xs. cycle_from_node (induced_by_strategy (dom \<sigma>) \<sigma>) v xs \<longrightarrow> winning_opponent xs))"
+    "won_by_opponent v \<equiv> (v\<in>V \<and> (\<exists>\<sigma>. strategy_of (V-V\<^sub>\<alpha>) \<sigma> \<and>
+    (\<forall>xs. cycle_from_node (induced_by_strategy (dom \<sigma>) \<sigma>) v xs \<longrightarrow> winning_opponent xs)))"
 
-  lemma "won_by_opponent v \<Longrightarrow> (\<exists>\<sigma>. strategy_of (V-V\<^sub>\<alpha>) \<sigma> \<and>
-    (\<forall>xs. cycle_from_node (induced_by_strategy (dom \<sigma>) \<sigma>) v xs \<longrightarrow> \<not>winning_player xs))"
+  lemma "won_by_opponent v \<Longrightarrow> (v\<in>V \<and> (\<exists>\<sigma>. strategy_of (V-V\<^sub>\<alpha>) \<sigma> \<and>
+    (\<forall>xs. cycle_from_node (induced_by_strategy (dom \<sigma>) \<sigma>) v xs \<longrightarrow> \<not>winning_player xs)))"
     unfolding won_by_opponent_def by auto
+
+  lemma winning_region_won_by_player: "winning_region W \<Longrightarrow> \<forall>w\<in>W. won_by_player w"
+    unfolding winning_region_def won_by_player_def by blast
+
+  lemma losing_region_won_by_opponent: "losing_region W \<Longrightarrow> \<forall>w\<in>W. won_by_opponent w"
+    unfolding losing_region_def won_by_opponent_def by blast
 
   lemma V\<^sub>\<alpha>_induced_succs_1: "v\<in>V\<^sub>\<alpha> \<Longrightarrow> strategy_of (V-V\<^sub>\<alpha>) \<sigma>' \<Longrightarrow> induced_by_strategy (dom \<sigma>') \<sigma>' `` {v} = E `` {v}"
     unfolding induced_by_strategy_def E_of_strat_def strategy_of_def V\<^sub>1_def by auto
@@ -1340,6 +1366,18 @@ context arena_defs begin
     "attractor EVEN = P0.attractor"
   | "attractor ODD = P1.attractor"
 
+  fun winning_region where
+    "winning_region EVEN = P0.winning_region"
+  | "winning_region ODD = P1.winning_region"
+
+  lemma winning_region_strat: "winning_region \<alpha> W \<Longrightarrow> (W\<subseteq>V \<and> (\<exists>\<sigma>. strategy_of (V_player \<alpha>) \<sigma> \<and>
+    (\<forall>w\<in>W. \<forall>xs. cycle_from_node (induced_by_strategy (dom \<sigma>) \<sigma>) w xs \<longrightarrow> player_winningP \<alpha> (top_priority xs))))"
+    by (cases \<alpha>; simp add: P0.winning_region_def P1.winning_region_def)
+
+lemma "\<exists>W\<^sub>0 W\<^sub>1. V = W\<^sub>0 \<union> W\<^sub>1 \<and> W\<^sub>0 \<inter> W\<^sub>1 = {} \<and> winning_region EVEN W\<^sub>0 \<and> winning_region ODD W\<^sub>1
+  \<Longrightarrow> \<nexists>v w. v \<in> W\<^sub>0 \<and> w \<in> W\<^sub>1 \<and> (v,w) \<in> E"
+   xxx, ctd here sorry
+
   fun won_by where
     "won_by EVEN = P0.won_by_player"
   | "won_by ODD = P1.won_by_player"
@@ -1348,9 +1386,15 @@ context arena_defs begin
     (\<forall>xs. cycle_from_node (induced_by_strategy (dom \<sigma>) \<sigma>) v xs \<longrightarrow> player_winningP \<alpha> (top_priority xs))))"
     by (cases \<alpha>; simp add: P0.won_by_player_def P1.won_by_player_def)
 
-
   lemma V_diff_diff_V0: "(V - (V - V\<^sub>0)) = V\<^sub>0"
     by (simp add: V\<^sub>0_in_V double_diff)
+
+  lemma losing_region_simps[simp]:
+    "P1.losing_region = P0.winning_region"
+    "P0.losing_region = P1.winning_region"
+    unfolding P0.losing_region_def P1.losing_region_def P0.winning_region_def P1.winning_region_def
+    unfolding V\<^sub>1_def
+    by (auto simp: V_diff_diff_V0)
 
   lemma won_by_opponent_simps[simp]:
     "P1.won_by_opponent = P0.won_by_player"
@@ -1589,7 +1633,7 @@ proof -
         thus ?thesis
           apply (cases \<alpha>)
           by blast+
-      qed xxx, ctd here sorry
+      qed
     qed
   qed
 qed
