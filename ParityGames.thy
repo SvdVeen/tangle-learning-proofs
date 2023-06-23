@@ -1161,6 +1161,10 @@ context player_arena begin
       (\<forall>v\<in>W. \<forall>xs. cycle_from_node (induced_by_strategy (dom \<sigma>) \<sigma>) v xs \<longrightarrow> \<not>winning_opponent xs)))"
     unfolding winning_region_def by blast
 
+  lemma winning_region_empty[simp]: "winning_region {}"
+    unfolding winning_region_def strategy_of_def E_of_strat_def
+    by auto
+
   definition losing_region :: "'v set \<Rightarrow> bool" where
     "losing_region W \<equiv> (W\<subseteq>V \<and> (\<exists>\<sigma>. strategy_of (V-V\<^sub>\<alpha>) \<sigma> \<and>
     (\<forall>v\<in>W. \<forall>xs. cycle_from_node (induced_by_strategy (dom \<sigma>) \<sigma>) v xs \<longrightarrow> winning_opponent xs)))"
@@ -1170,6 +1174,10 @@ context player_arena begin
     "losing_region W \<Longrightarrow> (W\<subseteq>V \<and> (\<exists>\<sigma>. strategy_of (V-V\<^sub>\<alpha>) \<sigma> \<and>
     (\<forall>v\<in>W. \<forall>xs. cycle_from_node (induced_by_strategy (dom \<sigma>) \<sigma>) v xs \<longrightarrow> \<not>winning_player xs)))"
     unfolding losing_region_def by blast
+
+  lemma losing_region_empty[simp]: "losing_region {}"
+    unfolding losing_region_def strategy_of_def E_of_strat_def
+    by auto
 
   definition won_by_player :: "'v \<Rightarrow> bool" where
     "won_by_player v \<equiv> (v\<in>V \<and> (\<exists>\<sigma>. strategy_of V\<^sub>\<alpha> \<sigma> \<and>
@@ -1370,13 +1378,18 @@ context arena_defs begin
     "winning_region EVEN = P0.winning_region"
   | "winning_region ODD = P1.winning_region"
 
-  lemma winning_region_strat: "winning_region \<alpha> W \<Longrightarrow> (W\<subseteq>V \<and> (\<exists>\<sigma>. strategy_of (V_player \<alpha>) \<sigma> \<and>
+  lemma winning_region_empty[simp]: "winning_region \<alpha> {}"
+    by (cases \<alpha>; simp)
+
+  lemma winning_region_strat: "winning_region \<alpha> W = (W\<subseteq>V \<and> (\<exists>\<sigma>. strategy_of (V_player \<alpha>) \<sigma> \<and>
     (\<forall>w\<in>W. \<forall>xs. cycle_from_node (induced_by_strategy (dom \<sigma>) \<sigma>) w xs \<longrightarrow> player_winningP \<alpha> (top_priority xs))))"
     by (cases \<alpha>; simp add: P0.winning_region_def P1.winning_region_def)
 
-lemma "\<exists>W\<^sub>0 W\<^sub>1. V = W\<^sub>0 \<union> W\<^sub>1 \<and> W\<^sub>0 \<inter> W\<^sub>1 = {} \<and> winning_region EVEN W\<^sub>0 \<and> winning_region ODD W\<^sub>1
-  \<Longrightarrow> \<nexists>v w. v \<in> W\<^sub>0 \<and> w \<in> W\<^sub>1 \<and> (v,w) \<in> E"
-   xxx, ctd here sorry
+  (** TODO: add closedness *)
+  lemma "\<exists>W\<^sub>0 W\<^sub>1. V = W\<^sub>0 \<union> W\<^sub>1 \<and> W\<^sub>0 \<inter> W\<^sub>1 = {} \<and> winning_region \<alpha> W\<^sub>0 \<and> winning_region (opponent \<alpha>) W\<^sub>1
+    \<Longrightarrow> (\<exists>\<sigma>. strategy_of (V_player \<alpha>) \<sigma> \<and>
+    (\<forall>w\<in>W. \<forall>xs. cycle_from_node (induced_by_strategy (dom \<sigma>) \<sigma>) w xs \<longrightarrow> player_winningP \<alpha> (top_priority xs)))" sorry
+     xxx, ctd here sorry
 
   fun won_by where
     "won_by EVEN = P0.won_by_player"
@@ -1428,8 +1441,8 @@ lemma aux2:
   fixes V :: "'v set"
   assumes "arena_defs E V V\<^sub>0"
   shows "\<exists>W\<^sub>0 W\<^sub>1. V = W\<^sub>0 \<union> W\<^sub>1 \<and> W\<^sub>0 \<inter> W\<^sub>1 = {}
-    \<and> (\<forall>v \<in> W\<^sub>0. arena_defs.won_by E V V\<^sub>0 prio EVEN v)
-    \<and> (\<forall>v \<in> W\<^sub>1. arena_defs.won_by E V V\<^sub>0 prio ODD v)"
+    \<and> arena_defs.winning_region E V V\<^sub>0 prio EVEN W\<^sub>0
+    \<and> arena_defs.winning_region E V V\<^sub>0 prio ODD W\<^sub>1"
 proof -
   have "finite V" proof -
     interpret arena_defs E V V\<^sub>0 by fact
@@ -1440,7 +1453,8 @@ proof -
     case (psubset V)
     then consider (V_empty) "V = {}" | (V_notempty) "V \<noteq> {}" by fast
     then show ?case proof cases
-      case V_empty thus ?thesis by simp
+      case V_empty thus ?thesis
+        using arena_defs.winning_region_empty psubset.prems by fastforce
     next
       case V_notempty
 
@@ -1553,8 +1567,8 @@ proof -
       then obtain W\<^sub>0 W\<^sub>1 where
         V'_comp: "V' = W\<^sub>0 \<union> W\<^sub>1" and
         W_disjoint: "W\<^sub>0 \<inter> W\<^sub>1 = {}" and
-        W\<^sub>0_def: "\<forall>w \<in> W\<^sub>0. subgame.won_by EVEN w" and
-        W\<^sub>1_def: "\<forall>w \<in> W\<^sub>1. subgame.won_by ODD w"
+        W\<^sub>0_def: "subgame.winning_region EVEN W\<^sub>0" and
+        W\<^sub>1_def: "subgame.winning_region ODD W\<^sub>1"
         by blast
 
       with V_composed_of have V_composed_of': "V = W\<^sub>0 \<union> W\<^sub>1 \<union> A" by simp
@@ -1613,8 +1627,8 @@ proof -
         then obtain X\<^sub>0 X\<^sub>1 where
           V''_comp: "V'' = X\<^sub>0 \<union> X\<^sub>1" and
           X_disjoint: "X\<^sub>0 \<inter> X\<^sub>1 = {}" and
-          X\<^sub>0_def: "\<forall>x \<in> X\<^sub>0. subgame'.won_by EVEN x" and
-          X\<^sub>1_def: "\<forall>x \<in> X\<^sub>1. subgame'.won_by ODD x"
+          X\<^sub>0_def: "subgame'.winning_region EVEN X\<^sub>0" and
+          X\<^sub>1_def: "subgame'.winning_region ODD X\<^sub>1"
           by blast
 
         (** What remains to show is that W\<^sub>0 \<union> X\<^sub>0 is the winning region for EVEN
@@ -1632,7 +1646,7 @@ proof -
         have "\<forall>v' \<in> V. won_by \<alpha> v'" sorry
         thus ?thesis
           apply (cases \<alpha>)
-          by blast+
+          sorry
       qed
     qed
   qed
