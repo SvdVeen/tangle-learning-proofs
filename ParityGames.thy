@@ -1151,9 +1151,9 @@ context player_arena begin
   abbreviation "winning_player xs \<equiv> winningP (top_priority xs)"
   abbreviation "winning_opponent xs \<equiv> \<not>winningP (top_priority xs)"
 
-  definition won_by_player :: "'v \<Rightarrow> bool" where
-    "won_by_player v \<equiv> v\<in>V \<and> (\<exists>\<sigma>. strategy_of V\<^sub>\<alpha> \<sigma> \<and>
-    (\<forall>xs. cycle_from_node (induced_by_strategy (dom \<sigma>) \<sigma>) v xs \<longrightarrow> winning_player xs))"
+  definition won_by_player :: "'v set \<Rightarrow> bool" where
+    "won_by_player W \<equiv> (\<exists>\<sigma>. strategy_of V\<^sub>\<alpha> \<sigma> \<and>
+    (\<forall>v\<in>W. \<forall>xs. cycle_from_node (induced_by_strategy (dom \<sigma>) \<sigma>) v xs \<longrightarrow> winning_player xs))"
 
   lemma "won_by_player v \<Longrightarrow> (\<exists>\<sigma>. strategy_of V\<^sub>\<alpha> \<sigma> \<and>
     (\<forall>xs. cycle_from_node (induced_by_strategy (dom \<sigma>) \<sigma>) v xs \<longrightarrow> \<not>winning_opponent xs))"
