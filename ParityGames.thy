@@ -728,7 +728,10 @@ begin
   lemma notin_attractor_succ: "\<lbrakk>v\<in>V; v \<notin> attractor X\<rbrakk> \<Longrightarrow> E `` {v} - attractor X \<noteq> {}"
     using attractor.simps succ V\<^sub>\<alpha>_subset by fast
 
-  lemma player_attractor_max: "\<lbrakk>v\<in>V\<^sub>\<alpha>; v \<notin> attractor X\<rbrakk> \<Longrightarrow> \<forall>w \<in> attractor X. (v,w) \<notin> E"
+  lemma player_attractor_max: "\<lbrakk>v\<in>V\<^sub>\<alpha>; v \<notin> attractor X\<rbrakk> \<Longrightarrow> \<forall>w \<in> E `` {v}. w \<notin> attractor X"
+    using attractor.simps by fast
+
+  lemma opponent_attractor_max: "\<lbrakk>v\<in>(V-V\<^sub>\<alpha>); v \<notin> attractor X\<rbrakk> \<Longrightarrow> \<exists>w \<in> E `` {v}. w \<notin> attractor X"
     using attractor.simps by fast
 
   inductive_set attractor_edges :: "'v set \<Rightarrow> ('v \<times> 'v) set" for X where
@@ -1386,13 +1389,57 @@ context arena_defs begin
 
   lemma winning_region_strat: "winning_region \<alpha> W = (W\<subseteq>V \<and> (\<exists>\<sigma>. strategy_of (V_player \<alpha>) \<sigma> \<and>
     (\<forall>w\<in>W. \<forall>xs. cycle_from_node (induced_by_strategy (dom \<sigma>) \<sigma>) w xs \<longrightarrow> player_winningP \<alpha> (top_priority xs))))"
-    by (cases \<alpha>; simp add: P0.winning_region_def P1.winning_region_def)
+    using P0.winning_region_def P1.winning_region_def by (cases \<alpha>) auto
 
-  (** TODO: add closedness *)
-  lemma "\<exists>W\<^sub>0 W\<^sub>1. V = W\<^sub>0 \<union> W\<^sub>1 \<and> W\<^sub>0 \<inter> W\<^sub>1 = {} \<and> winning_region \<alpha> W\<^sub>0 \<and> winning_region (opponent \<alpha>) W\<^sub>1
-    \<Longrightarrow> (\<exists>\<sigma>. strategy_of (V_player \<alpha>) \<sigma> \<and>
-    (\<forall>w\<in>W. \<forall>xs. cycle_from_node (induced_by_strategy (dom \<sigma>) \<sigma>) w xs \<longrightarrow> player_winningP \<alpha> (top_priority xs)))" sorry
-     xxx, ctd here sorry
+  (** When there are two disjoint winning regions, the player should have a strategy such that all cycles reachable in the region
+      under that strategy are won by the player, and the region is closed. *)
+  lemma winning_regions_closed_player: "\<lbrakk>V = W\<^sub>0 \<union> W\<^sub>1; W\<^sub>0 \<inter> W\<^sub>1 = {}; winning_region \<alpha> W\<^sub>0; winning_region (opponent \<alpha>) W\<^sub>1\<rbrakk>
+    \<Longrightarrow> \<exists>\<sigma>. strategy_of (V_player \<alpha>) \<sigma> \<and>
+        (\<forall>w \<in> W\<^sub>0. \<forall>xs. cycle_from_node (induced_by_strategy (dom \<sigma>) \<sigma>) w xs \<longrightarrow> player_winningP \<alpha> (top_priority xs)) \<and>
+        (\<forall>w \<in> W\<^sub>0. \<forall>w'. (w,w') \<in> (induced_by_strategy (dom \<sigma>) \<sigma>) \<longrightarrow> w' \<in> W\<^sub>0)"
+  proof -
+    assume
+      V_comp: "V = W\<^sub>0 \<union> W\<^sub>1" and
+      regions_disjoint: "W\<^sub>0 \<inter> W\<^sub>1 = {}" and
+      winning_player_W\<^sub>0: "winning_region \<alpha> W\<^sub>0" and
+      winning_opponent_W\<^sub>1: "winning_region (opponent \<alpha>) W\<^sub>1"
+    then obtain \<sigma> where 
+      \<sigma>_strat: "strategy_of (V_player \<alpha>) \<sigma>" and
+      \<sigma>_winning_\<alpha>: "\<forall>w\<in>W\<^sub>0. \<forall>xs. cycle_from_node (induced_by_strategy (dom \<sigma>) \<sigma>) w xs \<longrightarrow> player_winningP \<alpha> (top_priority xs)"
+      using winning_region_strat by auto
+    show ?thesis proof (rule exI[where x="\<sigma>"]; intro conjI ballI allI impI)
+      from \<sigma>_strat show "strategy_of (V_player \<alpha>) \<sigma>" .
+    next
+      fix w xs
+      assume
+        w_in_W\<^sub>0: "w\<in>W\<^sub>0" and
+        cycle_from_xs: "cycle_from_node (induced_by_strategy (dom \<sigma>) \<sigma>) w xs"
+      with \<sigma>_winning_\<alpha> show "player_winningP \<alpha> (top_priority xs)" by simp
+    next
+      fix w w'
+      assume
+        w_in_W\<^sub>0: "w\<in>W\<^sub>0" and
+        edge_in_strategy: "(w,w') \<in> induced_by_strategy (dom \<sigma>) \<sigma>"
+      show "w' \<in> W\<^sub>0" proof (rule ccontr)
+        assume w'_notin_W\<^sub>0: "w' \<notin> W\<^sub>0"
+        have w'_in_W\<^sub>1: "w' \<in> W\<^sub>1" proof -
+          from edge_in_strategy ind_subgraph[of "dom \<sigma>" \<sigma>] E_in_V have "w' \<in> V" by fast
+          with w'_notin_W\<^sub>0 V_comp show ?thesis by simp
+        qed
+        obtain \<tau> where
+          \<tau>_strat: "strategy_of (V_player (opponent \<alpha>)) \<tau>" and
+          \<tau>_winning_opponent_\<alpha>: "\<forall>w\<in>W\<^sub>1. \<forall>xs. cycle_from_node (induced_by_strategy (dom \<tau>) \<tau>) w xs \<longrightarrow> player_winningP (opponent \<alpha>) (top_priority xs)"
+          using winning_region_strat[of "opponent \<alpha>" "W\<^sub>1"] winning_opponent_W\<^sub>1 by blast
+        (** This does not work yet. I'd like to show that this should mean there is a cycle reachable from w'
+            regardless of what \<alpha> does that shows our statement is false. The approach here might be wrong*)
+        show "False" sorry  xxx, yes sorry
+      qed
+    qed
+  qed
+  (** This still needs to be adapted *)
+  lemma winning_regions_closed_opponent: "\<lbrakk>V = W\<^sub>0 \<union> W\<^sub>1; W\<^sub>0 \<inter> W\<^sub>1 = {}; winning_region \<alpha> W\<^sub>0; winning_region (opponent \<alpha>) W\<^sub>1\<rbrakk>
+    \<Longrightarrow> \<exists>\<sigma>. strategy_of (V_player (opponent \<alpha>)) \<sigma> \<and> (\<forall>w \<in> W\<^sub>1. \<forall>w'. (w,w') \<in> (induced_by_strategy (dom \<sigma>) \<sigma>) \<longrightarrow> w' \<in> W\<^sub>1)"
+    using winning_regions_closed_player[of "W\<^sub>1" "W\<^sub>0"] Un_commute[of "W\<^sub>0" "W\<^sub>1"] disjoint_iff_not_equal[of "W\<^sub>0" "W\<^sub>1"] Int_commute[of "W\<^sub>0" "W\<^sub>1"] by auto
 
   fun won_by where
     "won_by EVEN = P0.won_by_player"
@@ -1428,11 +1475,14 @@ context arena_defs begin
   lemma notin_attractor_succ: "\<lbrakk>v \<in> V ; v \<notin> attractor \<alpha> X\<rbrakk> \<Longrightarrow> E `` {v} - attractor \<alpha> X \<noteq> {}"
     using P0.notin_attractor_succ P1.notin_attractor_succ by (cases \<alpha>) auto
 
-lemma player_attractor_max: "\<lbrakk>v \<in> V_player \<alpha>; v \<notin> attractor \<alpha> X\<rbrakk> \<Longrightarrow> \<forall>w \<in> attractor \<alpha> X. (v,w) \<notin> E"
-  using P0.player_attractor_max P1.player_attractor_max by (cases \<alpha>) auto
+  lemma player_attractor_max: "\<lbrakk>v \<in> V_player \<alpha>; v \<notin> attractor \<alpha> X\<rbrakk> \<Longrightarrow> \<forall>w \<in> E `` {v}. w \<notin> attractor \<alpha> X"
+    using P0.player_attractor_max P1.player_attractor_max by (cases \<alpha>) auto
+
+  lemma opponent_attractor_max: "\<lbrakk>v \<in> V_opponent \<alpha>; v \<notin> attractor \<alpha> X\<rbrakk> \<Longrightarrow> \<exists>w \<in> E `` {v}. w \<notin> attractor \<alpha> X"
+    using P0.opponent_attractor_max P1.opponent_attractor_max V\<^sub>1_def V\<^sub>0_in_V by (cases \<alpha>) auto
 
   lemma attractor_attracts: "\<exists>\<sigma>.
-      strategy_of (V_player \<alpha>) \<sigma> \<and> (\<forall>v\<in>attractor \<alpha> X. \<forall>xs. lasso_from_node' (induced_by_strategy (V_player \<alpha>) \<sigma>) v xs \<longrightarrow> set xs \<inter> X \<noteq> {})"
+    strategy_of (V_player \<alpha>) \<sigma> \<and> (\<forall>v\<in>attractor \<alpha> X. \<forall>xs. lasso_from_node' (induced_by_strategy (V_player \<alpha>) \<sigma>) v xs \<longrightarrow> set xs \<inter> X \<noteq> {})"
     using P0.attractor_attracts P1.attractor_attracts by (cases \<alpha>) auto
 end
 
@@ -1493,12 +1543,15 @@ proof -
       define E' :: "'v rel" where "E' = ((V-A) \<times> (V-A)) \<inter> E"
       define V\<^sub>0' :: "'v set" where "V\<^sub>0' = V\<^sub>0 - A"
 
+      (** Show that V is the union of V' and A *)
       have "A \<subseteq> V" unfolding A_def using \<open>v \<in> V\<close> attractor_subset_graph by simp
       from Diff_partition[OF this] have V_composed_of: "V = V' \<union> A" unfolding V'_def by blast
 
+      (** Show that every edge in E that does not touch A is also in E'. *)
       have edge_E_to_E': "\<forall>v v'. (v,v')\<in>E \<and> v \<notin> A \<and> v' \<notin> A \<longleftrightarrow> (v,v') \<in> E'"
         unfolding E'_def using E_in_V by auto
 
+      (** We need to show that all vertices in E' have at least one successor in E' to show that it is a valid arena *)
       have E'_succ: "\<forall>v'. v' \<in> V \<and> v' \<notin> A \<longrightarrow> E' `` {v'} \<noteq> {}"
       proof (rule allI; rule impI; erule conjE)
         fix v'
@@ -1511,6 +1564,7 @@ proof -
         thus "E' `` {v'} \<noteq> {}" by blast
       qed
 
+      (** Show that the subgame is a valid arena using prior definitions and statements *)
       interpret subgame: arena_defs E' V' V\<^sub>0' prio
         unfolding E'_def V'_def V\<^sub>0'_def
         unfolding A_def
@@ -1561,6 +1615,7 @@ proof -
           using E'_subs_E subgame_V_player_subs by blast
       } note propagate_strategy_of_V_player = this
 
+      (** Show that V' is a strict subset of V; this is needed for applying the induction hypothesis *)
       have V'_subset: "V' \<subset> V" proof -
         have "V' \<subseteq> V" unfolding V'_def by auto
         moreover note \<open>v \<in> V\<close>
@@ -1569,6 +1624,7 @@ proof -
         ultimately show ?thesis unfolding V'_def by blast
       qed
 
+      (** Take the winning regions W\<^sub>0 and W\<^sub>1 in the subgame *)
       note IH = psubset.IH[OF V'_subset subgame.arena_defs_axioms]
       then obtain W\<^sub>0 W\<^sub>1 where
         V'_comp: "V' = W\<^sub>0 \<union> W\<^sub>1" and
@@ -1586,19 +1642,54 @@ proof -
       (** Attract for the opponent to their winning region in V' *)
       define B :: "'v set" where "B = attractor (opponent \<alpha>) W"
 
-      (** All plays in B must reach W *)
+      (** All plays in B must reach W using the attractor strategy *)
       obtain \<sigma> where
         \<sigma>_strat: "strategy_of (V_player (opponent \<alpha>)) \<sigma>" and
         \<sigma>_forces_W: "\<forall>v\<in>B. \<forall>xs. lasso_from_node' (induced_by_strategy (V_player (opponent \<alpha>)) \<sigma>) v xs \<longrightarrow> set xs \<inter> W \<noteq> {}"
         unfolding B_def using attractor_attracts by blast
-      (** TODO: There are no plays from W\<^sub>\<beta> to B-W under \<sigma> *)
+
+      (** TODO: There are no plays from W to B-W under \<sigma> plus the winning strategy of W
+          because there are no edges from W to the player's winning region in the subgraph,
+          and there are no edges from W to A because A is maximal *)
+      from subgame.winning_regions_closed_opponent[OF V'_comp W_disjoint]
+      have "\<exists>\<sigma>. strategy_of (V_player (opponent \<alpha>)) \<sigma> \<and> (\<forall>w\<in>W. \<forall>w'. (w, w') \<in> subgame.induced_by_strategy (dom \<sigma>) \<sigma> \<longrightarrow> w' \<in> W)"
+        using propagate_strategy_of_V_player sorry
+      obtain \<tau> where
+        \<tau>_strat: "subgame.strategy_of (subgame.V_player (opponent \<alpha>)) \<tau>" and
+        \<tau>_closed: "\<forall>w\<in>W\<^sub>1. \<forall>w'. (w, w') \<in> subgame.induced_by_strategy (dom \<tau>) \<tau> \<longrightarrow> w' \<in> W\<^sub>1"
+      using subgame.winning_regions_closed_opponent[OF V'_comp W_disjoint W\<^sub>0_def] W\<^sub>1_def xxx, ctd here sorry
+
+      have "\<exists>\<sigma>. strategy_of (V_player (opponent \<alpha>)) \<sigma> \<and>
+        (\<forall>v\<in>B. \<forall>xs. lasso_from_node' (induced_by_strategy (V_player (opponent \<alpha>)) \<sigma>) v xs \<longrightarrow> set xs \<inter> W \<noteq> {}) \<and>
+        (\<forall>v\<in>W. \<forall>w\<in>(induced_by_strategy (V_player (opponent \<alpha>)) \<sigma>) `` {v}. w \<in> W)"
+      proof -
+        obtain \<sigma> where
+          \<sigma>_strat: "strategy_of (V_player (opponent \<alpha>)) \<sigma>" and
+          \<sigma>_forces_W: "\<forall>v\<in>B. \<forall>xs. lasso_from_node' (induced_by_strategy (V_player (opponent \<alpha>)) \<sigma>) v xs \<longrightarrow> set xs \<inter> W \<noteq> {}"
+          unfolding B_def using attractor_attracts by blast
+        show ?thesis proof (rule exI[where x="\<sigma>"]; intro conjI ballI allI impI)
+          from \<sigma>_strat show "strategy_of (V_player (opponent \<alpha>)) \<sigma>" .
+        next
+          fix v xs
+          assume
+            v_in_B: "v\<in>B" and
+            lasso_xs: "lasso_from_node' (induced_by_strategy (V_player (opponent \<alpha>)) \<sigma>) v xs"
+          with \<sigma>_forces_W show "set xs \<inter> W \<noteq> {}" by simp
+        next
+          fix v w
+          assume
+            v_in_W: "v\<in>W" and
+            w_is_successor: "w\<in>(induced_by_strategy (V_player (opponent \<alpha>)) \<sigma>) `` {v}"
+          show "w\<in>W" sorry
+        qed
+      qed
       (** TODO: B is the winning region for the opponent *)
+      have "winning_region (opponent \<alpha>) B" sorry
 
       consider (B_nonempty) "B \<noteq> {}" | (empty) "B = {}" by blast
       then show ?thesis proof cases
         case B_nonempty
         (** take the subgame of G-B *)
-        (** This feels like a lot to do over again *)
         define V'' :: "'v set" where "V'' = V - B"
         define E'' :: "'v rel" where "E'' = ((V-B) \<times> (V-B)) \<inter> E"
         define V\<^sub>0'' :: "'v set" where "V\<^sub>0'' = V\<^sub>0 - B"
