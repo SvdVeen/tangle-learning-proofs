@@ -728,6 +728,9 @@ begin
   lemma notin_attractor_succ: "\<lbrakk>v\<in>V; v \<notin> attractor X\<rbrakk> \<Longrightarrow> E `` {v} - attractor X \<noteq> {}"
     using attractor.simps succ V\<^sub>\<alpha>_subset by fast
 
+  lemma player_attractor_max: "\<lbrakk>v\<in>V\<^sub>\<alpha>; v \<notin> attractor X\<rbrakk> \<Longrightarrow> \<forall>w \<in> attractor X. (v,w) \<notin> E"
+    using attractor.simps by fast
+
   inductive_set attractor_edges :: "'v set \<Rightarrow> ('v \<times> 'v) set" for X where
     ae_base: "x \<in> X \<Longrightarrow> (x,x) \<in> attractor_edges X"
   | ae_own: "\<lbrakk> x \<in> V\<^sub>\<alpha>; (x,y)\<in>E; (y,y_tgt)\<in>attractor_edges X \<rbrakk> \<Longrightarrow> (x,y) \<in> attractor_edges X"
@@ -1417,13 +1420,16 @@ context arena_defs begin
     by (auto simp: V_diff_diff_V0)
 
   lemma attractor_subset: "X \<subseteq> attractor \<alpha> X"
-    by (cases \<alpha>; simp add: P0.attractor_subset P1.attractor_subset)
+    using P0.attractor_subset P1.attractor_subset by (cases \<alpha>) auto
 
   lemma attractor_subset_graph: "X \<subseteq> V \<Longrightarrow> attractor \<alpha> X \<subseteq> V"
     using P0.attractor_ss P1.attractor_ss apply (cases \<alpha>; simp) by blast+
 
   lemma notin_attractor_succ: "\<lbrakk>v \<in> V ; v \<notin> attractor \<alpha> X\<rbrakk> \<Longrightarrow> E `` {v} - attractor \<alpha> X \<noteq> {}"
-    using P0.notin_attractor_succ P1.notin_attractor_succ by (cases \<alpha>; simp)
+    using P0.notin_attractor_succ P1.notin_attractor_succ by (cases \<alpha>) auto
+
+lemma player_attractor_max: "\<lbrakk>v \<in> V_player \<alpha>; v \<notin> attractor \<alpha> X\<rbrakk> \<Longrightarrow> \<forall>w \<in> attractor \<alpha> X. (v,w) \<notin> E"
+  using P0.player_attractor_max P1.player_attractor_max by (cases \<alpha>) auto
 
   lemma attractor_attracts: "\<exists>\<sigma>.
       strategy_of (V_player \<alpha>) \<sigma> \<and> (\<forall>v\<in>attractor \<alpha> X. \<forall>xs. lasso_from_node' (induced_by_strategy (V_player \<alpha>) \<sigma>) v xs \<longrightarrow> set xs \<inter> X \<noteq> {})"
