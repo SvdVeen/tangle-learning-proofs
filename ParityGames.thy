@@ -580,7 +580,7 @@ begin
      \<Longrightarrow> (v,w) \<in> induced_by_strategy V\<^sub>\<alpha> \<sigma>'"
     unfolding induced_by_strategy_def E_of_strat_def by blast
 
-  lemma ind_subgraph_to_strategy: "\<lbrakk>(v, w) \<in> induced_by_strategy V\<^sub>\<alpha> \<sigma>; strategy_of V\<^sub>\<alpha> \<sigma>; v \<in> dom \<sigma> \<rbrakk>
+  lemma ind_subgraph_to_strategy: "\<lbrakk>(v, w) \<in> induced_by_strategy V\<^sub>\<alpha> \<sigma>; strategy_of V\<^sub>\<alpha> \<sigma>; v \<in> dom \<sigma>\<rbrakk>
     \<Longrightarrow> \<sigma> v = Some w"
     unfolding induced_by_strategy_def strategy_of_def E_of_strat_def by blast
 
@@ -1152,6 +1152,45 @@ begin
   qed
 end (** locale player_arena *)
 
+lemma retain_subgraph_strategy_of:
+  fixes V V' :: "'v set"
+  assumes "E' \<subseteq> E"
+  assumes "arena_defs E V V\<^sub>0"
+  assumes "arena_defs E' V' V\<^sub>0'"
+  shows "arena_defs.strategy_of E' V\<^sub>\<alpha> \<sigma> \<Longrightarrow> arena_defs.strategy_of E V\<^sub>\<alpha> \<sigma>"
+proof -
+  interpret game: arena_defs E V V\<^sub>0 by fact
+  interpret subgame: arena_defs E' V' V\<^sub>0' by fact
+  assume "subgame.strategy_of V\<^sub>\<alpha> \<sigma>"
+  thus ?thesis
+    unfolding game.strategy_of_def subgame.strategy_of_def subgame.E_of_strat_def
+    using assms(1) by blast
+qed
+
+lemma retain_subgraph_strategy_edges:
+  fixes V V' :: "'v set"
+  assumes "E' \<subseteq>  E"
+  assumes "arena_defs E V V\<^sub>0"
+  assumes "arena_defs E' V' V\<^sub>0'"
+  shows "\<lbrakk>arena_defs.strategy_of E' V\<^sub>\<alpha> \<sigma>; v \<in> dom \<sigma>; (v,w) \<in> arena_defs.induced_by_strategy E' V\<^sub>\<alpha> \<sigma>\<rbrakk> \<Longrightarrow> (v,w) \<in> arena_defs.induced_by_strategy E V\<^sub>\<alpha> \<sigma>"
+proof -
+  interpret game: arena_defs E V V\<^sub>0 by fact
+  interpret subgame: arena_defs E' V' V\<^sub>0' by fact
+
+  assume subgame_strat_of: "subgame.strategy_of V\<^sub>\<alpha> \<sigma>" and
+    subgame_edge: "(v,w) \<in> subgame.induced_by_strategy V\<^sub>\<alpha> \<sigma>" and
+    v_in_dom_\<sigma>: "v \<in> dom \<sigma>"
+
+  from subgame.ind_subgraph_to_strategy[OF subgame_edge subgame_strat_of v_in_dom_\<sigma>]
+  have \<sigma>_v_to_w: "\<sigma> v = Some w" .
+
+  from subgame.ind_subgraph_edge_in_E[OF subgame_edge] have "(v,w) \<in> E'" .
+  with assms(1) have edge_in_E: "(v,w) \<in> E" by blast
+
+  from game.strategy_to_ind_subgraph[of \<sigma> v w, OF \<sigma>_v_to_w edge_in_E]
+  show "(v,w) \<in> game.induced_by_strategy V\<^sub>\<alpha> \<sigma>" by simp
+qed
+
 context player_arena begin
 
   abbreviation "winning_player xs \<equiv> winningP (top_priority xs)"
@@ -1519,7 +1558,7 @@ proof -
 
       interpret arena_defs E V V\<^sub>0 by fact
 
-      have  fin_prio: "finite (prio`V)" by simp
+      have fin_prio: "finite (prio`V)" by simp
 
       (** Get the highest priority p in V *)
       define p :: "nat" where "p = (MAX v \<in> V. prio v)"
@@ -1722,10 +1761,24 @@ proof -
             apply (cases \<alpha>; simp add: V\<^sub>1_def subgame.V\<^sub>1_def)
             unfolding V\<^sub>0'_def by simp+
 
-          from w_in_W dom_\<tau>' this have "w \<in> dom \<tau>" by simp
-          (** I should add a lemma that shows that all successors of w in the induced subgraph
-              in the subgame are also successors of w in the induced subgraph in the whole game *)
-          with \<tau>_dom_succs show ?thesis sorry xxx, sorry
+          from w_in_W dom_\<tau>' this have w_in_dom_\<tau>: "w \<in> dom \<tau>" by simp
+          with \<tau>_dom_succs w_in_W have subgame_succs_in_W: "subgame.induced_by_strategy (dom \<tau>) \<tau> `` {w} \<subseteq> W" by simp
+
+          find_theorems subgame.induced_by_strategy
+          have "(w,w') \<in> subgame.induced_by_strategy (dom \<tau>) \<tau>"
+          proof -
+            from \<tau>_strat have \<tau>_strat_of_dom_\<tau>: "strategy_of (dom \<tau>) \<tau>"
+              unfolding strategy_of_def subgame.strategy_of_def subgame.E_of_strat_def
+              using E'_subs_E by auto
+
+            from ind_subgraph_to_strategy[OF edge_in_subgraph \<tau>_strat_of_dom_\<tau> w_in_dom_\<tau>]
+            have \<tau>_w_to_w': "\<tau> w = Some w'" .
+
+            from edge_E_to_E' edge_in_graph w_notin_A have "(v,w) \<in> E'" sorry
+            from subgame.strategy_to_ind_subgraph[of \<tau> w w', OF \<tau>_w_to_w']
+            show ?thesis sorry ,xxx sorry
+          qed
+          with subgame_succs_in_W show ?thesis by auto
         qed
       qed
 
