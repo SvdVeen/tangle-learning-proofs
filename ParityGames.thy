@@ -627,6 +627,10 @@ begin
     thus ?thesis by force
   qed
 
+  lemma ind_subgraph_add_disjoint_doms2: "\<lbrakk> dom \<sigma> \<inter> dom \<sigma>' = {}; strategy_of V\<^sub>\<alpha> \<sigma>' \<rbrakk>
+    \<Longrightarrow> induced_by_strategy V\<^sub>\<alpha> \<sigma>' \<subseteq> induced_by_strategy V\<^sub>\<alpha> (\<sigma> ++ \<sigma>')"
+    using ind_subgraph_add_disjoint_doms by (metis inf_commute map_add_comm)
+
   lemma ind_subgraph_add_disjoint_doms': "\<lbrakk> dom \<sigma> \<inter> dom \<sigma>' = {}; strategy_of V\<^sub>\<alpha> \<sigma>; strategy_of V\<^sub>\<alpha> \<sigma>' \<rbrakk>
     \<Longrightarrow> induced_by_strategy V\<^sub>\<alpha> \<sigma> = induced_by_strategy V\<^sub>\<alpha> (\<sigma> ++ \<sigma>') - dom \<sigma>' \<times> UNIV"
   proof -
@@ -690,6 +694,10 @@ begin
 
     ultimately show ?thesis by fast
   qed
+
+  lemma ind_subgraph_add_disjoint_doms'2: "\<lbrakk> dom \<sigma> \<inter> dom \<sigma>' = {}; strategy_of V\<^sub>\<alpha> \<sigma>; strategy_of V\<^sub>\<alpha> \<sigma>' \<rbrakk>
+    \<Longrightarrow> induced_by_strategy V\<^sub>\<alpha> \<sigma>' = induced_by_strategy V\<^sub>\<alpha> (\<sigma> ++ \<sigma>') - dom \<sigma> \<times> UNIV"
+  using ind_subgraph_add_disjoint_doms' by (metis Int_commute map_add_comm)
 
   lemma ind_subgraph_cycle: "cycle_node (induced_by_strategy V\<^sub>\<alpha> \<sigma>) v xs \<Longrightarrow> cycle_node E v xs"
     using subgraph_cycle by (metis ind_subgraph)
@@ -1574,7 +1582,7 @@ context arena_defs begin
           then show ?case sorry xxx, ctd here sorry
         qed
 
-        hence "cycle_from_node (induced_by_strategy (dom \<sigma>) \<sigma>) w' xs"
+        hence "cycle_from_node (induced_by_strategy (dom \<sigma>) \<sigma>) w' xs" sorry
         show "False" sorry
       qed
     qed
@@ -1954,28 +1962,121 @@ proof -
         show "B \<subseteq> V" unfolding B_def using attractor_subset_graph[OF W_in_V] by simp
         from \<sigma>_strat \<tau>_strat show combined_strat: "strategy_of (V_player (opponent \<alpha>)) (\<sigma> ++ \<tau>)" by simp
         (** I may have to change the lemmas for attractors to make explicit that their domain includes all of V\<^sub>\<alpha> in the attractor *)
-        from \<sigma>_dom \<sigma>_strat \<tau>_dom show "dom (\<sigma> ++ \<tau>) = V_player (opponent \<alpha>) \<inter>  B"
+        from \<sigma>_dom \<sigma>_strat \<tau>_dom show \<sigma>\<tau>_dom: "dom (\<sigma> ++ \<tau>) = V_player (opponent \<alpha>) \<inter>  B"
           unfolding strategy_of_def sorry xxx, ctd here sorry
 
 
         have doms_disjoint: "dom \<sigma> \<inter> dom \<tau> = {}"
           using \<sigma>_dom \<tau>_dom by auto
 
-        from ind_subgraph_add_disjoint_doms doms_disjoint combined_strat
-        have "induced_by_strategy (dom (\<sigma> ++ \<tau>)) \<sigma> \<subseteq> (induced_by_strategy (dom (\<sigma> ++ \<tau>)) (\<sigma> ++ \<tau>))"
-          using \<sigma>_strat strategy_of_def by auto
+        from doms_disjoint have \<sigma>_dom_SS: "dom \<sigma> \<subseteq> dom (\<sigma> ++ \<tau>)" by simp
+        from doms_disjoint have \<tau>_dom_SS: "dom \<tau> \<subseteq> dom (\<sigma> ++ \<tau>)" by simp
+
+        (** This is the wrong way around *)
+        have "induced_by_strategy (dom \<sigma>) \<sigma> \<inter> (W \<times> W) \<subseteq> induced_by_strategy (dom (\<sigma> ++ \<tau>)) (\<sigma> ++ \<tau>)"
+        proof
+          fix e
+          assume e_in_\<sigma>_inter_W: "e \<in> induced_by_strategy (dom \<sigma>) \<sigma> \<inter> (W \<times> W)"
+          then obtain v w where [simp]: "e = (v,w)" and
+            edge_in_subgraph: "(v,w) \<in> induced_by_strategy (dom \<sigma>) \<sigma>" and
+            edge_in_W: "(v,w) \<in> (W \<times> W)" by blast
+
+          from edge_in_subgraph have edge_in_E: "(v,w) \<in> E" using ind_subgraph by simp
+          from edge_in_E have v_in_V: "v \<in> V" using E_in_V by blast
+          from edge_in_E have w_in_V: "w \<in> V" using E_in_V by blast
+
+          from edge_in_W have v_in_W: "v \<in> W" by simp
+          from edge_in_W have w_in_W: "w \<in> W" by simp
+
+          from v_in_V consider (v_in_dom) "v \<in> dom \<sigma>" | (v_notin_dom) "v \<in> V - dom \<sigma>"
+            using ind_subgraph_edge_src by fast
+          then have "(v,w) \<in> induced_by_strategy (dom (\<sigma> ++ \<tau>)) (\<sigma> ++ \<tau>)"
+          proof cases
+            case v_in_dom
+
+            from \<sigma>_strat have "E_of_strat \<sigma> \<subseteq> E" unfolding strategy_of_def by simp
+            from strategy_of_own_dom[OF this] have "strategy_of (dom \<sigma>) \<sigma>" .
+            from ind_subgraph_to_strategy[OF _ this v_in_dom] e_in_\<sigma>_inter_W
+            have \<sigma>_v_to_w: "\<sigma> v = Some w" by simp
+
+            from \<sigma>_v_to_w doms_disjoint have \<sigma>\<tau>_v_to_w: "(\<sigma> ++ \<tau>) v = Some w"
+              using map_add_comm by fastforce
+
+            from strategy_to_ind_subgraph[of "\<sigma> ++ \<tau>" v w, OF \<sigma>\<tau>_v_to_w edge_in_E] show ?thesis .
+          next
+            case v_notin_dom
+            then show ?thesis sorry
+          qed
+
+          show "e \<in> induced_by_strategy (dom (\<sigma> ++ \<tau>)) (\<sigma> ++ \<tau>)" sorry
+        qed
+
+        (** This is simply not true: there may be edges in the first graph that are not in the second because they are eliminated by \<tau> *)
+        have "induced_by_strategy (dom \<sigma>) \<sigma> \<subseteq> induced_by_strategy (dom (\<sigma> ++ \<tau>)) (\<sigma> ++ \<tau>)"
+        proof
+          fix e
+          assume e_in_\<sigma>: "e \<in> induced_by_strategy (dom \<sigma>) \<sigma>"
+          then obtain v w where [simp]:"e = (v,w)" by fastforce
+
+          from e_in_\<sigma> have edge_in_\<sigma>: "(v,w) \<in> induced_by_strategy (dom \<sigma>) \<sigma>" by simp
+
+          from edge_in_\<sigma> have edge_in_E: "(v,w) \<in> E" using ind_subgraph by blast
+
+          from edge_in_E have v_in_V: "v \<in> V" using E_in_V by blast
+          from edge_in_E have w_in_V: "w \<in> V" using E_in_V by blast
+
+          from edge_in_\<sigma> v_in_V have "v \<in> dom \<sigma> \<or> v \<in> V - dom \<sigma>"
+            using ind_subgraph_edge_src by blast
+
+          from edge_in_\<sigma> v_in_V consider (v_in_dom_\<sigma>) "v \<in> dom \<sigma>" | (v_notin_dom_\<sigma>) "v \<in> V - dom \<sigma>"
+            using ind_subgraph_edge_src by blast
+          then have "(v,w) \<in> induced_by_strategy (dom (\<sigma> ++ \<tau>)) (\<sigma> ++ \<tau>)" proof cases
+            case v_in_dom_\<sigma>
+
+            from \<sigma>_strat have "E_of_strat \<sigma> \<subseteq> E" unfolding strategy_of_def by simp
+            from strategy_of_own_dom[OF this] have "strategy_of (dom \<sigma>) \<sigma>" .
+            from ind_subgraph_to_strategy[OF edge_in_\<sigma> this v_in_dom_\<sigma>] have \<sigma>_v_to_w: "\<sigma> v = Some w" .
+
+            from \<sigma>_v_to_w doms_disjoint have \<sigma>\<tau>_v_to_w: "(\<sigma> ++ \<tau>) v = Some w"
+              using map_add_comm by fastforce
+
+            from strategy_to_ind_subgraph[of "\<sigma> ++ \<tau>" v w, OF \<sigma>\<tau>_v_to_w edge_in_E] show ?thesis .
+          next
+            case v_notin_dom_\<sigma>
+            then show ?thesis sorry
+          qed
+          thus "e \<in> induced_by_strategy (dom (\<sigma> ++ \<tau>)) (\<sigma> ++ \<tau>)" by simp
+        qed
+
+        thm ind_subgraph_addD
 
         from ind_subgraph_add_disjoint_doms doms_disjoint combined_strat
+        have "induced_by_strategy (dom (\<sigma> ++ \<tau>)) \<sigma> \<subseteq> (induced_by_strategy (dom (\<sigma> ++ \<tau>)) (\<sigma> ++ \<tau>))"
+          using \<sigma>_strat strategy_of_def by simp
+
+        have "induced_by_strategy (dom \<sigma>) \<sigma> \<subseteq> induced_by_strategy (dom (\<sigma> ++ \<tau>)) \<sigma>"
+          unfolding induced_by_strategy_def strategy_of_def E_of_strat_def
+          using \<sigma>_dom \<sigma>\<tau>_dom \<sigma>_dom_SS sorry
+
+        from ind_subgraph_add_disjoint_doms2 doms_disjoint combined_strat
         have "induced_by_strategy (dom (\<sigma> ++ \<tau>)) \<tau> \<subseteq> (induced_by_strategy (dom (\<sigma> ++ \<tau>)) (\<sigma> ++ \<tau>))"
-          using \<tau>_strat strategy_of_def map_add_comm dom_map_add Int_commute
-          by (metis Un_subset_iff strategy_of_own_dom)
+          using \<tau>_strat strategy_of_def by simp
+
+        have \<sigma>\<tau>_closed: "\<forall>w\<in>W. \<forall>w'. (w,w') \<in> induced_by_strategy (dom (\<sigma> ++ \<tau>)) (\<sigma> ++ \<tau>) \<longrightarrow> w' \<in> W"
+          using \<tau>_closed \<tau>_dom_SS combined_strat
+          unfolding W_def apply (simp split: if_splits)
+          subgoal
+            by (smt (verit, del_insts) Compl_iff Diff_eq_empty_iff Diff_iff Int_iff \<open>induced_by_strategy (dom \<sigma>) \<sigma> \<subseteq> induced_by_strategy (dom (\<sigma> ++ \<tau>)) \<sigma>\<close> \<tau>_dom_SS arena_defs.ind_subgraph_edge_src arena_defs_axioms doms_disjoint empty_iff ind_subgraph_edge_in_E ind_subgraph_not_in_dom)
+          subgoal
+            by (metis Int_iff Un_Int_eq(1) dom_map_add ind_subgraph_edge_in_E ind_subgraph_not_in_dom ind_subgraph_to_strategy map_add_dom_app_simps(1) strategy_of_def strategy_of_own_dom strategy_to_ind_subgraph)
+          done
 
         fix w xs
         assume w_in_B: "w \<in> B" and
                cycle_xs: "cycle_from_node (induced_by_strategy (dom (\<sigma> ++ \<tau>)) (\<sigma> ++ \<tau>)) w xs"
 
         from cycle_xs obtain vs where [simp]: "xs \<noteq> []" and
-          lasso_xs'_xs: "lasso_from_node (induced_by_strategy (dom (\<sigma> ++ \<tau>)) (\<sigma> ++ \<tau>)) w vs xs"
+          lasso_vs_xs: "lasso_from_node (induced_by_strategy (dom (\<sigma> ++ \<tau>)) (\<sigma> ++ \<tau>)) w vs xs"
           using lasso_from_equiv_cycle_from by fastforce
 
         from w_in_B consider (in_W) "w \<in> W" | (in_B) "w \<in> B - W" by auto
