@@ -710,6 +710,12 @@ begin
     \<Longrightarrow> lasso_from_node' E v xs"
     using subgraph_lasso' by (metis ind_subgraph)
 
+  lemma ind_subgraph_anti_mono: "V \<subseteq> V' \<Longrightarrow> induced_by_strategy V' \<sigma> \<subseteq> induced_by_strategy V \<sigma>"
+    unfolding induced_by_strategy_def E_of_strat_def by auto
+
+  lemma ind_subgraph_strategy_mono: "\<lbrakk>\<sigma> \<subseteq>\<^sub>m \<sigma>'; dom \<sigma>' \<subseteq> V\<rbrakk> \<Longrightarrow> induced_by_strategy V \<sigma> \<subseteq> induced_by_strategy V \<sigma>'"
+    unfolding induced_by_strategy_def E_of_strat_def map_le_def by force
+
   definition induced_by_strategy_V :: "'v set \<Rightarrow> 'v strat \<Rightarrow> 'v set" where
     "induced_by_strategy_V V\<^sub>\<alpha> \<sigma> \<equiv> (fst ` induced_by_strategy V\<^sub>\<alpha> \<sigma> \<union> snd ` induced_by_strategy V\<^sub>\<alpha> \<sigma>)"
 
@@ -921,6 +927,9 @@ begin
       apply (induction m)
       by (auto simp: le_Suc_eq)
 
+    lemma nodes_in_rank_subset: "X \<subseteq> nodes_in_rank n"
+      using nodes_in_rank.simps(1) nodes_in_rank_mono by blast
+
     lemma nodes_in_rank_increasing: "nodes_in_rank (n-Suc 0) \<subseteq> nodes_in_rank n"
       apply (cases n)
       by auto
@@ -973,7 +982,7 @@ begin
       apply (induction n arbitrary: x) by auto
 
     lemma nodes_in_rank_forces_X: "\<exists>\<sigma>.
-      strategy_of V\<^sub>\<alpha> \<sigma> \<and> dom \<sigma> \<subseteq> nodes_in_rank n - X
+      strategy_of V\<^sub>\<alpha> \<sigma> \<and> dom \<sigma> = (nodes_in_rank n - X) \<inter> V\<^sub>\<alpha> \<and> ran \<sigma> \<subseteq> nodes_in_rank n
       \<and> (\<forall>n'. \<forall>x' \<in> nodes_in_rank n' - X. (\<forall>y' \<in> (induced_by_strategy V\<^sub>\<alpha> \<sigma>) `` {x'}. y' \<in> nodes_in_rank (n')))
       \<and> (\<forall>x\<in>nodes_in_rank n. \<forall>xs z. path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) x xs z \<and> n<length xs \<longrightarrow> set xs \<inter> X \<noteq> {})"
     proof (induction n)
@@ -989,7 +998,8 @@ begin
       case (Suc n)
       from Suc.IH obtain \<sigma> where
         strat_\<sigma>: "strategy_of V\<^sub>\<alpha> \<sigma>" and
-        dom_\<sigma>: "dom \<sigma> \<subseteq> nodes_in_rank n - X" and
+        dom_\<sigma>: "dom \<sigma> = (nodes_in_rank n - X) \<inter> V\<^sub>\<alpha>" and
+        ran_\<sigma>: "ran \<sigma> \<subseteq> nodes_in_rank n" and
         closed_\<sigma>: "(\<forall>n'. \<forall>x' \<in> nodes_in_rank n' - X. (\<forall>y' \<in> (induced_by_strategy V\<^sub>\<alpha> \<sigma>) `` {x'}. y' \<in> nodes_in_rank (n')))" and
         forces_\<sigma>: "\<And>x xs z. \<lbrakk>x\<in>nodes_in_rank n; path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) x xs z; n < length xs\<rbrakk> \<Longrightarrow> set xs \<inter> X \<noteq> {}"
         by blast
@@ -1022,11 +1032,34 @@ begin
           apply (safe; simp split: if_splits)
           using target_eq by blast+
 
-        show "dom \<sigma>' \<subseteq> nodes_in_rank (Suc n) - X"
+        show "dom \<sigma>' = (nodes_in_rank (Suc n) - X) \<inter> V\<^sub>\<alpha>"
           unfolding \<sigma>'_def
           using dom_\<sigma>
-          apply (safe; simp split: if_splits)
-          using target_eq nodes_in_rank_mono nodes_in_rank.simps by blast+
+          apply (safe; simp add: new_player_nodes_def split: if_splits)
+          using nodes_in_rank_subset by fastforce+
+
+        have "\<forall>x y. \<sigma>' x = Some y \<longrightarrow> y \<in> nodes_in_rank (Suc n)"
+        proof (intro allI; rule impI)
+          fix x y
+          assume \<sigma>'_x_to_y: "\<sigma>' x = Some y"
+          consider "x \<in> new_player_nodes" | "x \<notin> new_player_nodes" by blast
+          then show "y \<in> nodes_in_rank (Suc n)" proof cases
+            case 1
+            with \<sigma>'_x_to_y show ?thesis
+              unfolding \<sigma>'_def
+              apply (simp split: if_splits)
+              using target by blast
+          next
+            case 2
+            with \<sigma>'_x_to_y ran_\<sigma> show ?thesis
+              unfolding \<sigma>'_def
+              by (simp add: ranI subsetD split: if_splits)
+          qed
+        qed
+
+        then show "ran \<sigma>' \<subseteq> nodes_in_rank (Suc n)"
+          unfolding ran_def by blast
+
 
         {
           fix n' x' y'
@@ -1187,7 +1220,7 @@ begin
       by (metis Diff_partition attractor_subset bot_nat_0.extremum nodes_in_rank.simps(1) nodes_in_rank_mono)
   qed
 
-  lemma attractor_attracts: "\<exists>\<sigma>. strategy_of V\<^sub>\<alpha> \<sigma> \<and> dom \<sigma> \<subseteq> attractor X - X \<and>
+  lemma attractor_attracts: "\<exists>\<sigma>. strategy_of V\<^sub>\<alpha> \<sigma> \<and> dom \<sigma> = (attractor X - X) \<inter> V\<^sub>\<alpha> \<and> ran \<sigma> \<subseteq> attractor X \<and>
     (\<forall>v\<in>attractor X - X. \<forall>v'. (v,v') \<in> (induced_by_strategy V\<^sub>\<alpha> \<sigma>) \<longrightarrow> v' \<in> attractor X) \<and>
     (\<forall>v\<in>attractor X. \<forall>xs. lasso_from_node' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) v xs \<longrightarrow> set xs \<inter> X \<noteq> {})"
   proof -
@@ -1196,7 +1229,8 @@ begin
 
     from nodes_in_rank_forces_X[of X n] obtain \<sigma> where
       strat_\<sigma>: "strategy_of V\<^sub>\<alpha> \<sigma>" and
-      dom_\<sigma>: "dom \<sigma> \<subseteq> nodes_in_rank X n - X" and
+      dom_\<sigma>: "dom \<sigma> = (nodes_in_rank X n - X) \<inter> V\<^sub>\<alpha>" and
+      ran_\<sigma>: "ran \<sigma> \<subseteq> nodes_in_rank X n" and
       closed_\<sigma>: "(\<forall>n'. \<forall>x'\<in>nodes_in_rank X n' - X. \<forall>y'\<in>induced_by_strategy V\<^sub>\<alpha> \<sigma> `` {x'}. y' \<in> nodes_in_rank X n')" and
       forces_\<sigma>: "(\<forall>x\<in>nodes_in_rank X n. \<forall>xs z. path' (induced_by_strategy V\<^sub>\<alpha> \<sigma>) x xs z \<and> n < length xs \<longrightarrow> set xs \<inter> X \<noteq> {})"
       by blast
@@ -1204,7 +1238,8 @@ begin
     show ?thesis
     proof (rule exI[where x=\<sigma>]; intro conjI ballI impI allI)
       show "strategy_of V\<^sub>\<alpha> \<sigma>" by fact
-      from dom_\<sigma> attr_x_rank_n show "dom \<sigma> \<subseteq> attractor X - X" by simp
+      from dom_\<sigma> attr_x_rank_n show "dom \<sigma> = (attractor X - X) \<inter> V\<^sub>\<alpha>" by simp
+      from ran_\<sigma> attr_x_rank_n show "ran \<sigma> \<subseteq> attractor X" by simp
 
       fix v v'
       assume v_in_attr_min_X: "v \<in> attractor X - X" and
@@ -1602,7 +1637,8 @@ context arena_defs begin
   lemma opponent_attractor_max: "\<lbrakk>v \<in> V_opponent \<alpha>; v \<notin> attractor \<alpha> X\<rbrakk> \<Longrightarrow> \<exists>w \<in> E `` {v}. w \<notin> attractor \<alpha> X"
     using P0.opponent_attractor_max P1.opponent_attractor_max V\<^sub>1_def V\<^sub>0_in_V by (cases \<alpha>) auto
 
-  lemma attractor_attracts: "\<exists>\<sigma>. strategy_of (V_player \<alpha>) \<sigma> \<and> dom \<sigma> \<subseteq> attractor \<alpha> X - X \<and>
+lemma attractor_attracts: "\<exists>\<sigma>. strategy_of (V_player \<alpha>) \<sigma> \<and>
+    dom \<sigma> = (attractor \<alpha> X - X) \<inter> V_player \<alpha> \<and> ran \<sigma> \<subseteq> attractor \<alpha> X \<and>
     (\<forall>v\<in>attractor \<alpha> X - X. \<forall>v'. (v,v') \<in> induced_by_strategy (V_player \<alpha>) \<sigma> \<longrightarrow> v' \<in> attractor \<alpha> X) \<and>
     (\<forall>v\<in>attractor \<alpha> X. \<forall>xs. lasso_from_node' (induced_by_strategy (V_player \<alpha>) \<sigma>) v xs \<longrightarrow> set xs \<inter> X \<noteq> {})"
     using P0.attractor_attracts P1.attractor_attracts by (cases \<alpha>) auto
@@ -1767,7 +1803,8 @@ proof -
       (** All plays in B must reach W using the attractor strategy *)
       obtain \<sigma> where
         \<sigma>_strat: "strategy_of (V_player (opponent \<alpha>)) \<sigma>" and
-        \<sigma>_dom: "dom \<sigma> \<subseteq> B - W" and
+        \<sigma>_dom: "dom \<sigma> = (B - W) \<inter> V_player (opponent \<alpha>)" and
+        \<sigma>_ran: "ran \<sigma> \<subseteq> B" and
         \<sigma>_closed: "\<forall>v\<in>B - W. \<forall>v'. (v,v') \<in> induced_by_strategy (V_player (opponent \<alpha>)) \<sigma> \<longrightarrow> v' \<in> B" and
         \<sigma>_forces_W: "\<forall>v\<in>B. \<forall>xs. lasso_from_node' (induced_by_strategy (V_player (opponent \<alpha>)) \<sigma>) v xs \<longrightarrow> set xs \<inter> W \<noteq> {}"
         unfolding B_def using attractor_attracts by blast
@@ -1785,7 +1822,7 @@ proof -
       then obtain \<tau> where
         \<tau>_strat_subgame: "subgame.strategy_of (subgame.V_player (opponent \<alpha>)) \<tau>" and
         \<tau>_dom_subgame: "dom \<tau> = subgame.V_player (opponent \<alpha>) \<inter> W" and
-        \<tau>_ran_subgame: "ran \<tau> \<subseteq> W" and
+        \<tau>_ran: "ran \<tau> \<subseteq> W" and
         \<tau>_winning_opponent_subgame: "\<forall>w\<in>W. \<forall>xs. cycle_from_node (subgame.induced_by_strategy (dom \<tau>) \<tau>) w xs \<longrightarrow> player_winningP (opponent \<alpha>) (top_priority xs)" and
         \<tau>_closed_subgame: "\<forall>w\<in>W. \<forall>w'. (w, w') \<in> subgame.induced_by_strategy (dom \<tau>) \<tau> \<longrightarrow> w' \<in> W"
         by blast
@@ -1919,12 +1956,18 @@ proof -
         show "B \<subseteq> V" unfolding B_def using attractor_subset_graph[OF W_in_V] by simp
         from \<sigma>_strat \<tau>_strat show combined_strat: "strategy_of (V_player (opponent \<alpha>)) (\<sigma> ++ \<tau>)" by simp
 
-        (** I may have to change the lemmas for attractors to make explicit that their domain includes all of V\<^sub>\<alpha> in the attractor *)
-        from \<sigma>_dom \<sigma>_strat \<tau>_dom show \<sigma>\<tau>_dom: "dom (\<sigma> ++ \<tau>) = V_player (opponent \<alpha>) \<inter>  B"
-          unfolding strategy_of_def sorry xxx, ctd here sorry
+        have W_SS_B: "W \<subseteq> B"
+          using attractor_subset
+          unfolding B_def by simp
+
+        from \<sigma>_dom \<sigma>_strat \<tau>_dom W_SS_B show \<sigma>\<tau>_dom: "dom (\<sigma> ++ \<tau>) = V_player (opponent \<alpha>) \<inter> B"
+          unfolding strategy_of_def by auto
 
         have doms_disjoint: "dom \<sigma> \<inter> dom \<tau> = {}"
           using \<sigma>_dom \<tau>_dom by auto
+
+        from \<tau>_ran \<sigma>_ran show "ran (\<sigma> ++ \<tau>) \<subseteq> B"
+          unfolding B_def using attractor_subset ran_map_add[OF doms_disjoint] by blast
 
         from doms_disjoint have \<sigma>_dom_SS: "dom \<sigma> \<subseteq> dom (\<sigma> ++ \<tau>)" by simp
         from doms_disjoint have \<tau>_dom_SS: "dom \<tau> \<subseteq> dom (\<sigma> ++ \<tau>)" by simp
@@ -2044,10 +2087,19 @@ proof -
           from in_W cycle_ys_\<tau> \<tau>_winning_opponent
           show ?thesis by simp
         next
+          (** According to \<sigma>_forces_W, any lasso in the induced subgraph of \<sigma> should go through W.
+              The only reason this could go wrong is if the path goes to the domain of \<tau>, but the
+              domain of \<tau> is in W, so that means we have already met our goal. *)
           case in_B
-          then show ?thesis sorry
-        qed
+          with \<sigma>_forces_W
+          show ?thesis sorry xxx, ctd here sorry
       qed
+    next
+      fix v
+      assume v_in_B: "v \<in> B" and
+             v_opponent: "v \<in> V_opponent (opponent \<alpha>)"
+      show "E `` {v} \<subseteq> B" sorry
+    qed
 
       consider (B_nonempty) "B \<noteq> {}" | (empty) "B = {}" by blast
       then show ?thesis proof cases
