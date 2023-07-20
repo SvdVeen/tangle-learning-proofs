@@ -300,6 +300,13 @@ begin
   qed
 end
 
+(* TODO: @Suzanne: move and give meaningful names. Maybe split into two lemmas. *)
+lemma path_closed_stays_inside: "v\<in>V \<Longrightarrow> (E``V\<subseteq>V) \<Longrightarrow> path' E v xs v' \<Longrightarrow> set xs \<subseteq> V \<and> v'\<in>V"
+  apply (induction xs arbitrary: v)
+  by auto
+
+
+
 locale finite_graph_V =
   fixes E :: "'v dgraph"
   fixes V :: "'v set"
@@ -2057,6 +2064,10 @@ proof -
           lasso_xs_ys: "lasso_from_node (induced_by_strategy (dom (\<sigma> ++ \<tau>)) (\<sigma> ++ \<tau>)) w xs ys"
           using lasso_from_equiv_cycle_from by fastforce
 
+          
+        thm \<sigma>_forces_W  
+        find_theorems attractor   lasso_from_node'
+          
         from lasso_xs_ys obtain w' where
           path'_xs: "path' (induced_by_strategy (dom (\<sigma> ++ \<tau>)) (\<sigma> ++ \<tau>)) w xs w'" and
           path'_ys: "path' (induced_by_strategy (dom (\<sigma> ++ \<tau>)) (\<sigma> ++ \<tau>)) w' ys w'"
@@ -2095,7 +2106,63 @@ proof -
             from path'_xs path'_ys obtain zs where [simp]: "zs=xs@ys" and
             lasso'_zs: "lasso_from_node' (induced_by_strategy (dom (\<sigma> ++ \<tau>)) (\<sigma> ++ \<tau>)) w (zs)"
               unfolding lasso_from_node'_def by fastforce
-            hence "lasso_from_node' (induced_by_strategy (V_player \<alpha>) \<sigma>) w (zs) \<or> set (zs) \<inter> W \<noteq> {}"
+
+              
+            have zs_in_B: "set zs \<subseteq> B" proof -
+              define E' where "E' = induced_by_strategy (dom (\<sigma> ++ \<tau>)) (\<sigma> ++ \<tau>)"
+              from lasso'_impl_path[OF lasso'_zs] obtain v' 
+                where PATH: "path' E' w zs v'" unfolding E'_def by blast
+                
+              moreover have "E' `` B \<subseteq> B" using \<sigma>\<tau>_closed_B
+                apply (fold E'_def) by blast
+              ultimately show ?thesis using path_closed_stays_inside[OF w_in_B] by blast
+            qed  
+            
+            have "dom (\<sigma> ++ \<tau>) \<subseteq> V_player (opponent \<alpha>)" using \<sigma>\<tau>_dom by auto 
+            note A=ind_subgraph_anti_mono[OF this]
+            
+            have subset: "induced_by_strategy (dom (\<sigma> ++ \<tau>)) (\<sigma> ++ \<tau>) \<inter> B\<times>B \<subseteq>
+              induced_by_strategy (V_player (opponent \<alpha>)) (\<sigma> ++ \<tau>) \<inter> B\<times>B" 
+              using \<sigma>\<tau>_dom doms_disjoint unfolding induced_by_strategy_def subgame.E_of_strat_def 
+              by auto 
+              
+            have "lasso_from_node' (induced_by_strategy (V_player (opponent \<alpha>)) (\<sigma> ++ \<tau>)) w (zs)"
+              sorry  
+              
+            {
+              assume "set zs \<inter> W = {}"
+              have "w \<notin> dom \<tau>" using \<tau>_dom in_B by auto
+              have "dom \<tau> \<subseteq> W" using \<tau>_dom by auto
+              have "set zs \<inter> dom \<tau> = {}" using \<open>set zs \<inter> W = {}\<close> \<tau>_dom_subgame by blast
+              
+            
+            }  
+              
+              oops
+            with A have "induced_by_strategy (dom (\<sigma> ++ \<tau>)) (\<sigma> ++ \<tau>) \<inter> B\<times>B =
+              induced_by_strategy (V_player (opponent \<alpha>)) \<sigma> \<inter> B\<times>B" 
+              by (smt (verit, del_insts) \<open>\<And>\<sigma>'. induced_by_strategy (V_player (opponent \<alpha>)) \<sigma>' \<subseteq> induced_by_strategy (dom (\<sigma> ++ \<tau>)) \<sigma>'\<close> \<sigma>_strat doms_disjoint ind_subgraph_add_disjoint_doms inf.absorb_iff2 inf.idem le_inf_iff subset_antisym)
+            
+            
+              oops
+                            
+            have "lasso_from_node' (induced_by_strategy (V_player (opponent \<alpha>)) \<sigma>) w (zs)" sorry
+            with \<sigma>_forces_W in_B have "set (zs) \<inter> W \<noteq> {}" by blast
+            thus ?thesis by auto
+              
+            find_theorems lasso_from_node'
+            
+            find_theorems path' name: closed
+            
+            
+            thm \<sigma>_forces_W  
+            have "dom (\<sigma> ++ \<tau>) \<subseteq> V_player (opponent \<alpha>)" using \<sigma>\<tau>_dom by auto 
+            from ind_subgraph_anti_mono[OF this]
+              
+            find_theorems induced_by_strategy name: mono
+            
+              
+            hence "lasso_from_node' (induced_by_strategy (V_player (opponent \<alpha>)) \<sigma>) w (zs) \<or> set (zs) \<inter> W \<noteq> {}"
               apply (induction zs arbitrary: w)
               subgoal by simp
               subgoal sorry
