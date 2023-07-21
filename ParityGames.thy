@@ -160,13 +160,44 @@ begin
   lemma path'_equiv_path: "path' v (v#xs) v' \<Longrightarrow> xs \<noteq> [] \<Longrightarrow> path v (xs@[v']) v'"
     apply (induction xs arbitrary: v) by fastforce+
 
-  lemma origin_in_path':  "path' v vs v' \<and> vs \<noteq> [] \<Longrightarrow> v \<in> set vs" by (cases vs) auto
+  lemma origin_in_path': "path' v vs v' \<and> vs \<noteq> [] \<Longrightarrow> v \<in> set vs" by (cases vs) auto
 
   lemma path'D: "path' v vs v' \<and> vs \<noteq> [] \<Longrightarrow> \<exists>y vs'. vs = v#(vs') \<and> (v,y) \<in> E \<and> path' y vs' v'"
     apply (induction vs arbitrary: v) by simp+
 
-  lemma path'_loop: "path' v (x#y#ys) v \<Longrightarrow> path' y (y#ys@[v]) y"
+  lemma path'_intermediate_node: "\<lbrakk>path' v vs v'; x \<in> set vs\<rbrakk>
+    \<Longrightarrow> \<exists>vs1 vs2. vs = (vs1@vs2) \<and> path' v vs1 x \<and> path' x vs2 v'"
+    apply (induction vs arbitrary: v;simp)
+    apply safe
+    subgoal by force
+    subgoal using path'.simps append_Cons by metis
+    done
+
+  lemma path'_loop_append: "path' v (x#y#ys) v \<Longrightarrow> path' y (y#ys@[v]) y"
     by (induction ys arbitrary: v; simp)
+
+  lemma path'_loop_set: "\<lbrakk>path' v vs v; vs\<noteq>[]\<rbrakk> \<Longrightarrow> v \<in> set vs"
+    by (induction vs arbitrary: v) auto
+
+  lemma path'_loop_intermediate_node: "\<lbrakk>path' v vs v; x \<in> set vs\<rbrakk> \<Longrightarrow> \<exists>vs'. set vs' = set vs \<and> path' x vs' x"
+  proof -
+    assume path'_v_vs_v: "path' v vs v" and x_in_vs: "x \<in> set vs"
+
+    from path'_intermediate_node[OF path'_v_vs_v x_in_vs] obtain vs1 vs2 where
+      vs_concat: "vs = vs1@vs2" and
+      vs1_to_x: "path' v vs1 x" and
+      vs2_to_v: "path' x vs2 v" by blast
+
+    hence "path' x (vs2@vs1) x" by auto
+    moreover from vs_concat have "set (vs2@vs1) = set vs" by force
+    ultimately show ?thesis by blast
+  qed
+
+  lemma path'_closed_set: "\<lbrakk>v\<in>V; E``V\<subseteq>V; path' v xs v'\<rbrakk> \<Longrightarrow> set xs \<subseteq> V"
+    apply (induction xs arbitrary: v) by auto
+
+  lemma path'_closed_dest: "\<lbrakk>v\<in>V; E``V\<subseteq>V; path' v xs v'\<rbrakk> \<Longrightarrow> v'\<in>V"
+    apply (induction xs arbitrary: v) by auto
 
   lemma distinct_length: "distinct xs \<Longrightarrow> length xs = card (set xs)"
     apply (induction xs) by auto
@@ -300,13 +331,6 @@ begin
   qed
 end
 
-(* TODO: @Suzanne: move and give meaningful names. Maybe split into two lemmas. *)
-lemma path_closed_stays_inside: "v\<in>V \<Longrightarrow> (E``V\<subseteq>V) \<Longrightarrow> path' E v xs v' \<Longrightarrow> set xs \<subseteq> V \<and> v'\<in>V"
-  apply (induction xs arbitrary: v)
-  by auto
-
-
-
 locale finite_graph_V =
   fixes E :: "'v dgraph"
   fixes V :: "'v set"
@@ -412,29 +436,78 @@ lemma subgraph_path': "E' \<subseteq> E \<Longrightarrow> path' E' v vs v' \<Lon
 
 lemma subgraph_cycle: "E' \<subseteq> E \<Longrightarrow> cycle_node E' v vs \<Longrightarrow> cycle_node E v vs"
   unfolding cycle_node_def
-  apply (induction vs arbitrary: v)
-  by (auto simp: subgraph_path')
+  by (simp add: subgraph_path')
 
 lemma subgraph_cycle_from_node: "E' \<subseteq> E \<Longrightarrow> cycle_from_node E' v vs \<Longrightarrow> cycle_from_node E v vs"
   unfolding cycle_from_node_def
-  proof (induction vs arbitrary: v)
-    case Nil
-    then show ?case by (simp add: cycle_node_def)
-  next
-    case (Cons a vs)
-    then obtain v' where v_v'_sub: "(v,v')\<in>E'\<^sup>*"
-      and cycle_v'_sub: "cycle_node E' v' (a # vs)" by fast
-    from v_v'_sub Cons.prems(1) have v_v': "(v,v')\<in>E\<^sup>*"
-      using rtrancl_mono by auto
-    from cycle_v'_sub Cons.prems(1) have cycle_v': "cycle_node E v' (a # vs)"
-      by (auto simp: subgraph_cycle)
-    with v_v' show ?case by auto
-  qed
+  by (metis in_mono rtrancl_mono subgraph_cycle)
+
+lemma subgraph_lasso: "E' \<subseteq> E \<Longrightarrow> lasso_from_node E' v xs ys \<Longrightarrow> lasso_from_node E v xs ys"
+  unfolding lasso_from_node_def using subgraph_path' by meson
 
 lemma subgraph_lasso': "E' \<subseteq> E \<Longrightarrow> lasso_from_node' E' v vs \<Longrightarrow> lasso_from_node' E v vs"
   unfolding lasso_from_node'_def
+  apply (induction vs arbitrary: v; simp)
+  by (meson subgraph_path')
+
+lemma path'_restr_V: "path' E v vs v' \<Longrightarrow> set vs \<subseteq> V \<Longrightarrow> v' \<in> V \<Longrightarrow> path' (E \<inter> V\<times>V) v vs v'"
+proof (induction vs arbitrary: v)
+  case Nil thus ?case by simp
+next
+  case (Cons a vs)
+  from Cons.prems(1,2) have v_in_V: "v \<in> V" by force
+  from Cons.prems have vs_in_V: "set vs \<subseteq> V" by simp
+  from Cons.prems(1,2) have [simp]: "a=v" by simp
+
+  from Cons.prems(1) obtain w where
+    wv_in_E: "(v,w) \<in> E" and
+    path'_wv': "path' E w vs v'"
+    by auto
+
+  with Cons.prems have w_in_V: "w \<in> V" by (cases vs) auto
+
+  from Cons.IH[OF path'_wv' vs_in_V Cons.prems(3)]
+  have path'_wv_Restr_E_V: "path' (E \<inter> V\<times>V) w vs v'" .
+
+  from v_in_V w_in_V wv_in_E have vw_in_Restr_E_V: "(v,w) \<in> E \<inter> V\<times>V" by blast
+  from vw_in_Restr_E_V path'_wv_Restr_E_V show ?case by auto
+qed
+
+lemma lasso_restr_V: "lasso_from_node E v xs ys \<Longrightarrow> set xs \<subseteq> V \<Longrightarrow> set ys \<subseteq> V \<Longrightarrow> lasso_from_node (E \<inter> V\<times>V) v xs ys"
+  unfolding lasso_from_node_def using path'_restr_V origin_in_path' by (metis subset_iff)
+
+lemma lasso'_restr_V: "lasso_from_node' E v vs \<Longrightarrow> set vs \<subseteq> V \<Longrightarrow> lasso_from_node' (E \<inter> V\<times>V) v vs"
+proof -
+  assume lasso_v_vs: "lasso_from_node' E v vs" and
+         vs_in_V: "set vs \<subseteq> V"
+
+  from lasso_v_vs obtain xs v' ys where
+    path'_v_xs_v': "path' E v xs v'" and
+    path'_v'_ys_v': "path' E v' ys v'" and
+    [simp]: "ys \<noteq> []" and [simp]: "vs = xs@ys"
+    unfolding lasso_from_node'_def by blast
+
+  from vs_in_V have xs_in_V: "set xs \<subseteq> V" by simp
+  from vs_in_V have ys_in_V: "set ys \<subseteq> V" by simp
+  from path'_v'_ys_v' ys_in_V have v'_in_V: "v' \<in> V"
+    using origin_in_path' by fastforce
+
+  from path'_restr_V[OF path'_v_xs_v' xs_in_V v'_in_V]
+  have path'_v_xs_v'_restr_V: "path' (E \<inter> V\<times>V) v xs v'" .
+
+  from path'_restr_V[OF path'_v'_ys_v' ys_in_V v'_in_V]
+  have path'_v'_ys_v'_restr_V: "path' (E \<inter> V\<times>V) v' ys v'" .
+
+  from path'_v_xs_v'_restr_V path'_v'_ys_v'_restr_V show ?thesis
+    using lasso_from_node'_def by fastforce
+qed
+
+lemma Yes: "path' E v vs v' \<Longrightarrow> set vs \<subseteq> B \<Longrightarrow>  v' \<in> B \<Longrightarrow> path' (E \<inter> B\<times>B) v vs v'"
+  apply (induction vs arbitrary: v) apply simp oops xxx, sorry
+
+lemma A: "(E\<inter>B\<times>B) \<subseteq> (E'\<inter>B\<times>B) \<Longrightarrow> path' E v vs v' \<Longrightarrow> set vs \<subseteq> B \<Longrightarrow> vs \<noteq> [] \<Longrightarrow> path' E' v vs v'"
   apply (induction vs arbitrary: v)
-  apply blast by (meson subgraph_path')
+  apply auto sorry
 
 lemma cycle_from_node_inter_1: "cycle_from_node (E1 \<inter> E2) v vs \<Longrightarrow> cycle_from_node E1 v vs"
   proof -
@@ -600,6 +673,12 @@ begin
   lemma strategy_to_ind_subgraph: "\<lbrakk>\<sigma> v = Some w; (v,w) \<in> E \<rbrakk> \<Longrightarrow> (v,w) \<in> induced_by_strategy V\<^sub>\<alpha> \<sigma>"
     unfolding induced_by_strategy_def E_of_strat_def by auto
 
+  lemma incomplete_ind_subgraph_add_disjoint_\<sigma>:  "dom \<sigma> \<inter> dom \<sigma>' = {} \<Longrightarrow> induced_by_strategy (dom (\<sigma> ++ \<sigma>')) (\<sigma> ++ \<sigma>') \<subseteq> induced_by_strategy (dom \<sigma>) \<sigma>"
+    unfolding induced_by_strategy_def E_of_strat_def by auto
+
+  lemma incomplete_ind_subgraph_add_disjoint_\<sigma>': "dom \<sigma> \<inter> dom \<sigma>' = {} \<Longrightarrow> induced_by_strategy (dom (\<sigma> ++ \<sigma>')) (\<sigma> ++ \<sigma>') \<subseteq> induced_by_strategy (dom \<sigma>') \<sigma>'"
+    unfolding induced_by_strategy_def E_of_strat_def by auto
+
   lemma ind_subgraph_add_disjoint_doms: "\<lbrakk> dom \<sigma> \<inter> dom \<sigma>' = {}; strategy_of V\<^sub>\<alpha> \<sigma> \<rbrakk>
     \<Longrightarrow> induced_by_strategy V\<^sub>\<alpha> \<sigma> \<subseteq> induced_by_strategy V\<^sub>\<alpha> (\<sigma> ++ \<sigma>')"
   proof -
@@ -720,7 +799,7 @@ begin
   lemma ind_subgraph_anti_mono: "V\<^sub>\<alpha> \<subseteq> V\<^sub>\<alpha>' \<Longrightarrow> induced_by_strategy V\<^sub>\<alpha>' \<sigma> \<subseteq> induced_by_strategy V\<^sub>\<alpha> \<sigma>"
     unfolding induced_by_strategy_def E_of_strat_def by auto
 
-  lemma ind_subgraph_strategy_mono: "\<lbrakk>\<sigma> \<subseteq>\<^sub>m \<sigma>'; dom \<sigma>' \<subseteq> V\<rbrakk> \<Longrightarrow> induced_by_strategy V \<sigma> \<subseteq> induced_by_strategy V \<sigma>'"
+  lemma ind_subgraph_strategy_mono: "\<lbrakk>\<sigma> \<subseteq>\<^sub>m \<sigma>'; dom \<sigma>' \<subseteq> V\<^sub>\<alpha>\<rbrakk> \<Longrightarrow> induced_by_strategy V\<^sub>\<alpha> \<sigma> \<subseteq> induced_by_strategy V\<^sub>\<alpha> \<sigma>'"
     unfolding induced_by_strategy_def E_of_strat_def map_le_def by force
 
   definition induced_by_strategy_V :: "'v set \<Rightarrow> 'v strat \<Rightarrow> 'v set" where
@@ -1927,6 +2006,9 @@ proof -
         fix w xs
         assume w_in_W: "w \<in> W" and cycle_xs: "cycle_from_node (induced_by_strategy (dom \<tau>) \<tau>) w xs"
 
+        from w_in_W have w_in_B: "w \<in> B"
+          unfolding B_def using attractor_subset by fast
+
         from cycle_xs obtain xs' where [simp]: "xs \<noteq> []" and
           lasso_xs_xs': "lasso_from_node (induced_by_strategy (dom \<tau>) \<tau>) w xs' xs"
           using lasso_from_equiv_cycle_from by fastforce
@@ -1939,9 +2021,8 @@ proof -
         from w_in_W path'_xs' have subgame_path'_xs': "path' (subgame.induced_by_strategy (dom \<tau>) \<tau>) w xs' v'"
           using W_paths_persist_in_subgame by simp
 
-        from w_in_W path'_xs' have v'_in_W: "v' \<in> W"
-          apply (induction xs' arbitrary: w)
-          using \<tau>_closed by auto
+        from \<tau>_closed have "(induced_by_strategy (dom \<tau>) \<tau>) `` W \<subseteq> W" by blast
+        with path'_closed_dest[OF w_in_W this path'_xs'] have v'_in_W: "v' \<in> W" by simp
 
         from v'_in_W path'_xs have subgame_path'_xs: "path' (subgame.induced_by_strategy (dom \<tau>) \<tau>) v' xs v'"
           using W_paths_persist_in_subgame by simp
@@ -1955,232 +2036,176 @@ proof -
         show "player_winningP (opponent \<alpha>) (top_priority xs)" by simp
       qed
 
-      (** TODO: B is the winning region for the opponent
-          For this, I have to glue \<sigma> and \<tau> together and show that it is a valid strategy for a
-          winning region encompassing B, using the fact that no plays go from W to B-W. *)
-      have "winning_region (opponent \<alpha>) B"
-        unfolding winning_region_strat
-      proof (intro exI[where x="\<sigma> ++ \<tau>"] conjI ballI allI impI)
-        show "B \<subseteq> V" unfolding B_def using attractor_subset_graph[OF W_in_V] by simp
-        from \<sigma>_strat \<tau>_strat show combined_strat: "strategy_of (V_player (opponent \<alpha>)) (\<sigma> ++ \<tau>)" by simp
+      (** To show that B is a winning region in the whole graph, we need to create a strategy that meets the requirements.
+          We do this by combining the attractor strategy \<sigma> for B, and the winning region strategy \<tau> for W. *)
+      let ?\<sigma>\<tau> = "\<sigma> ++ \<tau>"
+      let ?\<sigma>\<tau>_subgame = "induced_by_strategy (dom ?\<sigma>\<tau>) ?\<sigma>\<tau>"
 
-        have W_SS_B: "W \<subseteq> B"
-          using attractor_subset
-          unfolding B_def by simp
+      from \<sigma>_dom \<tau>_dom have \<sigma>\<tau>_doms_disjoint: "dom \<sigma> \<inter> dom \<tau> = {}" by force
 
-        from \<sigma>_dom \<sigma>_strat \<tau>_dom W_SS_B show \<sigma>\<tau>_dom: "dom (\<sigma> ++ \<tau>) = V_player (opponent \<alpha>) \<inter> B"
-          unfolding strategy_of_def by auto
+      have B_in_V: "B \<subseteq> V" unfolding B_def using attractor_subset_graph[OF W_in_V] by simp
+      from \<sigma>_strat \<tau>_strat have \<sigma>\<tau>_strat: "strategy_of (V_player (opponent \<alpha>)) ?\<sigma>\<tau>" by simp
 
-        have doms_disjoint: "dom \<sigma> \<inter> dom \<tau> = {}"
-          using \<sigma>_dom \<tau>_dom by auto
+      have W_in_B: "W \<subseteq> B"
+        using attractor_subset
+        unfolding B_def by simp
+      with \<sigma>_dom \<tau>_dom \<sigma>_strat have \<sigma>\<tau>_dom: "dom ?\<sigma>\<tau> = V_player (opponent \<alpha>) \<inter> B"
+        unfolding strategy_of_def by auto
 
-        from \<tau>_ran \<sigma>_ran show "ran (\<sigma> ++ \<tau>) \<subseteq> B"
-          unfolding B_def using attractor_subset ran_map_add[OF doms_disjoint] by blast
+      from \<sigma>_ran \<tau>_ran have \<sigma>\<tau>_ran: "ran ?\<sigma>\<tau> \<subseteq> B"
+        unfolding B_def
+        using attractor_subset ran_map_add[OF \<sigma>\<tau>_doms_disjoint] by blast
 
-        from doms_disjoint have \<sigma>_dom_SS: "dom \<sigma> \<subseteq> dom (\<sigma> ++ \<tau>)" by simp
-        from doms_disjoint have \<tau>_dom_SS: "dom \<tau> \<subseteq> dom (\<sigma> ++ \<tau>)" by simp
+      (** The subgame of the combined strategy is closed in W *)
+      from \<sigma>\<tau>_doms_disjoint have \<tau>_dom_SS: "dom \<tau> \<subseteq> dom (\<sigma> ++ \<tau>)" by simp
+      have \<sigma>\<tau>_closed_W: "?\<sigma>\<tau>_subgame `` W \<subseteq> W"
+        using \<tau>_closed \<tau>_dom_SS \<sigma>\<tau>_strat apply (cases \<alpha>; simp add: W_def)
+        unfolding induced_by_strategy_def E_of_strat_def V\<^sub>1_def strategy_of_def by auto
 
-        from doms_disjoint have "dom \<sigma> = dom (\<sigma> ++ \<tau>) - dom \<tau>" by auto
-        from doms_disjoint have "dom \<tau> = dom (\<sigma> ++ \<tau>) - dom \<sigma>" by auto
+      (** The subgame of the combined strategy is closed in all of B *)
+      have "\<forall>v\<in>B. \<forall>v'. (v,v') \<in> induced_by_strategy (dom (\<sigma> ++ \<tau>)) (\<sigma> ++ \<tau>) \<longrightarrow> v' \<in> B"
+      proof (rule ballI; rule allI; rule impI)
+        fix v v'
+        assume v_in_B: "v\<in>B" and
+               edge_in_subgame: "(v,v') \<in> ?\<sigma>\<tau>_subgame"
+        from v_in_B consider (in_W) "v\<in>W" | (in_B_min_W) "v\<in>B-W" by blast
+        then show "v'\<in>B" proof cases
+          case in_W with W_in_B edge_in_subgame show ?thesis using \<sigma>\<tau>_closed_W by blast
+        next
+          case in_B_min_W
+          from edge_in_subgame have edge_in_game: "(v,v')\<in>E" using ind_subgraph by blast
 
-        from combined_strat have edges_of_\<sigma>\<tau>_in_E: "E_of_strat (\<sigma> ++ \<tau>) \<subseteq> E"
-          unfolding strategy_of_def by simp
-        from strategy_of_own_dom[OF edges_of_\<sigma>\<tau>_in_E]
-        have \<sigma>\<tau>_strategy_of_own_dom: "strategy_of (dom (\<sigma> ++ \<tau>)) (\<sigma> ++ \<tau>)" .
-
-        (** The combined strategy is closed in B-W thanks to \<sigma> *)
-        have \<sigma>\<tau>_closed_B_min_W: "\<forall>v\<in>B-W. \<forall>v'. (v,v') \<in> induced_by_strategy (dom (\<sigma> ++ \<tau>)) (\<sigma> ++ \<tau>) \<longrightarrow> v' \<in> B"
-        proof (rule ballI; rule allI; rule impI)
-          fix v v'
-          assume v_in_B_min_W: "v\<in>B-W" and
-                 edge_in_\<sigma>\<tau>: "(v,v') \<in> induced_by_strategy (dom (\<sigma> ++ \<tau>)) (\<sigma> ++ \<tau>)"
-          from edge_in_\<sigma>\<tau> have edge_in_E: "(v,v') \<in> E" by simp
-          from edge_in_E have v_in_V: "v \<in> V" using E_in_V by blast
-
-          from v_in_V consider (v_player) "v \<notin> V_player (opponent \<alpha>)" | (v_opponent) "v \<in> V_player (opponent \<alpha>)"
-            using in_V\<^sub>1_notin_V\<^sub>0 apply (cases \<alpha>; simp) by blast+
+          from edge_in_game have "v \<in> V" using E_in_V by blast
+          then consider (v_player) "v \<in> V_player \<alpha>" | (v_opponent) "v \<in> V_player (opponent \<alpha>)"
+            by (cases \<alpha>;simp add: V\<^sub>1_def) blast+
           then have "(v,v') \<in> induced_by_strategy (V_player (opponent \<alpha>)) \<sigma>"
-          proof cases
+          proof (cases)
             case v_player
-            from ind_subgraph_not_in_dom[OF edge_in_E this] show ?thesis .
+            with edge_in_game show ?thesis
+              using ind_subgraph_not_in_dom by (cases \<alpha>; simp add: V\<^sub>1_def)
           next
             case v_opponent
+            from v_opponent \<sigma>\<tau>_dom in_B_min_W have v_in_dom_\<sigma>\<tau>: "v \<in> dom (\<sigma> ++ \<tau>)" by auto
+            with v_opponent \<tau>_dom in_B_min_W have v_in_dom_\<sigma>: "v \<in> dom \<sigma>" by auto
+            with \<sigma>\<tau>_doms_disjoint have v_notin_dom_\<tau>: "v \<notin> dom \<tau>" by fast
 
-            from v_opponent \<sigma>\<tau>_dom v_in_B_min_W have v_in_dom_\<sigma>\<tau>: "v \<in> dom (\<sigma> ++ \<tau>)" by auto
-            with v_opponent \<tau>_dom v_in_B_min_W have v_in_dom_\<sigma>: "v \<in> dom \<sigma>" by auto
-            with doms_disjoint have v_notin_dom_\<tau>: "v \<notin> dom \<tau>" by fast
+            from \<sigma>\<tau>_strat have "E_of_strat ?\<sigma>\<tau> \<subseteq> E"
+              unfolding strategy_of_def by simp
+            with strategy_of_own_dom have "strategy_of (dom ?\<sigma>\<tau>) ?\<sigma>\<tau>" by blast
 
-            from ind_subgraph_to_strategy[OF edge_in_\<sigma>\<tau> \<sigma>\<tau>_strategy_of_own_dom v_in_dom_\<sigma>\<tau>]
+            from ind_subgraph_to_strategy[OF edge_in_subgame this v_in_dom_\<sigma>\<tau>]
             have \<sigma>\<tau>_v_to_v': "(\<sigma> ++ \<tau>) v = Some v'" .
-            with v_in_dom_\<sigma> v_notin_dom_\<tau> have \<sigma>_v_to_v': "\<sigma> v = Some v'" by blast
+            with v_in_dom_\<sigma> v_notin_dom_\<tau> have "\<sigma> v = Some v'" by blast
 
-            from strategy_to_ind_subgraph[of \<sigma> v v',OF \<sigma>_v_to_v' edge_in_E]
+            from strategy_to_ind_subgraph[of \<sigma> v v',OF this edge_in_game]
             show ?thesis by simp
           qed
-
-          with v_in_B_min_W \<sigma>_closed show "v' \<in> B" by blast
+          with in_B_min_W show ?thesis using \<sigma>_closed by blast
         qed
+      qed
+      hence \<sigma>\<tau>_closed_B: "?\<sigma>\<tau>_subgame `` B \<subseteq> B" by blast
 
-        (** The combined strategy is closed in W thanks to \<tau> *)
-        have \<sigma>\<tau>_closed_W: "\<forall>w\<in>W. \<forall>w'. (w,w') \<in> induced_by_strategy (dom (\<sigma> ++ \<tau>)) (\<sigma> ++ \<tau>) \<longrightarrow> w' \<in> W"
-          using \<tau>_closed \<tau>_dom_SS combined_strat apply (cases \<alpha>; simp add: W_def)
-          unfolding induced_by_strategy_def E_of_strat_def V\<^sub>1_def strategy_of_def by auto
-
-        (** The combined strategy is closed in all of B due to the aforementioned closednesses *)
-        from \<sigma>\<tau>_closed_B_min_W \<sigma>\<tau>_closed_W have \<sigma>\<tau>_closed_B: "\<forall>v\<in>B. \<forall>v'. (v,v') \<in> induced_by_strategy (dom (\<sigma> ++ \<tau>)) (\<sigma> ++ \<tau>) \<longrightarrow> v' \<in> B"
-          using attractor_subset B_def by blast
-
-        (** Paths in the combined strategy also exist in only \<sigma> *)
-        {
-          fix v vs w
-          assume path'_vs_\<sigma>\<tau>: "path' (induced_by_strategy (dom (\<sigma> ++ \<tau>)) (\<sigma> ++ \<tau>)) v vs w"
-          hence "path' (induced_by_strategy (dom \<sigma>) \<sigma>) v vs w"
-            apply (induction vs arbitrary: v)
-            subgoal by simp
-            subgoal
-              unfolding induced_by_strategy_def E_of_strat_def apply simp
-              using doms_disjoint by blast
-            done
-        } note path'_in_\<sigma>\<tau>_in_\<sigma> = this
-
-        (** Paths in the combined strategy also exist in only \<tau> *)
-        {
-          fix v vs w
-          assume path'_vs_\<sigma>\<tau>: "path' (induced_by_strategy (dom (\<sigma> ++ \<tau>)) (\<sigma> ++ \<tau>)) v vs w"
-          hence "path' (induced_by_strategy (dom \<tau>) \<tau>) v vs w"
-            apply (induction vs arbitrary: v)
-            subgoal by simp
-            subgoal
-              unfolding induced_by_strategy_def E_of_strat_def apply simp
-              using doms_disjoint by blast
-            done
-        } note path'_in_\<sigma>\<tau>_in_\<tau> = this
-
+      have \<sigma>\<tau>_winning_opponent: "\<forall>w\<in>B. \<forall>ys. cycle_from_node ?\<sigma>\<tau>_subgame w ys \<longrightarrow> player_winningP (opponent \<alpha>) (top_priority ys)"
+      proof (rule ballI; rule allI; rule impI)
         fix w ys
         assume w_in_B: "w \<in> B" and
-               cycle_ys: "cycle_from_node (induced_by_strategy (dom (\<sigma> ++ \<tau>)) (\<sigma> ++ \<tau>)) w ys"
+               cycle_from_w_ys: "cycle_from_node ?\<sigma>\<tau>_subgame w ys"
 
-        from cycle_ys obtain xs where [simp]: "ys \<noteq> []" and
-          lasso_xs_ys: "lasso_from_node (induced_by_strategy (dom (\<sigma> ++ \<tau>)) (\<sigma> ++ \<tau>)) w xs ys"
-          using lasso_from_equiv_cycle_from by fastforce
+        have "\<exists>w'\<in>W. cycle_from_node ?\<sigma>\<tau>_subgame w' ys"
+        proof-
+          from cycle_from_w_ys obtain xs where [simp]: "ys \<noteq> []" and
+            lasso_xs_ys: "lasso_from_node (induced_by_strategy (dom (\<sigma> ++ \<tau>)) (\<sigma> ++ \<tau>)) w xs ys"
+            using lasso_from_equiv_cycle_from by fastforce
 
-          
-        thm \<sigma>_forces_W  
-        find_theorems attractor   lasso_from_node'
-          
-        from lasso_xs_ys obtain w' where
-          path'_xs: "path' (induced_by_strategy (dom (\<sigma> ++ \<tau>)) (\<sigma> ++ \<tau>)) w xs w'" and
-          path'_ys: "path' (induced_by_strategy (dom (\<sigma> ++ \<tau>)) (\<sigma> ++ \<tau>)) w' ys w'"
-          unfolding lasso_from_node_def by fast
+          from lasso_xs_ys
+          have lasso'_xs_ys: "lasso_from_node' (induced_by_strategy (dom (\<sigma> ++ \<tau>)) (\<sigma> ++ \<tau>)) w (xs@ys)"
+            using lassos_equiv by fast
 
-        from w_in_B consider (in_W) "w \<in> W" | (in_B) "w \<in> B - W" by auto
-        then show "player_winningP (opponent \<alpha>) (top_priority ys)" proof cases
-          case in_W
+          from lasso'_xs_ys have xs_ys_in_B: "set (xs@ys) \<subseteq> B"
+            using path'_closed_set[OF w_in_B \<sigma>\<tau>_closed_B] lasso'_impl_path by fast
 
-          from in_W path'_xs have path'_xs_\<tau>: "path' (induced_by_strategy (dom \<tau>) \<tau>) w xs w'"
-            using path'_in_\<sigma>\<tau>_in_\<tau> by simp
+          have W_in_xs_ys: "set (xs@ys) \<inter> W \<noteq> {}" proof (rule ccontr)
+            assume "\<not>set (xs@ys) \<inter> W \<noteq> {}"
+            hence xs_ys_no_W: "set (xs@ys) \<inter> W = {}" by simp
+            with xs_ys_in_B have xs_ys_in_B_min_W: "set (xs@ys) \<subseteq> B-W" by fast
 
-          from in_W path'_xs have w'_in_W: "w' \<in> W"
-            apply (induction xs arbitrary: w)
-            subgoal by simp
-            subgoal using \<sigma>\<tau>_closed_W by fastforce
-            done
+            have subset: "induced_by_strategy (dom (\<sigma> ++ \<tau>)) (\<sigma> ++ \<tau>) \<inter> (B-W)\<times>(B-W) \<subseteq>
+              (induced_by_strategy (V_player (opponent \<alpha>)) \<sigma>)"
+              using \<sigma>_dom \<tau>_dom unfolding induced_by_strategy_def E_of_strat_def by auto
 
-          from w'_in_W path'_ys have path'_ys_\<tau>: "path' (induced_by_strategy (dom \<tau>) \<tau>) w' ys w'"
-            using path'_in_\<sigma>\<tau>_in_\<tau> by simp
+            from lasso'_restr_V[OF lasso'_xs_ys xs_ys_in_B_min_W]
+            have "lasso_from_node' (induced_by_strategy (dom (\<sigma> ++ \<tau>)) (\<sigma> ++ \<tau>) \<inter> (B-W)\<times>(B-W)) w (xs@ys)" .
 
-          from path'_xs_\<tau> path'_ys_\<tau> have "lasso_from_node (induced_by_strategy (dom \<tau>) \<tau>) w xs ys"
-            unfolding lasso_from_node_def by auto
-          hence cycle_ys_\<tau>: "cycle_from_node (induced_by_strategy (dom \<tau>) \<tau>) w ys"
-            using lasso_from_equiv_cycle_from by fast
+            from subgraph_lasso'[OF subset this]
+            have "lasso_from_node' (induced_by_strategy (V_player (opponent \<alpha>)) \<sigma>) w (xs@ys)" .
 
-          from in_W cycle_ys_\<tau> \<tau>_winning_opponent
-          show ?thesis by simp
-        next
-          (** According to \<sigma>_forces_W, any lasso in the induced subgraph of \<sigma> should go through W.
-              The only reason this could go wrong is if the path goes to the domain of \<tau>, but the
-              domain of \<tau> is in W, so that means we have already met our goal. *)
-          case in_B
-          have "set (xs@ys) \<inter> W \<noteq> {}"
-          proof -
-            from path'_xs path'_ys obtain zs where [simp]: "zs=xs@ys" and
-            lasso'_zs: "lasso_from_node' (induced_by_strategy (dom (\<sigma> ++ \<tau>)) (\<sigma> ++ \<tau>)) w (zs)"
-              unfolding lasso_from_node'_def by fastforce
-
-              
-            have zs_in_B: "set zs \<subseteq> B" proof -
-              define E' where "E' = induced_by_strategy (dom (\<sigma> ++ \<tau>)) (\<sigma> ++ \<tau>)"
-              from lasso'_impl_path[OF lasso'_zs] obtain v' 
-                where PATH: "path' E' w zs v'" unfolding E'_def by blast
-                
-              moreover have "E' `` B \<subseteq> B" using \<sigma>\<tau>_closed_B
-                apply (fold E'_def) by blast
-              ultimately show ?thesis using path_closed_stays_inside[OF w_in_B] by blast
-            qed  
-            
-            have "dom (\<sigma> ++ \<tau>) \<subseteq> V_player (opponent \<alpha>)" using \<sigma>\<tau>_dom by auto 
-            note A=ind_subgraph_anti_mono[OF this]
-            
-            have subset: "induced_by_strategy (dom (\<sigma> ++ \<tau>)) (\<sigma> ++ \<tau>) \<inter> B\<times>B \<subseteq>
-              induced_by_strategy (V_player (opponent \<alpha>)) (\<sigma> ++ \<tau>) \<inter> B\<times>B" 
-              using \<sigma>\<tau>_dom doms_disjoint unfolding induced_by_strategy_def subgame.E_of_strat_def 
-              by auto 
-              
-            have "lasso_from_node' (induced_by_strategy (V_player (opponent \<alpha>)) (\<sigma> ++ \<tau>)) w (zs)"
-              sorry  
-              
-            {
-              assume "set zs \<inter> W = {}"
-              have "w \<notin> dom \<tau>" using \<tau>_dom in_B by auto
-              have "dom \<tau> \<subseteq> W" using \<tau>_dom by auto
-              have "set zs \<inter> dom \<tau> = {}" using \<open>set zs \<inter> W = {}\<close> \<tau>_dom_subgame by blast
-              
-            
-            }  
-              
-              oops
-            with A have "induced_by_strategy (dom (\<sigma> ++ \<tau>)) (\<sigma> ++ \<tau>) \<inter> B\<times>B =
-              induced_by_strategy (V_player (opponent \<alpha>)) \<sigma> \<inter> B\<times>B" 
-              by (smt (verit, del_insts) \<open>\<And>\<sigma>'. induced_by_strategy (V_player (opponent \<alpha>)) \<sigma>' \<subseteq> induced_by_strategy (dom (\<sigma> ++ \<tau>)) \<sigma>'\<close> \<sigma>_strat doms_disjoint ind_subgraph_add_disjoint_doms inf.absorb_iff2 inf.idem le_inf_iff subset_antisym)
-            
-            
-              oops
-                            
-            have "lasso_from_node' (induced_by_strategy (V_player (opponent \<alpha>)) \<sigma>) w (zs)" sorry
-            with \<sigma>_forces_W in_B have "set (zs) \<inter> W \<noteq> {}" by blast
-            thus ?thesis by auto
-              
-            find_theorems lasso_from_node'
-            
-            find_theorems path' name: closed
-            
-            
-            thm \<sigma>_forces_W  
-            have "dom (\<sigma> ++ \<tau>) \<subseteq> V_player (opponent \<alpha>)" using \<sigma>\<tau>_dom by auto 
-            from ind_subgraph_anti_mono[OF this]
-              
-            find_theorems induced_by_strategy name: mono
-            
-              
-            hence "lasso_from_node' (induced_by_strategy (V_player (opponent \<alpha>)) \<sigma>) w (zs) \<or> set (zs) \<inter> W \<noteq> {}"
-              apply (induction zs arbitrary: w)
-              subgoal by simp
-              subgoal sorry
-              done
-            then show ?thesis
-              apply (rule disjE)
-              subgoal using \<sigma>_forces_W w_in_B apply simp sorry
-              subgoal by simp
-              done
+            thus "False" using \<sigma>_forces_W w_in_B xs_ys_no_W by blast
           qed
-          show ?thesis sorry xxx, ctd here sorry
+
+          from lasso_xs_ys obtain w' where
+            path'_w_xs_w': "path' (induced_by_strategy (dom (\<sigma> ++ \<tau>)) (\<sigma> ++ \<tau>)) w xs w'" and
+            path'_w'_ys_w': "path' (induced_by_strategy (dom (\<sigma> ++ \<tau>)) (\<sigma> ++ \<tau>)) w' ys w'"
+            unfolding lasso_from_node_def by blast
+
+          from W_in_xs_ys obtain x where x_in_W: "x \<in> W" and x_in_xs_ys: "x \<in> set (xs@ys)" by fast
+          then consider (in_xs) "x \<in> set xs" | (in_ys) "x \<in> set ys" by fastforce
+          hence ys_in_W: "set ys \<subseteq> W" proof cases
+            case in_xs
+            with path'_w_xs_w' obtain xs' where "path' (induced_by_strategy (dom (\<sigma> ++ \<tau>)) (\<sigma> ++ \<tau>)) x xs' w'"
+              using path'_intermediate_node by fast
+
+            from path'_closed_dest[OF x_in_W \<sigma>\<tau>_closed_W this]
+            have "w' \<in> W" .
+
+            from path'_closed_set[OF this \<sigma>\<tau>_closed_W path'_w'_ys_w']
+            show ?thesis .
+          next
+            case in_ys
+            from path'_loop_intermediate_node[OF path'_w'_ys_w' in_ys] obtain ys' where
+              sets_eq: "set ys' = set ys" and
+              loop_x: "path' (induced_by_strategy (dom (\<sigma> ++ \<tau>)) (\<sigma> ++ \<tau>)) x ys' x"
+              by blast
+            from path'_closed_set[OF x_in_W \<sigma>\<tau>_closed_W loop_x]
+            have ys'_in_W: "set ys' \<subseteq> W" .
+
+            from sets_eq ys'_in_W show ?thesis by simp
+          qed
+
+          from ys_in_W path'_w'_ys_w' have w'_in_W: "w' \<in> W"
+            using origin_in_path' by fastforce
+
+          from path'_w'_ys_w' have "cycle_from_node (induced_by_strategy (dom (\<sigma> ++ \<tau>)) (\<sigma> ++ \<tau>)) w' ys"
+            by (simp add: cycle_from_node_comp cycle_node_def)
+
+          with w'_in_W show "\<exists>w' \<in> W. cycle_from_node (induced_by_strategy (dom (\<sigma> ++ \<tau>)) (\<sigma> ++ \<tau>)) w' ys" by blast
+        qed
+        then obtain w' where
+          w'_in_W: "w' \<in> W" and
+          cycle_w'_ys: "cycle_from_node (induced_by_strategy (dom (\<sigma> ++ \<tau>)) (\<sigma> ++ \<tau>)) w' ys"
+          by blast
+
+        from \<sigma>\<tau>_doms_disjoint have "induced_by_strategy (dom (\<sigma> ++ \<tau>)) (\<sigma> ++ \<tau>) \<subseteq> induced_by_strategy (dom \<tau>) \<tau>"
+          using incomplete_ind_subgraph_add_disjoint_\<sigma>' by simp
+        from subgraph_cycle_from_node[OF this cycle_w'_ys]
+        have "cycle_from_node (induced_by_strategy (dom \<tau>) \<tau>) w' ys" .
+        with w'_in_W \<tau>_winning_opponent show "player_winningP (opponent \<alpha>) (top_priority ys)" by blast
       qed
-    next
-      fix v
-      assume v_in_B: "v \<in> B" and
-             v_opponent: "v \<in> V_opponent (opponent \<alpha>)"
-      show "E `` {v} \<subseteq> B" sorry
-    qed
+
+      have B_closed_player: "\<forall>v\<in>B. v \<in> V_opponent (opponent \<alpha>) \<longrightarrow> E `` {v} \<subseteq> B"
+      proof (rule ballI; rule impI)
+        fix v
+        assume v_in_B: "v \<in> B" and v_player: "v \<in> V_opponent (opponent \<alpha>)"
+        with \<sigma>\<tau>_closed_B have subgame_succs_in_B: "?\<sigma>\<tau>_subgame `` {v} \<subseteq> B" by blast
+        from v_player \<sigma>\<tau>_strat show "E `` {v} \<subseteq> B"
+          apply (cases \<alpha>; simp add: V\<^sub>1_def)
+          subgoal using P0.V\<^sub>\<alpha>_induced_succs_1 subgame_succs_in_B by blast
+          subgoal using P0.V_opp_induced_succs_1 subgame_succs_in_B by (metis Compl_iff)
+          done
+      qed
+
+      have B_winning_opponent: "winning_region (opponent \<alpha>) B"
+        using winning_region_strat B_in_V \<sigma>\<tau>_strat \<sigma>\<tau>_dom \<sigma>\<tau>_ran \<sigma>\<tau>_winning_opponent B_closed_player
+        by blast
 
       consider (B_nonempty) "B \<noteq> {}" | (empty) "B = {}" by blast
       then show ?thesis proof cases
