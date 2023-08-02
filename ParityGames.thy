@@ -224,11 +224,18 @@ begin
   lemma cycle_node_not_empty[simp]:"\<not>cycle_node v []"
     unfolding cycle_node_def by auto
 
+  lemma path'_loop_iff_cycle_node: "path' v vs v \<and> vs \<noteq> [] \<longleftrightarrow> cycle_node v vs"
+    unfolding cycle_node_def by blast
+
   definition cycle_from_node :: "'v \<Rightarrow> 'v list \<Rightarrow> bool" where
     "cycle_from_node v xs \<equiv> \<exists>v'. (v,v')\<in>E\<^sup>* \<and> cycle_node v' xs"
 
   lemma cycle_from_node_not_empty[simp]: "\<not>cycle_from_node v []"
     unfolding cycle_from_node_def by auto
+
+  lemma cycle_from_node_subset: "cycle_from_node v ys \<Longrightarrow> set ys \<subseteq> (fst ` E \<union> snd ` E)"
+    unfolding cycle_from_node_def cycle_node_def
+    using path'_subset by blast
 
   lemma cycle_from_node_comp: "path' u xs v \<Longrightarrow> cycle_node v ys \<Longrightarrow> cycle_from_node u ys"
     unfolding cycle_from_node_def using path'_is_rtrancl by blast
@@ -236,11 +243,22 @@ begin
   lemma cycle_from_node_decomp: "cycle_from_node u ys \<Longrightarrow> \<exists>xs v. cycle_node v ys \<and> path' u xs v"
     unfolding cycle_from_node_def using rtrancl_is_path' by blast
 
+  lemma cycle_node_impl_cycle_from_node: "cycle_node v vs \<Longrightarrow> cycle_from_node v vs"
+    unfolding cycle_from_node_def cycle_node_def by blast
+
+  lemma path'_loop_impl_cycle_from_node: "path' v vs v \<and> vs \<noteq> [] \<Longrightarrow> cycle_from_node v vs"
+    using path'_loop_iff_cycle_node cycle_node_impl_cycle_from_node by simp
+
   definition lasso_from_node :: "'v \<Rightarrow> 'v list \<Rightarrow> 'v list \<Rightarrow> bool" where
     "lasso_from_node v xs ys \<equiv> \<exists>v'. path' v xs v' \<and> path' v' ys v' \<and> ys \<noteq> []"
 
   lemma lasso_from_node_not_empty[simp]:"\<not>lasso_from_node v xs []"
     unfolding lasso_from_node_def by auto
+
+  lemma lasso_from_node_subset: "lasso_from_node v xs ys
+    \<Longrightarrow> set xs \<subseteq> (fst ` E \<union> snd ` E) \<and> set ys \<subseteq> (fst ` E \<union> snd ` E)"
+    unfolding lasso_from_node_def
+    using path'_subset by force
 
   lemma origin_in_lasso: "lasso_from_node x xs ys \<Longrightarrow> (x \<in> set xs \<or> x \<in> set ys)"
     unfolding lasso_from_node_def
@@ -253,11 +271,18 @@ begin
   lemma lasso_from_node'_not_empty[simp]: "\<not>lasso_from_node' v []"
     unfolding lasso_from_node'_def by auto
 
+  lemma lasso_from_node'_subset: "lasso_from_node' v xs \<Longrightarrow> set xs \<subseteq> (fst ` E \<union> snd ` E)"
+    unfolding lasso_from_node'_def
+    using path'_append path'_subset by blast
+
   lemma lasso_from_node'_length: "lasso_from_node' v vs \<Longrightarrow> 0 < length vs"
     unfolding lasso_from_node'_def by fast
 
   lemma cycle_impl_lasso': "cycle_node v xs \<Longrightarrow> lasso_from_node' v xs"
     unfolding cycle_node_def lasso_from_node'_def by fastforce
+
+  lemma path'_loop_impl_lasso': "\<lbrakk>path' v vs v; vs \<noteq> []\<rbrakk> \<Longrightarrow> lasso_from_node' v vs"
+    using path'_loop_iff_cycle_node cycle_impl_lasso' by blast
 
   lemma lassos_equiv: "lasso_from_node' v xs \<longleftrightarrow> (\<exists>xs1 xs2. xs=xs1@xs2 \<and> lasso_from_node v xs1 xs2)"
     unfolding lasso_from_node'_def lasso_from_node_def
@@ -379,6 +404,21 @@ begin
     from append path succ have "path' E v ys w" by auto
     with length show ?case by auto
   qed
+
+  lemma cycle_node_in_V: "\<lbrakk>v\<in>V; cycle_node E v xs\<rbrakk> \<Longrightarrow> set xs \<subseteq> V"
+    unfolding cycle_node_def using path_in_V by blast
+
+  lemma cycle_from_node_in_V: "\<lbrakk>v\<in>V; cycle_from_node E v xs\<rbrakk> \<Longrightarrow> set xs \<subseteq> V"
+    unfolding cycle_from_node_def
+    using cycle_node_in_V path_in_V path_closed_V path'_equiv_rtrancl by metis
+
+  lemma lasso_from_node_in_V: "\<lbrakk>v\<in>V; lasso_from_node E v xs ys\<rbrakk> \<Longrightarrow> set xs \<subseteq> V \<and> set ys \<subseteq> V"
+    unfolding lasso_from_node_def
+    using path_in_V path_closed_V by blast
+
+  lemma lasso_from_node'_in_V: "\<lbrakk>v\<in>V; lasso_from_node' E v xs\<rbrakk> \<Longrightarrow> set xs \<subseteq> V"
+    unfolding lasso_from_node'_def
+    using path_in_V path_closed_V path'_append by meson
 
   lemma finite_graph_always_has_cycle_from_node: "x\<in>V \<Longrightarrow> \<exists>xs. cycle_from_node E x xs"
   proof -
@@ -1753,26 +1793,47 @@ proof -
 
       (** Get the player who wins p *)
       then obtain \<alpha> :: player where "\<alpha> = player_of_prio p" by simp
-      then have \<alpha>_cases: "\<alpha> = EVEN \<or> \<alpha> = ODD" using player.exhaust by auto
+      hence player_wins_p: "player_winningP \<alpha> p"
+        by (cases \<alpha>; simp add: player_of_prio_def split: if_splits)
       let ?V\<^sub>\<alpha> = "V_player \<alpha>"
 
       (** Get any v of the highest priority *)
-      obtain v :: "'v" where "v \<in> V" "prio v = p"
+      obtain v :: "'v" where v_in_V: "v \<in> V" and v_prio: "prio v = p"
         using Max_in[OF fin_prio] V_notempty p_def by fastforce
+
+      (** Any list that contains v will have p as its top priority, and thus it is won by \<alpha> if it is a play *)
+      have player_wins_v: "\<forall>vs. set vs \<subseteq> V \<and> v \<in> set vs \<longrightarrow> player_winningP \<alpha> (top_priority vs)"
+      proof (rule allI; rule impI; erule conjE)
+        fix vs
+        assume vs_in_V: "set vs \<subseteq> V" and v_in_vs: "v \<in> set vs"
+
+        hence "vs \<noteq> []" by fastforce
+        with vs_in_V have top_prio_vs_le_p: "top_priority vs \<le> p"
+          unfolding top_priority_def p_def
+          using image_mono Max_mono by auto
+
+        moreover from v_in_vs v_prio have "p \<in> prio ` set vs" by blast
+
+        ultimately have "top_priority vs = p"
+          unfolding top_priority_def by (simp add: antisym)
+
+        with player_wins_p show "player_winningP \<alpha> (top_priority vs)" by simp
+      qed
 
       (** Attract to that v *)
       define A :: "'v set" where "A = attractor \<alpha> {v}"
 
+      (** These are properties of an attractor that we will need later *)
       have A_notempty: "A \<noteq> {}" unfolding A_def using attractor_subset by blast
+      have v_in_A: "v \<in> A" unfolding A_def using attractor_subset by fast
       have A_forces_v: "\<exists>\<sigma>.
         strategy_of ?V\<^sub>\<alpha> \<sigma> \<and>
         dom \<sigma> = (A - {v}) \<inter> ?V\<^sub>\<alpha> \<and>
         ran \<sigma> \<subseteq> A \<and>
         (\<forall>v\<in>A-{v}. \<forall>v'. (v, v') \<in> induced_by_strategy ?V\<^sub>\<alpha> \<sigma> \<longrightarrow> v' \<in> A) \<and>
-        (\<forall>v\<in>A. \<forall>xs. lasso_from_node' (induced_by_strategy ?V\<^sub>\<alpha> \<sigma>) v xs \<longrightarrow> set xs \<inter> {v} \<noteq> {})"
-        unfolding A_def
-        using attractor_attracts apply simp
-        using origin_in_lasso' by metis
+        (\<forall>a\<in>A. \<forall>xs. lasso_from_node' (induced_by_strategy ?V\<^sub>\<alpha> \<sigma>) a xs \<longrightarrow> set xs \<inter> {v} \<noteq> {})"
+        unfolding A_def using attractor_attracts apply simp
+        by (metis Diff_disjoint Diff_empty Int_commute Int_insert_left_if0)
 
       (** Take the subgraph with A removed *)
       define V' :: "'v set" where "V' = V - A"
@@ -1780,7 +1841,7 @@ proof -
       define V\<^sub>0' :: "'v set" where "V\<^sub>0' = V\<^sub>0 - A"
 
       (** Show that V is the union of V' and A *)
-      have "A \<subseteq> V" unfolding A_def using \<open>v \<in> V\<close> attractor_subset_graph by simp
+      from \<open>v\<in>V\<close> have A_in_V: "A \<subseteq> V" unfolding A_def using attractor_subset_graph by simp
       from Diff_partition[OF this] have V_composed_of: "V = V' \<union> A" unfolding V'_def by blast
 
       (** Show that every edge in E that does not touch A is also in E'. *)
@@ -2252,15 +2313,12 @@ proof -
           using W_def V'_comp W\<^sub>0_def W\<^sub>1_def
           by (cases \<alpha>) auto
 
-        have V'_A_disjoint: "V' \<inter> A = {}"
-          unfolding V'_def by blast
-
         from A_forces_v obtain \<sigma>' where
           \<sigma>'_strat: "strategy_of ?V\<^sub>\<alpha> \<sigma>'" and
           \<sigma>'_dom: "dom \<sigma>' = (A-{v}) \<inter> ?V\<^sub>\<alpha>" and
           \<sigma>'_ran: "ran \<sigma>' \<subseteq> A" and
           \<sigma>'_closed: "\<forall>v\<in>A-{v}. \<forall>v'. (v,v') \<in> induced_by_strategy ?V\<^sub>\<alpha> \<sigma>' \<longrightarrow> v' \<in> A" and
-          \<sigma>'_forces_v: "\<forall>v\<in>A. \<forall>xs. lasso_from_node' (induced_by_strategy ?V\<^sub>\<alpha> \<sigma>') v xs \<longrightarrow> set xs \<inter> {v} \<noteq> {} "
+          \<sigma>'_forces_v: "\<forall>a\<in>A. \<forall>xs. lasso_from_node' (induced_by_strategy ?V\<^sub>\<alpha> \<sigma>') a xs \<longrightarrow> set xs \<inter> {v} \<noteq> {}"
           by blast
 
         from V'_winning_\<alpha> obtain \<tau>' where
@@ -2286,12 +2344,14 @@ proof -
         from \<open>v\<in>V\<close> have v_succ: "\<exists>v'. v' \<in> E `` {v}"
           using succ by auto
 
+        (** We want to show that the edge from v to the randomly selected successor actually exists *)
         have v_target_edge: "(v,v_target) \<in> E"
         proof -
           from some_in_eq[of "E `` {v}"] have "v_target \<in> E `` {v}"
             unfolding v_target_def using v_succ by blast
           with E_in_V show ?thesis by simp
         qed
+        (** We also want to show that v exists in V *)
         hence v_target_in_V: "v_target \<in> V"
           using E_in_V by blast
 
@@ -2356,58 +2416,124 @@ proof -
             using ran_map_add[OF disj] by simp
         qed
 
+        have \<sigma>\<tau>'_closed_A: "\<forall>v\<in>A-{v}. \<forall>v'. (v,v') \<in> ?\<sigma>\<tau>'_subgame \<longrightarrow> v' \<in> A"
+        proof (rule ballI; rule allI; rule impI)
+          fix u u'
+          assume u_in_A_min_v: "u \<in> A - {v}" and edge_in_\<sigma>\<tau>': "(u,u') \<in> ?\<sigma>\<tau>'_subgame"
+          with \<sigma>'_dom \<tau>'_dom v_choice_dom have edge_in_\<sigma>': "(u,u') \<in> induced_by_strategy (V_player \<alpha>) \<sigma>'"
+            unfolding induced_by_strategy_def E_of_strat_def V'_def
+            apply simp by blast
+          with u_in_A_min_v \<sigma>'_closed show "u' \<in> A" by blast
+        qed
+
+        have \<sigma>\<tau>'_forces_v: "\<forall>a\<in>A. \<forall>xs. lasso_from_node' ?\<sigma>\<tau>'_subgame a xs \<longrightarrow> set xs \<inter> {v} \<noteq> {}"
+        proof (rule ballI; rule allI; rule impI; rule ccontr)
+          fix u xs
+          assume u_in_A: "u \<in> A" and
+                 lasso'_\<sigma>\<tau>'_u_xs: "lasso_from_node' ?\<sigma>\<tau>'_subgame u xs" and
+                 not_v_in_xs: "\<not>set xs \<inter> {v} \<noteq> {}"
+          hence v_notin_xs: "v \<notin> set xs" by simp
+
+          from lasso'_\<sigma>\<tau>'_u_xs have u_in_xs: "u \<in> set xs"
+            using origin_in_lasso' by fast
+          with u_in_A v_notin_xs have u_in_A_min_v: "u \<in> A-{v}"
+            by blast
+
+          from lasso'_\<sigma>\<tau>'_u_xs obtain u' where u'_in_xs: "u' \<in> set xs" and
+          path'_\<sigma>\<tau>'_u_xs_u': "path' ?\<sigma>\<tau>'_subgame u xs u'"
+            using lasso'_iff_path by fast
+
+          from u'_in_xs v_notin_xs have u_not_v: "u' \<noteq> v" by fast
+
+          from u_in_A_min_v v_notin_xs path'_\<sigma>\<tau>'_u_xs_u'
+          have xs_in_A_min_v: "set xs \<subseteq> (A-{v})"
+          proof (induction xs arbitrary: u)
+            case Nil thus ?case by simp
+          next
+            case (Cons a xs)
+            hence [simp]: "a=u" by force
+
+            from Cons.prems(2) have v_notin_xs: "v \<notin> set xs" by simp
+
+            from Cons.prems(3) obtain x where
+              u_x_in_\<sigma>\<tau>': "(u,x)\<in>?\<sigma>\<tau>'_subgame" and
+              path'_\<sigma>\<tau>'_x_xs_u': "path' ?\<sigma>\<tau>'_subgame x xs u'"
+              using path'D by auto
+
+            from path'_\<sigma>\<tau>'_x_xs_u' u_not_v have "x \<noteq> v"
+              using v_notin_xs by (cases xs) auto
+            moreover from Cons.prems(1) u_x_in_\<sigma>\<tau>' \<sigma>\<tau>'_closed_A have "x \<in> A" by blast
+            ultimately have x_in_A_min_v: "x \<in> A-{v}" by simp
+            from Cons.IH[OF x_in_A_min_v v_notin_xs path'_\<sigma>\<tau>'_x_xs_u'] Cons.prems(1)
+            show ?case by simp
+          qed
+
+          from \<sigma>\<tau>'_dom \<tau>'_dom v_choice_dom A_in_V
+          have "?\<sigma>\<tau>'_subgame \<inter> (A-{v}) \<times> (A-{v}) \<subseteq> (induced_by_strategy (V_player \<alpha>) \<sigma>')"
+            unfolding induced_by_strategy_def E_of_strat_def V'_def
+            by auto
+
+          from subgraph_lasso'[OF this lasso'_restr_V[OF lasso'_\<sigma>\<tau>'_u_xs xs_in_A_min_v]]
+          have "lasso_from_node' (induced_by_strategy (V_player \<alpha>) \<sigma>') u xs" .
+
+          from \<sigma>'_forces_v u_in_A this have "set xs \<inter> {v} \<noteq> {}" by blast
+          with v_notin_xs show "False" by blast
+        qed
+
         have \<sigma>\<tau>'_winning: "\<forall>v\<in>V. \<forall>xs. cycle_from_node ?\<sigma>\<tau>'_subgame v xs \<longrightarrow> player_winningP \<alpha> (top_priority xs)"
         proof (rule ballI; rule allI; rule impI)
           fix u ys
-          assume u_in_V: "u \<in> V" and cycle_from_u_xs: "cycle_from_node ?\<sigma>\<tau>'_subgame u ys"
+          assume u_in_V: "u \<in> V" and cycle_\<sigma>\<tau>'_u_ys: "cycle_from_node ?\<sigma>\<tau>'_subgame u ys"
 
-          from cycle_from_u_xs have [simp]: "ys \<noteq> []" by auto
+          from cycle_\<sigma>\<tau>'_u_ys have ys_notempty: "ys \<noteq> []" by auto
+          from cycle_from_node_in_V[OF u_in_V ind_subgraph_cycle_from_node[OF cycle_\<sigma>\<tau>'_u_ys]]
+          have ys_in_V: "set ys \<subseteq> V" .
 
-          from cycle_from_u_xs obtain xs where
-            lasso_u_xs_ys: "lasso_from_node ?\<sigma>\<tau>'_subgame u xs ys"
-            using lasso_from_equiv_cycle_from by fast
+          from cycle_\<sigma>\<tau>'_u_ys obtain u' xs where
+            path'_\<sigma>\<tau>'_u_xs_u': "path' ?\<sigma>\<tau>'_subgame u xs u'" and
+            path'_\<sigma>\<tau>'_u'_ys_u': "path' ?\<sigma>\<tau>'_subgame u' ys u'"
+            using cycle_from_node_decomp path'_loop_iff_cycle_node by meson
+          with ys_notempty have u'_in_ys: "u' \<in> set ys" using origin_in_path' by fast
 
-          define zs where [simp]:"zs=xs@ys"
-
-          from lasso_u_xs_ys have lasso'_u_zs: "lasso_from_node' ?\<sigma>\<tau>'_subgame u zs"
-            using lassos_equiv by force
-
-          from lasso'_u_zs obtain u' where u'_in_zs: "u' \<in> set zs" and
-            path'_\<sigma>\<tau>'_u_zs_u': "path' ?\<sigma>\<tau>'_subgame u zs u'"
-            using lasso'_iff_path by fast
-
-          consider (A_in_zs) "set zs \<inter> A \<noteq> {}" | (A_notin_zs) "set zs \<inter> A = {}" by auto
+          consider (A_in_ys) "set ys \<inter> A \<noteq> {}" | (A_notin_ys) "set ys \<inter> A = {}" by blast
           thus "player_winningP \<alpha> (top_priority ys)" proof cases
-            (** If zs goes through A, then its cycle must contain v, which means it is won by \<alpha>. *)
-            case A_in_zs
+            case A_in_ys
 
-            show ?thesis sorry xxx, sorry
+            then obtain x where x_in_ys: "x \<in> set ys" and x_in_A: "x \<in> A" by blast
+            from path'_loop_intermediate_node[OF path'_\<sigma>\<tau>'_u'_ys_u' x_in_ys]
+            obtain ys' where set_ys'_ys[simp]: "set ys' = set ys" and
+              path'_\<sigma>\<tau>'_x_ys'_x: "path' ?\<sigma>\<tau>'_subgame x ys' x"
+              by blast
+
+            from set_ys'_ys ys_notempty have ys'_notempty: "ys' \<noteq> []" by force
+
+            with x_in_A path'_loop_impl_lasso'[OF path'_\<sigma>\<tau>'_x_ys'_x ys'_notempty] \<sigma>\<tau>'_forces_v
+            have "v \<in> set ys" by fastforce
+
+            with player_wins_v ys_in_V show ?thesis by simp
           next
-            (** If zs does not go through A, it exists only in the winning region of \<alpha>.
-                As a result, it is won by \<alpha> thanks to \<tau>'. *)
-            case A_notin_zs
+            case A_notin_ys
+            from path'_loop_impl_lasso'[OF path'_\<sigma>\<tau>'_u'_ys_u' ys_notempty]
+            have lasso'_\<sigma>\<tau>'_y'_ys: "lasso_from_node' ?\<sigma>\<tau>'_subgame u' ys" .
 
-            from subgraph_path'[OF ind_subgraph[of "dom ?\<sigma>\<tau>'" "?\<sigma>\<tau>'"] path'_\<sigma>\<tau>'_u_zs_u']
-            have path'_E_u_zs_u': "path' E u zs u'" .
+            from subgraph_path'[OF ind_subgraph path'_\<sigma>\<tau>'_u'_ys_u']
+            have "path' E u' ys u'" .
 
-            from A_notin_zs V_composed_of have zs_in_V': "set zs \<subseteq> V'"
-              using path_in_V[OF u_in_V path'_E_u_zs_u'] by blast
+            from ys_in_V A_notin_ys u'_in_ys have u'_in_V': "u' \<in> V'"
+              unfolding V'_def by blast
 
-            from path'_\<sigma>\<tau>'_u_zs_u' zs_in_V' have u_in_V': "u \<in> V'"
-              using origin_in_path'[of "?\<sigma>\<tau>'_subgame" u zs u'] by auto
+            from ys_in_V A_notin_ys V_composed_of have ys_in_V': "set ys \<subseteq> V'" by blast
 
             have subset: "?\<sigma>\<tau>'_subgame \<inter> (V' \<times> V') \<subseteq> subgame.induced_by_strategy (dom \<tau>') \<tau>'"
               unfolding induced_by_strategy_def subgame.induced_by_strategy_def E_of_strat_def
               unfolding V'_def E'_def
               using \<sigma>\<tau>'_doms_disjoint_C by auto
 
-            from zs_in_V' have xs_in_V': "set xs \<subseteq> V'" by simp
-            from zs_in_V' have ys_in_V': "set ys \<subseteq> V'" by simp
+            from subgraph_path'[OF subset path'_restr_V[OF path'_\<sigma>\<tau>'_u'_ys_u' ys_in_V' u'_in_V']] ys_notempty
+            have "cycle_from_node (subgame.induced_by_strategy (dom \<tau>') \<tau>') u' ys"
+              using path'_loop_impl_cycle_from_node by fastforce
 
-            from subgraph_lasso[OF subset lasso_restr_V[OF lasso_u_xs_ys xs_in_V' ys_in_V']]
-            have "cycle_from_node (subgame.induced_by_strategy (dom \<tau>') \<tau>') u ys"
-              using lasso_from_equiv_cycle_from by fast
-            from \<tau>'_winning_subgame u_in_V' this show ?thesis by blast
+            with \<tau>'_winning_subgame u'_in_V' show ?thesis by blast
           qed
         qed
 
