@@ -676,6 +676,25 @@ begin
   lemma ind_subgraph_finite[simp]: "finite (induced_by_strategy V\<^sub>\<alpha> \<sigma>)"
     using ind_subgraph fin_E finite_subset by blast
 
+  lemma  ind_subgraph_closed_region:
+    "\<lbrakk>R\<subseteq>V; \<forall>v\<in>R. v \<in> V-V\<^sub>\<alpha> \<longrightarrow> E `` {v} \<subseteq> R; ran \<sigma> \<subseteq> R\<rbrakk>
+    \<Longrightarrow> \<forall>v\<in>R. \<forall>v'. (v,v')\<in>induced_by_strategy V\<^sub>\<alpha> \<sigma> \<longrightarrow> v'\<in>R"
+  proof (rule ballI; rule allI; rule impI)
+    fix v v'
+    assume R_in_V: "R\<subseteq>V" and
+           \<sigma>_closed_opp: "\<forall>v\<in>R. v \<in> V-V\<^sub>\<alpha> \<longrightarrow> E `` {v} \<subseteq> R" and
+           \<sigma>_ran: "ran \<sigma> \<subseteq> R" and
+           v_in_R: "v\<in>R" and
+           edge_in_subgraph: "(v,v')\<in>induced_by_strategy V\<^sub>\<alpha> \<sigma>"
+    from v_in_R R_in_V consider (v_player) "v\<in>V\<^sub>\<alpha>" | (v_opp) "v\<in>V-V\<^sub>\<alpha>" by auto
+    thus "v'\<in>R"
+      using edge_in_subgraph
+      apply (cases)
+      subgoal using ind_subgraph_edge_dst \<sigma>_ran by fast
+      subgoal using v_in_R \<sigma>_closed_opp by fastforce
+      done
+  qed
+
   lemma ind_subgraph_addD: "induced_by_strategy V\<^sub>\<alpha> (\<sigma> ++ \<sigma>') \<subseteq> induced_by_strategy V\<^sub>\<alpha> \<sigma> \<union> E_of_strat \<sigma>'"
     unfolding induced_by_strategy_def E_of_strat_def by auto
 
@@ -1678,24 +1697,9 @@ context arena_defs begin
       \<sigma>_closed_opponent: "\<forall>w\<in>W\<^sub>0. w \<in> V_opponent \<alpha> \<longrightarrow> E `` {w} \<subseteq> W\<^sub>0"
       using winning_region_strat by auto
 
-    have \<sigma>_closed: "\<forall>w\<in>W\<^sub>0. \<forall>w'. (w,w') \<in> induced_by_strategy (dom \<sigma>) \<sigma> \<longrightarrow> w'\<in>W\<^sub>0"
-    proof (rule ballI; rule allI; rule impI)
-      fix w w'
-      assume w_in_W\<^sub>0: "w \<in> W\<^sub>0" and
-             edge_in_subgraph: "(w,w') \<in> induced_by_strategy (dom \<sigma>) \<sigma>"
-      with W\<^sub>0_in_V have w_in_V: "w \<in> V" by blast
-      then consider (w_player) "w \<in> V_player \<alpha>" | (w_opponent) "w \<in> V_opponent \<alpha>"
-        by (cases \<alpha>; auto simp: V\<^sub>1_def)
-      then show "w' \<in> W\<^sub>0" proof cases
-        case w_player
-        with w_in_W\<^sub>0 \<sigma>_dom have w_in_dom: "w \<in> dom \<sigma>" by simp
-        with edge_in_subgraph \<sigma>_ran show ?thesis
-          using ind_subgraph_edge_dst by blast
-      next
-        case w_opponent
-        with w_in_W\<^sub>0 \<sigma>_closed_opponent edge_in_subgraph show ?thesis by fastforce
-      qed
-    qed
+    from \<sigma>_closed_opponent \<sigma>_dom have \<sigma>_closed: "\<forall>w\<in>W\<^sub>0. \<forall>w'. (w,w') \<in> induced_by_strategy (dom \<sigma>) \<sigma> \<longrightarrow> w'\<in>W\<^sub>0"
+      apply (cases \<alpha>; simp add: V\<^sub>1_def)
+      using ind_subgraph_closed_region[OF W\<^sub>0_in_V _ \<sigma>_ran] by blast+
 
     show ?thesis
       apply (rule exI[where x="\<sigma>"])
@@ -1741,6 +1745,9 @@ context arena_defs begin
     unfolding P0.won_by_opponent_def P1.won_by_opponent_def P0.won_by_player_def P1.won_by_player_def
     unfolding V\<^sub>1_def
     by (auto simp: V_diff_diff_V0)
+
+  lemma winning_region_won_by: "\<lbrakk>winning_region \<alpha> W; v\<in>W\<rbrakk> \<Longrightarrow> won_by \<alpha> v"
+    using P0.winning_region_won_by_player P1.winning_region_won_by_player by (cases \<alpha>) auto
 
   lemma attractor_subset: "X \<subseteq> attractor \<alpha> X"
     using P0.attractor_subset P1.attractor_subset by (cases \<alpha>) auto
@@ -1818,23 +1825,6 @@ proof -
     using V'_def V\<^sub>0'_def by auto
 qed
 
-lemma subgame_strategy_of:
-  fixes V :: "'v set"
-  assumes "arena_defs E V V\<^sub>0"
-  assumes "arena_defs E' V' V\<^sub>0'"
-  assumes E'_subset_E: "E' \<subseteq> E"
-  assumes V'_def: "V' = V-S"
-  assumes V\<^sub>0'_def: "V\<^sub>0' = V\<^sub>0-S"
-  shows "arena_defs.strategy_of E' V\<^sub>\<alpha> \<sigma> \<Longrightarrow> arena_defs.strategy_of E V\<^sub>\<alpha> \<sigma>"
-proof -
-  interpret arena_defs E V V\<^sub>0 by fact
-  interpret subgame: arena_defs E' V' V\<^sub>0' by fact
-  assume "subgame.strategy_of V\<^sub>\<alpha> \<sigma>"
-  then show ?thesis
-    unfolding subgame.strategy_of_def strategy_of_def E_of_strat_def
-    using E'_subset_E by auto
-qed
-
 lemma subgame_strategy_of_V_player:
   fixes V :: "'v set"
   assumes "arena_defs E V V\<^sub>0"
@@ -1857,7 +1847,7 @@ proof -
     using E'_subset_E V_player_subset by blast
 qed
 
-lemma aux:
+lemma maximal_winning_regions:
   fixes V :: "'v set"
   assumes "arena_defs E V V\<^sub>0"
   shows "\<exists>W\<^sub>0 W\<^sub>1. V = W\<^sub>0 \<union> W\<^sub>1 \<and> W\<^sub>0 \<inter> W\<^sub>1 = {}
@@ -1955,13 +1945,9 @@ proof -
         subgame_strategy_of_V_player[OF arena_defs_axioms subgame.arena_defs_axioms E'_subs_E V'_def V\<^sub>0'_def]
 
       (** Show that V' is a strict subset of V; this is needed for applying the induction hypothesis *)
-      have V'_subset: "V' \<subset> V" proof -
-        have "V' \<subseteq> V" unfolding V'_def by auto
-        moreover note \<open>v \<in> V\<close>
-        moreover have "v \<in> A" unfolding A_def
-          using attractor_subset by auto
-        ultimately show ?thesis unfolding V'_def by blast
-      qed
+      have V'_subset: "V' \<subset> V"
+        unfolding V'_def A_def
+        using v_in_V attractor_subset by blast
 
       (** Take the winning regions W\<^sub>0 and W\<^sub>1 in the subgame *)
       from psubset.IH[OF V'_subset subgame.arena_defs_axioms]
@@ -2308,6 +2294,9 @@ proof -
         define E'' :: "'v rel" where "E'' = ((V-B) \<times> (V-B)) \<inter> E"
         define V\<^sub>0'' :: "'v set" where "V\<^sub>0'' = V\<^sub>0 - B"
 
+        have V''_in_V: "V''\<subseteq>V" unfolding V''_def by blast
+        have V''_B_disj: "V'' \<inter> B = {}" unfolding V''_def by blast
+
         have edge_E_to_E'': "\<forall>v v'. (v,v')\<in>E \<and> v \<notin> B \<and> v' \<notin> B \<longleftrightarrow> (v,v') \<in> E''"
         unfolding E''_def using E_in_V by auto
 
@@ -2319,94 +2308,354 @@ proof -
           subgame_strategy_of_V_player[OF arena_defs_axioms subgame'.arena_defs_axioms E''_subs_E V''_def V\<^sub>0''_def]
 
         have V''_subset: "V'' \<subset> V"
-        proof -
-          have "V'' \<subseteq> V" unfolding V''_def by simp
-          with B_nonempty B_in_V show ?thesis unfolding V''_def by fast
-        qed
+          unfolding V''_def
+          using B_nonempty B_in_V by blast
 
         from psubset.IH[OF V''_subset subgame'.arena_defs_axioms]
         obtain X\<^sub>0 X\<^sub>1 where
           V''_comp: "V'' = X\<^sub>0 \<union> X\<^sub>1" and
-          X_disjoint: "X\<^sub>0 \<inter> X\<^sub>1 = {}" and
-          X\<^sub>0_def: "subgame'.winning_region EVEN X\<^sub>0" and
-          X\<^sub>1_def: "subgame'.winning_region ODD X\<^sub>1"
+          X_disj: "X\<^sub>0 \<inter> X\<^sub>1 = {}" and
+          X\<^sub>0_winning_EVEN_subgame': "subgame'.winning_region EVEN X\<^sub>0" and
+          X\<^sub>1_winning_ODD_subgame': "subgame'.winning_region ODD X\<^sub>1"
           by blast
 
-        define X where "X \<equiv> if \<alpha> = EVEN then X\<^sub>1 else X\<^sub>0"
-        have X_in_V'': "X\<subseteq>V''" unfolding X_def using V''_comp by (cases \<alpha>) auto
-        hence X_in_V: "X \<subseteq> V" unfolding V''_def by auto
-        have X_winning_opponent_subgame': "subgame'.winning_region ?\<beta> X"
-          unfolding X_def using X\<^sub>0_def X\<^sub>1_def by (cases \<alpha>; simp)
+        (** We want to know which region is won by \<alpha> *)
+        define X\<^sub>\<alpha> where "X\<^sub>\<alpha> \<equiv> if \<alpha> = EVEN then X\<^sub>0 else X\<^sub>1"
+        from V''_comp have X\<^sub>\<alpha>_in_V'': "X\<^sub>\<alpha>\<subseteq>V''" unfolding X\<^sub>\<alpha>_def by (cases \<alpha>) auto
+        with V''_in_V have X\<^sub>\<alpha>_in_V: "X\<^sub>\<alpha>\<subseteq>V" by simp
+        have X\<^sub>\<alpha>_winning_\<alpha>_subgame': "subgame'.winning_region \<alpha> X\<^sub>\<alpha>"
+          unfolding X\<^sub>\<alpha>_def using X\<^sub>0_winning_EVEN_subgame' X\<^sub>1_winning_ODD_subgame'
+          by (cases \<alpha>; simp)
 
-        have "\<exists>\<sigma>. strategy_of ?V\<^sub>\<beta> \<sigma> \<and> dom \<sigma> = ?V\<^sub>\<beta> \<inter> X \<and> ran \<sigma> \<subseteq> X \<and>
-              (\<forall>x\<in>X. \<forall>xs. cycle_from_node (induced_by_strategy (dom \<sigma>) \<sigma>) x xs \<longrightarrow> player_winningP ?\<beta> (top_priority xs)) \<and>
-              (\<forall>x\<in>X. \<forall>x'. (x,x') \<in> induced_by_strategy (dom \<sigma>) \<sigma> \<longrightarrow> x'\<in>X)"
+        (** We want to know which region is won by the opponent *)
+        define X\<^sub>\<beta> where "X\<^sub>\<beta> \<equiv> if \<alpha> = EVEN then X\<^sub>1 else X\<^sub>0"
+        from V''_comp have X\<^sub>\<beta>_in_V'': "X\<^sub>\<beta>\<subseteq>V''" unfolding X\<^sub>\<beta>_def by (cases \<alpha>) auto
+        with V''_in_V have X\<^sub>\<beta>_in_V: "X\<^sub>\<beta>\<subseteq>V" by simp
+        have X\<^sub>\<beta>_winning_\<beta>_subgame': "subgame'.winning_region ?\<beta> X\<^sub>\<beta>"
+          unfolding X\<^sub>\<beta>_def using X\<^sub>0_winning_EVEN_subgame' X\<^sub>1_winning_ODD_subgame'
+          by (cases \<alpha>; simp)
+
+        (** Now, the other properties of the winning regions from the induction hypothesis also
+            hold for the specified regions for \<alpha> and their opponent *)
+        from V''_comp have V''_comp': "V'' = X\<^sub>\<alpha> \<union> X\<^sub>\<beta>"
+          unfolding X\<^sub>\<alpha>_def X\<^sub>\<beta>_def by (cases \<alpha>) auto
+        from X_disj have X_disj': "X\<^sub>\<alpha> \<inter> X\<^sub>\<beta> = {}"
+          unfolding X\<^sub>\<alpha>_def X\<^sub>\<beta>_def by (cases \<alpha>) auto
+
+        from B_in_V V''_comp' have V_comp_X_B: "V = X\<^sub>\<alpha> \<union> (B\<union>X\<^sub>\<beta>)"
+          unfolding V''_def by blast
+
+        moreover from X_disj' V''_B_disj V''_comp' have X_B_disj: "X\<^sub>\<alpha> \<inter> (B\<union>X\<^sub>\<beta>) = {}" by blast
+
+        moreover have X\<^sub>\<alpha>_winning_\<alpha>: "winning_region \<alpha> (X\<^sub>\<alpha>)"
         proof -
-          have "\<exists>\<sigma>. subgame'.strategy_of (subgame'.V_player ?\<beta>) \<sigma> \<and> dom \<sigma> = subgame'.V_player ?\<beta> \<inter> X \<and> ran \<sigma> \<subseteq> X \<and>
-                (\<forall>x\<in>X. \<forall>xs. cycle_from_node (subgame'.induced_by_strategy (dom \<sigma>) \<sigma>) x xs \<longrightarrow> player_winningP ?\<beta> (top_priority xs)) \<and>
-                (\<forall>x\<in>X. \<forall>x'. (x, x') \<in> subgame'.induced_by_strategy (dom \<sigma>) \<sigma> \<longrightarrow> x' \<in> X)"
-          using V''_comp X\<^sub>0_def X\<^sub>1_def X_def X_disjoint subgame'.V_player.simps X_winning_opponent_subgame'
+          (** We start with the winning strategy in the subgame *)
+          have "\<exists>\<sigma>. subgame'.strategy_of (subgame'.V_player \<alpha>) \<sigma> \<and> dom \<sigma> = subgame'.V_player \<alpha> \<inter> X\<^sub>\<alpha> \<and> ran \<sigma> \<subseteq> X\<^sub>\<alpha> \<and>
+            (\<forall>x\<in>X\<^sub>\<alpha>. \<forall>xs. cycle_from_node (subgame'.induced_by_strategy (dom \<sigma>) \<sigma>) x xs \<longrightarrow> player_winningP \<alpha> (top_priority xs)) \<and>
+            (\<forall>x\<in>X\<^sub>\<alpha>. \<forall>x'. (x, x') \<in> subgame'.induced_by_strategy (dom \<sigma>) \<sigma> \<longrightarrow> x' \<in> X\<^sub>\<alpha>)"
+          using V''_comp X\<^sub>0_winning_EVEN_subgame' X\<^sub>1_winning_ODD_subgame' X\<^sub>\<alpha>_def X_disj subgame'.V_player.simps X\<^sub>\<alpha>_winning_\<alpha>_subgame'
           apply (cases \<alpha>; simp)
-          subgoal using subgame'.winning_regions_closed_opponent[of X\<^sub>0 X \<alpha>] by simp
-          subgoal using subgame'.winning_regions_closed_player[of X X\<^sub>1 ?\<beta>] by simp
+          subgoal using subgame'.winning_regions_closed_player[of X\<^sub>\<alpha> X\<^sub>1 \<alpha>] by simp
+          subgoal using subgame'.winning_regions_closed_opponent[of X\<^sub>0 X\<^sub>\<alpha> ?\<beta>] by simp
           done
 
           then obtain \<sigma> where
-            \<sigma>_strat_subgame: "subgame'.strategy_of (subgame'.V_player ?\<beta>) \<sigma>" and
-            \<sigma>_dom_subgame: "dom \<sigma> = subgame'.V_player ?\<beta> \<inter> X" and
-            \<sigma>_ran: "ran \<sigma> \<subseteq> X" and
-            \<sigma>_winning_subgame: "\<forall>x\<in>X. \<forall>xs. cycle_from_node (subgame'.induced_by_strategy (dom \<sigma>) \<sigma>) x xs \<longrightarrow> player_winningP ?\<beta> (top_priority xs)" and
-            \<sigma>_closed_subgame: "\<forall>x\<in>X. \<forall>x'. (x, x') \<in> subgame'.induced_by_strategy (dom \<sigma>) \<sigma> \<longrightarrow> x' \<in> X"
+            \<sigma>_strat_subgame': "subgame'.strategy_of (subgame'.V_player \<alpha>) \<sigma>" and
+            \<sigma>_dom_subgame': "dom \<sigma> = subgame'.V_player \<alpha> \<inter> X\<^sub>\<alpha>" and
+            \<sigma>_ran: "ran \<sigma> \<subseteq> X\<^sub>\<alpha>" and
+            \<sigma>_winning_\<alpha>_subgame': "\<forall>x\<in>X\<^sub>\<alpha>. \<forall>xs. cycle_from_node (subgame'.induced_by_strategy (dom \<sigma>) \<sigma>) x xs \<longrightarrow> player_winningP \<alpha> (top_priority xs)" and
+            \<sigma>_closed_subgame': "\<forall>x\<in>X\<^sub>\<alpha>. \<forall>x'. (x, x') \<in> subgame'.induced_by_strategy (dom \<sigma>) \<sigma> \<longrightarrow> x' \<in> X\<^sub>\<alpha>"
             by blast
 
-          from \<sigma>_strat_subgame have \<sigma>_strat: "strategy_of ?V\<^sub>\<beta> \<sigma>"
+          let ?\<sigma>_subgame = "induced_by_strategy (dom \<sigma>) \<sigma>"
+
+          from \<sigma>_strat_subgame' have \<sigma>_strat: "strategy_of ?V\<^sub>\<alpha> \<sigma>"
             using subgame'_propagate_strategy_of_V_player by simp
 
-          from \<sigma>_dom_subgame have \<sigma>_dom: "dom \<sigma> = ?V\<^sub>\<beta> \<inter> X"
-            using V''_comp subgame'.V_player.simps V''_def V\<^sub>0''_def V\<^sub>1_def subgame'.V\<^sub>1_def X_def
+          from \<sigma>_dom_subgame' have \<sigma>_dom: "dom \<sigma> = ?V\<^sub>\<alpha> \<inter> X\<^sub>\<alpha>"
+            using V''_comp subgame'.V_player.simps V''_def V\<^sub>0''_def V\<^sub>1_def subgame'.V\<^sub>1_def X\<^sub>\<alpha>_def
             by (cases \<alpha>) auto
 
-          have \<sigma>_closed: "\<forall>x\<in>X. \<forall>x'. (x,x')\<in>induced_by_strategy (dom \<sigma>) \<sigma> \<longrightarrow> x'\<in>X"
+          have V''_succ_notin_B: "\<forall>v\<in>V''. v \<in> ?V\<^sub>\<alpha> \<longrightarrow> (\<exists>v' \<in> E `` {v}. v' \<notin> B)"
+            unfolding V''_def B_def V\<^sub>1_def apply (cases \<alpha>)
+            subgoal using P1.opponent_attractor_max V\<^sub>1_def by auto
+            subgoal using P0.opponent_attractor_max V\<^sub>1_def by auto
+            done
+
+          have \<sigma>_closed: "\<forall>x\<in>X\<^sub>\<alpha>. \<forall>x'. (x, x') \<in> ?\<sigma>_subgame \<longrightarrow> x' \<in> X\<^sub>\<alpha>"
           proof (rule ballI; rule allI; rule impI)
             fix x x'
-            assume x_in_X: "x\<in>X" and edge_in_subgame: "(x,x')\<in>induced_by_strategy (dom \<sigma>) \<sigma>"
-            from x_in_X X_in_V'' have x_in_V'': "x\<in>V''" by blast
-            from x_in_X X_in_V have x_in_V: "x\<in>V" by blast
-            from x_in_V'' have x_notin_B: "x\<notin>B" unfolding V''_def by simp
-            from edge_in_subgame have edge_in_E: "(x,x')\<in>E" using ind_subgraph by simp
-            (** Actually, this might not be closed at all *)
-            show "x'\<in>X" sorry
+            assume x_in_X\<^sub>\<alpha>: "x\<in>X\<^sub>\<alpha>" and edge_in_subgame: "(x,x')\<in>?\<sigma>_subgame"
+            from x_in_X\<^sub>\<alpha> X\<^sub>\<alpha>_in_V have x_in_V: "x\<in>V" by blast
+
+            from x_in_V consider (x_player) "x\<in>?V\<^sub>\<alpha>" | (x_opp) "x\<in>?V\<^sub>\<beta>"
+              apply (cases \<alpha>; simp add: V\<^sub>1_def) by auto
+            thus "x'\<in>X\<^sub>\<alpha>" proof cases
+              case x_player
+              from x_player x_in_X\<^sub>\<alpha> \<sigma>_dom have "x \<in> dom \<sigma>" by simp
+              from ind_subgraph_edge_dst[OF edge_in_subgame this] \<sigma>_ran
+              show ?thesis by blast
+            next
+              case x_opp
+
+              have edge_in_E'': "(x,x')\<in>E''"
+              proof -
+                from edge_in_subgame have edge_in_E: "(x,x')\<in>E" using ind_subgraph by simp
+                moreover from x_in_X\<^sub>\<alpha> X\<^sub>\<alpha>_in_V'' V''_B_disj have x_notin_B: "x\<notin>B" by blast
+                moreover from no_opponent_edges_to_B edge_in_E x_in_X\<^sub>\<alpha> X\<^sub>\<alpha>_in_V'' x_opp
+                have x'_notin_B: "x'\<notin>B" unfolding V''_def by blast
+                ultimately show ?thesis using edge_E_to_E'' by blast
+              qed
+
+              from x_opp \<sigma>_dom have "x \<notin> dom \<sigma>"
+                by (cases \<alpha>; simp add: V\<^sub>1_def)
+              from \<sigma>_closed_subgame' x_in_X\<^sub>\<alpha> subgame'.ind_subgraph_not_in_dom[OF edge_in_E'' this]
+              show ?thesis by blast
+            qed
           qed
 
-          have \<sigma>_winning: "\<forall>x\<in>X. \<forall>ys. cycle_from_node (induced_by_strategy (dom \<sigma>) \<sigma>) x ys \<longrightarrow> player_winningP ?\<beta> (top_priority ys)"
+          have \<sigma>_winning_\<alpha>: "\<forall>x\<in>X\<^sub>\<alpha>. \<forall>ys. cycle_from_node ?\<sigma>_subgame x ys \<longrightarrow> player_winningP \<alpha> (top_priority ys)"
           proof (rule ballI; rule allI; rule impI)
             fix x ys
-            assume x_in_X: "x\<in>X" and cycle_ys: "cycle_from_node (induced_by_strategy (dom \<sigma>) \<sigma>) x ys"
-            from cycle_ys have ys_notempty: "ys\<noteq>[]" by auto
-            from x_in_X X_in_V have x_in_V: "x\<in>V" by blast
-            from cycle_from_node_in_V[OF x_in_V ind_subgraph_cycle_from_node[OF cycle_ys]]
-            have ys_in_V: "set ys \<subseteq> V" .
+            assume x_in_X\<^sub>\<alpha>: "x\<in>X\<^sub>\<alpha>" and cycle_x_ys: "cycle_from_node ?\<sigma>_subgame x ys"
+            from x_in_X\<^sub>\<alpha> X\<^sub>\<alpha>_in_V have x_in_V: "x \<in> V" by blast
+            from cycle_x_ys have ys_notempty: "ys\<noteq>[]" by fastforce
 
-            from cycle_ys obtain xs y where
-              path'_x_xs_y: "path' (induced_by_strategy (dom \<sigma>) \<sigma>) x xs y" and
-              path'_y_ys_y: "path' (induced_by_strategy (dom \<sigma>) \<sigma>) y ys y"
-              using cycle_from_node_decomp path'_loop_iff_cycle_node by meson
-            with ys_notempty have y_in_ys: "y \<in> set ys" using origin_in_path' by fast
+            from cycle_x_ys obtain xs y where
+              path'_x_xs_y: "path' ?\<sigma>_subgame x xs y" and
+              path'_y_ys_y: "path' ?\<sigma>_subgame y ys y"
+              using lasso_from_equiv_cycle_from[of ?\<sigma>_subgame x ys]
+              unfolding lasso_from_node_def by blast
 
-            have "(induced_by_strategy (dom \<sigma>) \<sigma>) \<inter> X\<times>X \<subseteq>
-                    subgame'.induced_by_strategy (dom \<sigma>) \<sigma>"
+            from \<sigma>_closed have \<sigma>_closed': "?\<sigma>_subgame `` X\<^sub>\<alpha> \<subseteq> X\<^sub>\<alpha>" by blast
+            from path'_closed_dest[OF x_in_X\<^sub>\<alpha> \<sigma>_closed' path'_x_xs_y]
+            have y_in_X\<^sub>\<alpha>: "y\<in>X\<^sub>\<alpha>" .
+            from path'_closed_set[OF y_in_X\<^sub>\<alpha> \<sigma>_closed' path'_y_ys_y]
+            have ys_in_X\<^sub>\<alpha>: "set ys \<subseteq> X\<^sub>\<alpha>" .
+
+            have subset: "?\<sigma>_subgame \<inter> X\<^sub>\<alpha>\<times>X\<^sub>\<alpha> \<subseteq> subgame'.induced_by_strategy (dom \<sigma>) \<sigma>"
               unfolding induced_by_strategy_def subgame'.induced_by_strategy_def E_of_strat_def
-              unfolding E''_def X_def
-              using V''_comp V''_def by (cases \<alpha>) auto
+              using X\<^sub>\<alpha>_in_V'' unfolding E''_def V''_def by blast
+            from subgraph_path'[OF subset path'_restr_V[OF path'_y_ys_y ys_in_X\<^sub>\<alpha> y_in_X\<^sub>\<alpha>]] ys_notempty
+            have "cycle_from_node (subgame'.induced_by_strategy (dom \<sigma>) \<sigma>) y ys"
+              using path'_loop_impl_cycle_from_node by fast
 
-            show "player_winningP ?\<beta> (top_priority ys)" sorry
+            with \<sigma>_winning_\<alpha>_subgame' y_in_X\<^sub>\<alpha> show "player_winningP \<alpha> (top_priority ys)" by blast
           qed
-          show ?thesis sorry
+
+          have \<sigma>_closed_opp: "\<forall>x\<in>X\<^sub>\<alpha>. x \<in> V_opponent \<alpha> \<longrightarrow> E `` {x} \<subseteq> X\<^sub>\<alpha>"
+          proof (rule ballI; rule impI)
+            fix x
+            assume x_in_X\<^sub>\<alpha>: "x\<in>X\<^sub>\<alpha>" and x_opp: "x\<in>V_opponent \<alpha>"
+            from x_in_X\<^sub>\<alpha> \<sigma>_closed have succs_in_X\<^sub>\<alpha>: "?\<sigma>_subgame `` {x} \<subseteq> X\<^sub>\<alpha>"
+              by blast
+            with x_opp \<sigma>_strat show "E `` {x} \<subseteq> X\<^sub>\<alpha>"
+              apply (cases \<alpha>; simp add: V\<^sub>1_def)
+              subgoal using P0.V_opp_induced_succs_1 by simp
+              subgoal using P0.V\<^sub>\<alpha>_induced_succs_1 by simp
+              done
+          qed
+
+          show ?thesis
+            apply (simp add: winning_region_strat X\<^sub>\<alpha>_in_V)
+            apply (rule exI[where x="\<sigma>"])
+            apply (intro conjI)
+            subgoal using \<sigma>_strat by blast
+            subgoal using \<sigma>_dom by blast
+            subgoal using \<sigma>_ran by blast
+            subgoal using \<sigma>_winning_\<alpha> by blast
+            subgoal using \<sigma>_closed_opp by blast
+            done
         qed
 
-        (** What remains to show is that W\<^sub>0 \<union> X\<^sub>0 is the winning region for EVEN
-            and W\<^sub>1 \<union> X\<^sub>1 is the winning region for ODD. -- This seems wrong based on our last meeting. *)
-        show ?thesis sorry xxx, sorry
+        moreover have X\<^sub>\<beta>_B_winning_\<beta>: "winning_region ?\<beta> (B\<union>X\<^sub>\<beta>)"
+        proof -
+          from B_winning_opponent obtain \<sigma> where
+            \<sigma>_strat: "strategy_of ?V\<^sub>\<beta> \<sigma>" and
+            \<sigma>_dom: "dom \<sigma> = ?V\<^sub>\<beta> \<inter> B" and
+            \<sigma>_ran: "ran \<sigma> \<subseteq> B" and
+            \<sigma>_winning_opp: "\<forall>w\<in>B. \<forall>xs. cycle_from_node (induced_by_strategy (dom \<sigma>) \<sigma>) w xs \<longrightarrow> player_winningP ?\<beta> (top_priority xs)" and
+            \<sigma>_closed_player: "\<forall>v\<in>B. v \<in> V_opponent (?\<beta>) \<longrightarrow> E `` {v} \<subseteq> B"
+            unfolding winning_region_strat by fastforce
+
+          from \<sigma>_closed_player \<sigma>_dom have \<sigma>_closed: "\<forall>b\<in>B. \<forall>b'. (b,b') \<in> induced_by_strategy (dom \<sigma>) \<sigma> \<longrightarrow> b'\<in>B"
+            apply (cases \<alpha>; simp add: V\<^sub>1_def)
+            using ind_subgraph_closed_region[OF B_in_V _ \<sigma>_ran] by blast+
+
+          from X\<^sub>\<beta>_winning_\<beta>_subgame' obtain \<sigma>' where
+            \<sigma>'_strat_subgame': "subgame'.strategy_of (subgame'.V_player ?\<beta>) \<sigma>'" and
+            \<sigma>'_dom_subgame': "dom \<sigma>' = subgame'.V_player ?\<beta> \<inter> X\<^sub>\<beta>" and
+            \<sigma>'_ran: "ran \<sigma>' \<subseteq> X\<^sub>\<beta>" and
+            \<sigma>'_winning_opp_subgame': "\<forall>w\<in>X\<^sub>\<beta>. \<forall>xs. cycle_from_node (subgame'.induced_by_strategy (dom \<sigma>') \<sigma>') w xs \<longrightarrow> player_winningP ?\<beta> (top_priority xs)" and
+            \<sigma>'_closed_player_subgame': "\<forall>v\<in>X\<^sub>\<beta>. v \<in> subgame'.V_opponent ?\<beta> \<longrightarrow> E'' `` {v} \<subseteq> X\<^sub>\<beta>"
+            unfolding subgame'.winning_region_strat by fastforce
+
+          have \<sigma>'_closed_subgame': "\<forall>x\<in>X\<^sub>\<beta>. \<forall>x'. (x,x') \<in> subgame'.induced_by_strategy (dom \<sigma>') \<sigma>' \<longrightarrow> x'\<in>X\<^sub>\<beta>"
+          proof (rule ballI; rule allI; rule impI)
+            fix x x'
+            assume x_in_X\<^sub>\<beta>: "x\<in>X\<^sub>\<beta>" and edge_in_subgame': "(x,x') \<in> subgame'.induced_by_strategy (dom \<sigma>') \<sigma>'"
+            from x_in_X\<^sub>\<beta> X\<^sub>\<beta>_in_V'' have x_in_V: "x\<in>V''" by auto
+            then consider (x_player) "x\<in>subgame'.V_player \<alpha>" | (x_opp) "x\<in>subgame'.V_player ?\<beta>"
+              apply (cases \<alpha>; simp add: subgame'.V\<^sub>1_def) by auto
+            thus "x'\<in>X\<^sub>\<beta>" proof cases
+              case x_player
+              hence  "x \<in> subgame'.V_opponent (opponent \<alpha>)"
+                using subgame'.V_opponent_opponent by simp
+              with \<sigma>'_closed_player_subgame' edge_in_subgame' x_in_X\<^sub>\<beta>
+              show ?thesis by fastforce
+            next
+              case x_opp
+              with x_in_X\<^sub>\<beta> \<sigma>'_dom_subgame' have "x \<in> dom \<sigma>'" by simp
+              from subgame'.ind_subgraph_edge_dst[OF edge_in_subgame' this] \<sigma>'_ran
+              show ?thesis by fast
+            qed
+          qed
+
+          from \<sigma>'_strat_subgame' have \<sigma>'_strat: "strategy_of ?V\<^sub>\<beta> \<sigma>'"
+            using subgame'_propagate_strategy_of_V_player by simp
+
+          from \<sigma>'_dom_subgame' have \<sigma>'_dom: "dom \<sigma>' = ?V\<^sub>\<beta> \<inter> X\<^sub>\<beta>"
+            using V''_comp subgame'.V_player.simps V''_def V\<^sub>0''_def V\<^sub>1_def subgame'.V\<^sub>1_def X\<^sub>\<beta>_def
+            by (cases \<alpha>) auto
+
+          let ?\<tau> = "\<sigma> ++ \<sigma>'"
+          let ?\<tau>_subgame = "induced_by_strategy (dom ?\<tau>) ?\<tau>"
+
+          from \<sigma>_strat \<sigma>'_strat have \<tau>_strat: "strategy_of ?V\<^sub>\<beta> ?\<tau>" by simp
+
+          from \<sigma>_dom \<sigma>'_dom have \<tau>_dom: "dom ?\<tau> = ?V\<^sub>\<beta> \<inter> (B\<union>X\<^sub>\<beta>)" by auto
+
+          from \<sigma>_dom \<sigma>'_dom V''_B_disj X\<^sub>\<beta>_in_V'' have \<tau>_doms_disj: "dom \<sigma> \<inter> dom \<sigma>' = {}" by auto
+          from \<sigma>_ran \<sigma>'_ran have \<tau>_ran: "ran ?\<tau> \<subseteq> B\<union>X\<^sub>\<beta>"
+            using ran_map_add[OF \<tau>_doms_disj] by blast
+
+          from \<sigma>_closed have \<tau>_closed_B: "?\<tau>_subgame `` (B) \<subseteq> B"
+            using incomplete_ind_subgraph_add_disjoint_\<sigma>[OF \<tau>_doms_disj] by blast
+
+          have \<tau>_closed: "\<forall>x\<in>B\<union>X\<^sub>\<beta>. \<forall>x'. (x,x') \<in> ?\<tau>_subgame \<longrightarrow> x'\<in>B\<union>X\<^sub>\<beta>"
+          proof (rule ballI; rule allI; rule impI)
+            fix x x'
+            assume x_in_B_X\<^sub>\<beta>: "x\<in>B\<union>X\<^sub>\<beta>" and edge_in_subgame: "(x,x') \<in> ?\<tau>_subgame"
+            from x_in_B_X\<^sub>\<beta> consider (x_in_B) "x\<in>B" | (x_in_X\<^sub>\<beta>) "x\<in>X\<^sub>\<beta>" by blast
+            thus "x'\<in>B\<union>X\<^sub>\<beta>" proof cases
+              case x_in_B with \<tau>_closed_B edge_in_subgame show ?thesis by blast
+            next
+              case x_in_X\<^sub>\<beta>
+              show ?thesis proof (rule ccontr)
+                assume x'_notin_B_X\<^sub>\<beta>: "x'\<notin>B\<union>X\<^sub>\<beta>"
+
+                hence x'_notin_B: "x'\<notin>B" by simp
+                moreover from x_in_X\<^sub>\<beta> X\<^sub>\<beta>_in_V'' V''_B_disj have x_notin_B: "x\<notin>B" by blast
+                moreover from edge_in_subgame have edge_in_E: "(x,x')\<in>E" using ind_subgraph by simp
+                ultimately have edge_in_E'': "(x,x')\<in>E''" using edge_E_to_E'' by blast
+
+                from edge_in_E have x'_in_V: "x'\<in>V" using E_in_V by blast
+                with x'_notin_B_X\<^sub>\<beta> V_comp_X_B have x'_in_X\<^sub>\<alpha>: "x'\<in>X\<^sub>\<alpha>" by fast
+
+                from edge_in_E consider (x_player) "x\<in>?V\<^sub>\<alpha>" | (x_opp) "x\<in>?V\<^sub>\<beta>"
+                  using E_in_V apply (cases \<alpha>; simp add: V\<^sub>1_def) by blast+
+                thus "False" proof cases
+                  case x_player
+                  with \<sigma>'_dom have x_notin_dom: "x \<notin> dom \<sigma>'"
+                    by (cases \<alpha>; simp add: V\<^sub>1_def)
+                  from \<sigma>'_closed_subgame' x_in_X\<^sub>\<beta> x'_notin_B_X\<^sub>\<beta>
+                  show ?thesis
+                    using subgame'.ind_subgraph_not_in_dom[OF edge_in_E'' x_notin_dom] by blast
+                next
+                  case x_opp
+                  with \<tau>_dom x_in_X\<^sub>\<beta> have x_in_dom: "x\<in>dom ?\<tau>" by simp
+                  from \<tau>_ran x'_notin_B_X\<^sub>\<beta> show ?thesis
+                    using ind_subgraph_edge_dst[OF edge_in_subgame x_in_dom] by blast
+                qed
+              qed
+            qed
+          qed
+          hence \<tau>_closed': "?\<tau>_subgame `` (B\<union>X\<^sub>\<beta>) \<subseteq> B\<union>X\<^sub>\<beta>" by blast
+
+          have \<tau>_winning: "\<forall>x\<in>B\<union>X\<^sub>\<beta>. \<forall>ys. cycle_from_node ?\<tau>_subgame x ys \<longrightarrow> player_winningP ?\<beta> (top_priority ys)"
+          proof (rule ballI; rule allI; rule impI)
+            fix x ys
+            assume x_in_B_X\<^sub>\<beta>: "x\<in>B\<union>X\<^sub>\<beta>" and cycle_x_ys: "cycle_from_node ?\<tau>_subgame x ys"
+            from x_in_B_X\<^sub>\<beta> B_in_V X\<^sub>\<beta>_in_V have x_in_V: "x\<in>V" by blast
+            from cycle_x_ys have ys_notempty: "ys\<noteq>[]" by auto
+
+            from cycle_x_ys obtain xs y where
+              path'_x_xs_y: "path' ?\<tau>_subgame x xs y" and
+              path'_y_ys_y: "path' ?\<tau>_subgame y ys y"
+              using lasso_from_equiv_cycle_from[of ?\<tau>_subgame x ys]
+              unfolding lasso_from_node_def by blast
+            hence y_in_ys: "y \<in> set ys" using origin_in_path' ys_notempty by fast
+
+            from path'_closed_dest[OF x_in_B_X\<^sub>\<beta> \<tau>_closed' path'_x_xs_y]
+            have y_in_B_X\<^sub>\<beta>: "y\<in>B\<union>X\<^sub>\<beta>" .
+            from path'_closed_set[OF this \<tau>_closed' path'_y_ys_y]
+            have ys_in_B_X\<^sub>\<beta>: "set ys \<subseteq> B\<union>X\<^sub>\<beta>" .
+
+            then consider (B_in_ys) "set ys \<inter> B \<noteq> {}" | (ys_in_X\<^sub>\<beta>) "set ys \<subseteq> X\<^sub>\<beta>" by blast
+            thus "player_winningP ?\<beta> (top_priority ys)" proof cases
+              case B_in_ys
+              have ys_in_B: "set ys \<subseteq> B" proof -
+              from B_in_ys obtain y' ys' where
+                sets_eq: "set ys' = set ys" and
+                y'_in_ys: "y' \<in> set ys" and
+                y'_in_B: "y'\<in>B" and
+                path'_y'_ys'_y': "path' ?\<tau>_subgame y' ys' y'"
+                using path'_loop_intermediate_node[OF path'_y_ys_y] by blast
+
+                from path'_closed_set[OF y'_in_B \<tau>_closed_B path'_y'_ys'_y'] sets_eq
+                show ?thesis by simp
+              qed
+              with y_in_ys have y_in_B: "y\<in>B" by blast
+
+              have "?\<tau>_subgame \<subseteq> induced_by_strategy (dom \<sigma>) \<sigma>"
+                using incomplete_ind_subgraph_add_disjoint_\<sigma>[OF \<tau>_doms_disj] by blast
+              from subgraph_path'[OF this path'_y_ys_y] ys_notempty
+              have "cycle_from_node (induced_by_strategy (dom \<sigma>) \<sigma>) y ys"
+                using path'_loop_impl_cycle_from_node by fast
+
+              with \<sigma>_winning_opp y_in_B show ?thesis by blast
+            next
+              case ys_in_X\<^sub>\<beta>
+              with y_in_ys have y_in_X\<^sub>\<beta>: "y\<in>X\<^sub>\<beta>" by blast
+
+              from V''_comp' \<tau>_doms_disj have "?\<tau>_subgame \<inter> X\<^sub>\<beta>\<times>X\<^sub>\<beta> \<subseteq> subgame'.induced_by_strategy (dom \<sigma>') \<sigma>'"
+                unfolding induced_by_strategy_def subgame'.induced_by_strategy_def E_of_strat_def
+                unfolding E''_def V''_def by auto
+              from subgraph_path'[OF this path'_restr_V[OF path'_y_ys_y ys_in_X\<^sub>\<beta> y_in_X\<^sub>\<beta>]] ys_notempty
+              have "cycle_from_node (subgame'.induced_by_strategy (dom \<sigma>') \<sigma>') y ys"
+                using path'_loop_impl_cycle_from_node by fast
+
+              with \<sigma>'_winning_opp_subgame' y_in_X\<^sub>\<beta> show ?thesis by blast
+            qed
+          qed
+
+          have \<tau>_closed_opp: "\<forall>x\<in>B \<union> X\<^sub>\<beta>. x \<in> V_opponent ?\<beta> \<longrightarrow> E `` {x} \<subseteq> B \<union> X\<^sub>\<beta>"
+          proof (rule ballI; rule impI)
+            fix x
+            assume x_in_B_X\<^sub>\<beta>: "x\<in>B\<union>X\<^sub>\<beta>" and x_opp: "x \<in> V_opponent ?\<beta>"
+            from x_in_B_X\<^sub>\<beta> \<tau>_closed' have succs_in_X\<^sub>\<beta>: "?\<tau>_subgame `` {x} \<subseteq> B\<union>X\<^sub>\<beta>"
+              by blast
+            with x_opp \<tau>_strat show "E `` {x} \<subseteq> B \<union> X\<^sub>\<beta>"
+              apply (cases \<alpha>; simp add: V\<^sub>1_def)
+              subgoal using P0.V\<^sub>\<alpha>_induced_succs_1 by fastforce
+              subgoal using P0.V_opp_induced_succs_1 by fastforce
+              done
+          qed
+
+          show ?thesis
+            apply (simp add: winning_region_strat B_in_V X\<^sub>\<beta>_in_V)
+            apply (rule exI[where x="?\<tau>"])
+            apply (intro conjI)
+            subgoal using \<tau>_strat by blast
+            subgoal using \<tau>_dom by blast
+            subgoal using \<tau>_ran by blast
+            subgoal using \<tau>_winning by blast
+            subgoal using \<tau>_closed_opp by blast
+            done
+        qed
+
+        ultimately show ?thesis
+          unfolding X\<^sub>\<alpha>_def X\<^sub>\<beta>_def by (cases \<alpha>) auto
       next
         (** Because B is empty, all that remains is the player \<alpha>'s winning region and A
             We should be able to show that this forms one winning region.
@@ -2455,7 +2704,7 @@ proof -
           (** We need to show that the edge from v to the random successor actually exists *)
           have v_target_edge: "(v,v_target)\<in>E"
             unfolding v_target_def
-            using some_in_eq[of "E `` {v}"] E_in_V v_succ by blast
+            using some_in_eq E_in_V v_succ by blast
           hence v_target_in_V: "v_target \<in> V" using E_in_V by blast
 
           define v_choice where "v_choice \<equiv> if v \<in> ?V\<^sub>\<alpha> then [v \<mapsto> v_target] else Map.empty"
@@ -2472,7 +2721,7 @@ proof -
             unfolding strategy_of_def
             apply (rule conjI)
             subgoal using v_choice_dom by (cases "v\<in>?V\<^sub>\<alpha>") auto
-            subgoal using strategy_of_map_assign[OF _ v_target_edge]
+            subgoal using strategy_of_map_assign v_target_edge
               unfolding v_choice_def strategy_of_def by auto
             done
 
@@ -2651,6 +2900,51 @@ proof -
       qed
     qed
   qed
+qed (** maximal_winning_regions *)
+
+context arena_defs begin
+
+lemma v_won_by:
+  assumes v_in_V: "v\<in>V"
+  shows "(won_by EVEN v \<or> won_by ODD v) \<and> \<not>(won_by EVEN v \<and> won_by ODD v)"
+proof (rule conjI)
+  from maximal_winning_regions[OF arena_defs_axioms] obtain W\<^sub>0 W\<^sub>1 where
+    V_comp: "V = W\<^sub>0 \<union> W\<^sub>1" and
+    W_disj: "W\<^sub>0 \<inter> W\<^sub>1 = {}" and
+    W\<^sub>0_winning_EVEN: "winning_region EVEN W\<^sub>0" and
+    W\<^sub>1_winning_ODD: "winning_region ODD W\<^sub>1"
+    by meson
+
+  from v_in_V V_comp have v_in_region: "v \<in> W\<^sub>0 \<or> v \<in> W\<^sub>1" by simp
+  with W_disj have v_notin_both: "\<not>(v \<in> W\<^sub>0 \<and> v \<in> W\<^sub>1)" by fast
+
+  from W\<^sub>0_winning_EVEN W\<^sub>1_winning_ODD v_in_region show "won_by EVEN v \<or> won_by ODD v"
+    using winning_region_won_by by blast
+
+  (** This does not work because the implication of winning regions only goes one way *)
+  from v_notin_both have "v \<in> W\<^sub>0 \<Longrightarrow> \<not> v \<in> W\<^sub>1" by blast
+  hence "won_by EVEN v \<Longrightarrow> \<not>won_by ODD v"
+    using winning_region_won_by[OF W\<^sub>0_winning_EVEN] sorry
+
+
+  from W\<^sub>0_winning_EVEN W\<^sub>1_winning_ODD v_notin_both show "\<not>(won_by EVEN v \<and> won_by ODD v)"
+    using winning_region_won_by sorry
 qed
+
+(** I cannot prove these things, which could mean there is still a problem *)
+lemma "winning_region \<alpha> W \<Longrightarrow> \<not>winning_region (opponent \<alpha>) W"
+  apply (cases \<alpha>; simp) sorry
+
+lemma
+  assumes "v\<in>V"
+  shows "won_by EVEN v \<Longrightarrow> \<not>won_by ODD v"
+proof -
+  assume a: "won_by EVEN v"
+  have b: "won_by EVEN v \<or> won_by ODD v \<and> \<not>(won_by EVEN v \<and> won_by ODD v)"
+    using v_won_by[OF assms] by blast
+  from a b have "\<not>(won_by ODD v)" sorry
+  show ?thesis
+qed
+end
 
 end
