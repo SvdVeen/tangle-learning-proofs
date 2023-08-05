@@ -1462,6 +1462,9 @@ context player_arena begin
     unfolding winning_region_def strategy_of_def E_of_strat_def
     by auto
 
+  lemma winning_region_in_V: "winning_region W \<Longrightarrow> W\<subseteq>V"
+    unfolding winning_region_def by simp
+
   definition losing_region :: "'v set \<Rightarrow> bool" where
     "losing_region W \<equiv> (W\<subseteq>V \<and> (\<exists>\<sigma>. strategy_of (V-V\<^sub>\<alpha>) \<sigma> \<and> dom \<sigma> = (V-V\<^sub>\<alpha>) \<inter> W \<and> ran \<sigma> \<subseteq> W \<and>
     (\<forall>v\<in>W. \<forall>xs. cycle_from_node (induced_by_strategy (dom \<sigma>) \<sigma>) v xs \<longrightarrow> winning_opponent xs) \<and>
@@ -1471,21 +1474,22 @@ context player_arena begin
     unfolding losing_region_def strategy_of_def E_of_strat_def
     by auto
 
+  lemma losing_region_in_V: "losing_region L \<Longrightarrow> L\<subseteq>V"
+    unfolding losing_region_def by simp
+
   definition won_by_player :: "'v \<Rightarrow> bool" where
     "won_by_player v \<equiv> (v\<in>V \<and> (\<exists>\<sigma>. strategy_of V\<^sub>\<alpha> \<sigma> \<and>
     (\<forall>xs. cycle_from_node (induced_by_strategy (dom \<sigma>) \<sigma>) v xs \<longrightarrow> winning_player xs)))"
 
-  lemma "won_by_player v \<Longrightarrow> (v\<in>V \<and> (\<exists>\<sigma>. strategy_of V\<^sub>\<alpha> \<sigma> \<and>
-    (\<forall>xs. cycle_from_node (induced_by_strategy (dom \<sigma>) \<sigma>) v xs \<longrightarrow> \<not>winning_opponent xs)))"
-    unfolding won_by_player_def by auto
+  lemma won_by_player_in_V: "won_by_player v \<Longrightarrow> v\<in>V"
+    unfolding won_by_player_def by simp
 
   definition won_by_opponent :: "'v \<Rightarrow> bool" where
     "won_by_opponent v \<equiv> (v\<in>V \<and> (\<exists>\<sigma>. strategy_of (V-V\<^sub>\<alpha>) \<sigma> \<and>
     (\<forall>xs. cycle_from_node (induced_by_strategy (dom \<sigma>) \<sigma>) v xs \<longrightarrow> winning_opponent xs)))"
 
-  lemma "won_by_opponent v \<Longrightarrow> (v\<in>V \<and> (\<exists>\<sigma>. strategy_of (V-V\<^sub>\<alpha>) \<sigma> \<and>
-    (\<forall>xs. cycle_from_node (induced_by_strategy (dom \<sigma>) \<sigma>) v xs \<longrightarrow> \<not>winning_player xs)))"
-    unfolding won_by_opponent_def by auto
+  lemma won_by_opponent_in_V: "won_by_opponent v \<Longrightarrow> v\<in>V"
+    unfolding won_by_opponent_def by simp
 
   lemma winning_region_won_by_player: "winning_region W \<Longrightarrow> \<forall>w\<in>W. won_by_player w"
     unfolding winning_region_def won_by_player_def by blast
@@ -1556,6 +1560,19 @@ context player_arena begin
     moreover from xs have "cycle_from_node G\<sigma>' v xs" using cycle_from_node_inter_2 by fastforce
     ultimately show "\<exists>xs. cycle_from_node (G\<sigma>') v xs \<and> winning_player xs" by blast
   qed
+
+lemma nonempty_winning_region_not_lost: "W \<noteq> {} \<Longrightarrow> winning_region W \<Longrightarrow> \<not>losing_region W"
+proof -
+  assume "W \<noteq> {}" "winning_region W"
+  then obtain w where
+    "w \<in> W" "won_by_player w"
+    using winning_region_won_by_player by fast
+  hence "\<not>won_by_opponent w"
+    using w1 by simp
+  from \<open>w\<in>W\<close> \<open>\<not>won_by_opponent w\<close>
+  show "\<not>losing_region W"
+    using losing_region_won_by_opponent by blast
+qed
 
   corollary "\<not>(won_by_player v \<and> won_by_opponent v)" using w1 by blast
 end
@@ -1672,6 +1689,9 @@ context arena_defs begin
   lemma winning_region_empty[simp]: "winning_region \<alpha> {}"
     by (cases \<alpha>; simp)
 
+  lemma winning_region_in_V: "winning_region \<alpha> W \<Longrightarrow> W\<subseteq>V"
+    using P0.winning_region_in_V P1.winning_region_in_V by (cases \<alpha>) auto
+
   lemma winning_region_strat: "winning_region \<alpha> W = (W\<subseteq>V \<and> (\<exists>\<sigma>. strategy_of (V_player \<alpha>) \<sigma> \<and> dom \<sigma> = V_player \<alpha> \<inter> W \<and> ran \<sigma> \<subseteq> W \<and>
     (\<forall>w\<in>W. \<forall>xs. cycle_from_node (induced_by_strategy (dom \<sigma>) \<sigma>) w xs \<longrightarrow> player_winningP \<alpha> (top_priority xs)) \<and>
     (\<forall>v\<in>W. v \<in> V_opponent \<alpha> \<longrightarrow> E `` {v} \<subseteq> W)))"
@@ -1725,6 +1745,9 @@ context arena_defs begin
     "won_by EVEN = P0.won_by_player"
   | "won_by ODD = P1.won_by_player"
 
+  lemma won_by_in_V: "won_by \<alpha> v \<Longrightarrow> v\<in>V"
+    using P0.won_by_player_in_V P1.won_by_player_in_V by (cases \<alpha>) auto
+
   lemma won_by_strat: "won_by \<alpha> v = (v \<in> V \<and> (\<exists>\<sigma>. strategy_of (V_player \<alpha>) \<sigma> \<and>
     (\<forall>xs. cycle_from_node (induced_by_strategy (dom \<sigma>) \<sigma>) v xs \<longrightarrow> player_winningP \<alpha> (top_priority xs))))"
     by (cases \<alpha>; simp add: P0.won_by_player_def P1.won_by_player_def)
@@ -1748,6 +1771,14 @@ context arena_defs begin
 
   lemma winning_region_won_by: "\<lbrakk>winning_region \<alpha> W; v\<in>W\<rbrakk> \<Longrightarrow> won_by \<alpha> v"
     using P0.winning_region_won_by_player P1.winning_region_won_by_player by (cases \<alpha>) auto
+
+  lemma nonempty_winning_region_not_winning_for_opponent:
+    "\<lbrakk>W \<noteq> {}; winning_region \<alpha> W\<rbrakk> \<Longrightarrow> \<not>winning_region (opponent \<alpha>) W"
+    using P0.nonempty_winning_region_not_lost P1.nonempty_winning_region_not_lost
+    by (cases \<alpha>) auto
+
+  lemma won_by_player_not_won_by_opponent: "\<not>(won_by \<alpha> v \<and> won_by (opponent \<alpha>) v)"
+    using P0.w1 P1.w1 by (cases \<alpha>) auto
 
   lemma attractor_subset: "X \<subseteq> attractor \<alpha> X"
     using P0.attractor_subset P1.attractor_subset by (cases \<alpha>) auto
@@ -2904,47 +2935,24 @@ qed (** maximal_winning_regions *)
 
 context arena_defs begin
 
-lemma v_won_by:
-  assumes v_in_V: "v\<in>V"
-  shows "(won_by EVEN v \<or> won_by ODD v) \<and> \<not>(won_by EVEN v \<and> won_by ODD v)"
-proof (rule conjI)
-  from maximal_winning_regions[OF arena_defs_axioms] obtain W\<^sub>0 W\<^sub>1 where
-    V_comp: "V = W\<^sub>0 \<union> W\<^sub>1" and
-    W_disj: "W\<^sub>0 \<inter> W\<^sub>1 = {}" and
-    W\<^sub>0_winning_EVEN: "winning_region EVEN W\<^sub>0" and
-    W\<^sub>1_winning_ODD: "winning_region ODD W\<^sub>1"
-    by meson
+lemma nonempty_winning_regions_disjoint:
+  assumes "W \<noteq> {}"
+  shows "\<not>(winning_region EVEN W \<and> winning_region ODD W)"
+  using assms nonempty_winning_region_not_winning_for_opponent opponent.simps by metis
 
-  from v_in_V V_comp have v_in_region: "v \<in> W\<^sub>0 \<or> v \<in> W\<^sub>1" by simp
-  with W_disj have v_notin_both: "\<not>(v \<in> W\<^sub>0 \<and> v \<in> W\<^sub>1)" by fast
-
-  from W\<^sub>0_winning_EVEN W\<^sub>1_winning_ODD v_in_region show "won_by EVEN v \<or> won_by ODD v"
-    using winning_region_won_by by blast
-
-  (** This does not work because the implication of winning regions only goes one way *)
-  from v_notin_both have "v \<in> W\<^sub>0 \<Longrightarrow> \<not> v \<in> W\<^sub>1" by blast
-  hence "won_by EVEN v \<Longrightarrow> \<not>won_by ODD v"
-    using winning_region_won_by[OF W\<^sub>0_winning_EVEN] sorry
-
-
-  from W\<^sub>0_winning_EVEN W\<^sub>1_winning_ODD v_notin_both show "\<not>(won_by EVEN v \<and> won_by ODD v)"
-    using winning_region_won_by sorry
-qed
-
-(** I cannot prove these things, which could mean there is still a problem *)
-lemma "winning_region \<alpha> W \<Longrightarrow> \<not>winning_region (opponent \<alpha>) W"
-  apply (cases \<alpha>; simp) sorry
-
-lemma
+lemma all_v_won:
   assumes "v\<in>V"
-  shows "won_by EVEN v \<Longrightarrow> \<not>won_by ODD v"
-proof -
-  assume a: "won_by EVEN v"
-  have b: "won_by EVEN v \<or> won_by ODD v \<and> \<not>(won_by EVEN v \<and> won_by ODD v)"
-    using v_won_by[OF assms] by blast
-  from a b have "\<not>(won_by ODD v)" sorry
-  show ?thesis
-qed
+  shows "won_by EVEN v \<or> won_by ODD v"
+  using maximal_winning_regions[OF arena_defs_axioms] winning_region_won_by assms
+  by blast
+
+lemma v_won_by_one_player: "\<not>(won_by EVEN v \<and> won_by ODD v)"
+  using won_by_player_not_won_by_opponent by fastforce
+
+lemma v_won_by_disjoint:
+  assumes "v\<in>V"
+  shows "won_by EVEN v \<noteq> won_by ODD v"
+  using assms all_v_won v_won_by_one_player by blast
 end
 
 end
