@@ -23,10 +23,6 @@ begin
   lemma path_append[simp]: "path u (xs\<^sub>1@xs\<^sub>2) v \<longleftrightarrow> (\<exists>u'. path u xs\<^sub>1 u' \<and> path u' xs\<^sub>2 v)"
     by (induction xs\<^sub>1 arbitrary: u) auto
 
-  lemma path_decomp_1: "path u (xs@[v]@ys) w \<Longrightarrow> path u (xs) v" by auto
-
-  lemma path_decomp_2: "path u (xs@[v]@ys@[w]@zs) x \<Longrightarrow> path v (v#ys) w" by auto
-
   (** The path is equivalent to the reflexive transitive closure in the graph *)
   lemma path_is_rtrancl: "path v xs v' \<Longrightarrow> (v,v')\<in>E\<^sup>*"
     by (induction xs arbitrary: v) fastforce+
@@ -93,7 +89,7 @@ begin
 
   (** If you have a looping path and an intermediate node in that path, you can get another looping
       path from that intermediate node to itself *)
-  lemma path_loop_intermediate_node: "\<lbrakk>path v vs v; x \<in> set vs\<rbrakk> \<Longrightarrow> \<exists>vs'. set vs' = set vs \<and> path x vs' x"
+  lemma loop_intermediate_node: "\<lbrakk>path v vs v; x \<in> set vs\<rbrakk> \<Longrightarrow> \<exists>vs'. set vs' = set vs \<and> path x vs' x"
   proof -
     assume path_v_vs_v: "path v vs v" and x_in_vs: "x \<in> set vs"
 
@@ -107,143 +103,174 @@ begin
     ultimately show ?thesis by blast
   qed
 
+  (** A cycle from a node to itself *)
   definition cycle_node :: "'v \<Rightarrow> 'v list \<Rightarrow> bool" where
     "cycle_node v xs \<equiv> path v xs v \<and> xs \<noteq> []"
 
   lemma cycle_node_not_empty[simp]:"\<not>cycle_node v []"
     unfolding cycle_node_def by auto
 
+  (** The origin of a cycle is part of the cycle *)
   lemma origin_in_cycle_node: "cycle_node x xs \<Longrightarrow> x \<in> set xs"
     unfolding cycle_node_def using origin_in_path by blast
 
+  (** The nodes in a cycle exist in the graph *)
   lemma cycle_node_in_E: "cycle_node x xs \<Longrightarrow> set xs \<subseteq> fst ` E \<union> snd ` E"
     unfolding cycle_node_def using path_in_E by blast
 
-  lemma path_loop_iff_cycle_node: "path v vs v \<and> vs \<noteq> [] \<longleftrightarrow> cycle_node v vs"
+  (** A cycle is a nonempty path looping on itself *)
+  lemma cycle_node_iff_loop:  "cycle_node v vs \<longleftrightarrow> path v vs v \<and> vs \<noteq> []"
     unfolding cycle_node_def by blast
 
+  (** A cycle reachable from a node *)
   definition cycle_from_node :: "'v \<Rightarrow> 'v list \<Rightarrow> bool" where
     "cycle_from_node x ys \<equiv> \<exists>xs y. path x xs y \<and> cycle_node y ys"
 
   lemma cycle_from_node_not_empty[simp]: "\<not>cycle_from_node v []"
     unfolding cycle_from_node_def by auto
 
+  (** The nodes in a cycle are in the graph *)
   lemma cycle_from_node_in_E: "cycle_from_node v ys \<Longrightarrow> set ys \<subseteq> fst ` E \<union> snd ` E"
     unfolding cycle_from_node_def
     using path_in_E cycle_node_in_E by blast
 
-  lemma cycle_from_node_impl_cycle: "cycle_from_node x ys \<Longrightarrow> \<exists>y\<in>set ys. cycle_from_node y ys"
+  (** A cycle from a node is equivalent to two paths existing from x to some y, and from y to itself *)
+  lemma cycle_from_node_paths:
+    "cycle_from_node x ys \<longleftrightarrow> (\<exists>xs y. path x xs y \<and> path y ys y \<and> ys \<noteq> [])"
+    unfolding cycle_from_node_def cycle_node_def by simp
+
+  (** A cycle from a node implies the existence of a single path from x to some y at the start of the loop *)
+  lemma cycle_from_node_impl_path: "cycle_from_node x ys \<Longrightarrow> \<exists>vs y. path x vs y"
+    using cycle_from_node_paths by auto
+
+  (** If there exists a cycle reachable from x, then that is a cycle reachable from its own starting point *)
+  lemma cycle_from_node_loop: "cycle_from_node x ys \<Longrightarrow> \<exists>y\<in>set ys. cycle_from_node y ys"
     unfolding cycle_from_node_def cycle_node_def
     using origin_in_path by blast
 
-  lemma cycle_from_node_comp: "path u xs v \<Longrightarrow> cycle_node v ys \<Longrightarrow> cycle_from_node u ys"
-    unfolding cycle_from_node_def by blast
+  (** If a nonempty loop exists, then that is a cycle reachable from its start *)
+  lemma loop_impl_cycle_from_node: "path v vs v \<and> vs \<noteq> [] \<Longrightarrow> cycle_from_node v vs"
+    unfolding cycle_from_node_def cycle_node_def by blast
 
-  lemma cycle_from_node_decomp: "cycle_from_node u ys \<Longrightarrow> \<exists>xs v. cycle_node v ys \<and> path u xs v"
-    unfolding cycle_from_node_def by blast
-
+  (** If a cycle exists, then that is a cycle reachable from its own start *)
   lemma cycle_node_impl_cycle_from_node: "cycle_node v vs \<Longrightarrow> cycle_from_node v vs"
     unfolding cycle_from_node_def cycle_node_def by blast
 
-  lemma path_loop_impl_cycle_from_node: "path v vs v \<and> vs \<noteq> [] \<Longrightarrow> cycle_from_node v vs"
-    using path_loop_iff_cycle_node cycle_node_impl_cycle_from_node by simp
-
+  (** A lasso from a node with a spoke and a loop *)
   definition lasso_from_node :: "'v \<Rightarrow> 'v list \<Rightarrow> 'v list \<Rightarrow> bool" where
     "lasso_from_node x xs ys \<equiv> \<exists>y. path x xs y \<and> cycle_node y ys"
 
-  lemma lasso_from_node_not_empty[simp]:"\<not>lasso_from_node v xs []"
+  lemma lasso_from_node_not_empty[simp]:"\<not>lasso_from_node x xs []"
     unfolding lasso_from_node_def by auto
 
-  lemma lasso_from_node_in_E: "lasso_from_node v xs ys
+  (** The nodes in the lasso are in the graph *)
+  lemma lasso_from_node_in_E: "lasso_from_node x xs ys
     \<Longrightarrow> set xs \<subseteq> (fst ` E \<union> snd ` E) \<and> set ys \<subseteq> (fst ` E \<union> snd ` E)"
     unfolding lasso_from_node_def
     using path_in_E cycle_node_in_E by force
 
+  (** The origin of a lasso is somewhere in the lasso, either in the spoke, or in the loop if the
+      spoke is empty *)
   lemma origin_in_lasso: "lasso_from_node x xs ys \<Longrightarrow> (x \<in> set xs \<or> x \<in> set ys)"
     unfolding lasso_from_node_def cycle_node_def
-    apply (induction xs arbitrary: x; simp)
+    using path.simps origin_in_path by metis
+
+  (** A lasso is equivalent to two paths; a spoke and a loop *)
+  lemma lasso_from_node_paths:
+    "lasso_from_node x xs ys \<longleftrightarrow> (\<exists>y. path x xs y \<and> path y ys y \<and> ys \<noteq> [])"
+    unfolding lasso_from_node_def cycle_node_def by simp
+
+  (** If we have a lasso, we have a single path covering the spoke and loop, terminating at the start of the loop *)
+  lemma lasso_from_node_impl_path:
+    "lasso_from_node x xs ys \<Longrightarrow> \<exists>y vs. vs = xs@ys \<and> y \<in> set vs \<and> path x vs y"
+    unfolding lasso_from_node_def cycle_node_def
+    using path_append origin_in_path by auto
+
+  (** If we have a lasso, then there exists a y at the start of the loop, from which there is a lasso
+      without a spoke *)
+  lemma lasso_from_node_loop:
+    "lasso_from_node x xs ys \<Longrightarrow> \<exists>y. y \<in> set ys \<and> lasso_from_node y [] ys"
+    unfolding lasso_from_node_def cycle_node_def
     using origin_in_path by auto
 
+  (** If there is a looping path from y, there is a lasso from y without a spoke *)
+  lemma loop_impl_lasso: "\<lbrakk>path y ys y; ys \<noteq> []\<rbrakk> \<Longrightarrow> lasso_from_node y [] ys"
+    unfolding lasso_from_node_def cycle_node_def by simp
+
+  (** If there is a cycle, it means there is a lasso, and vice versa *)
+  lemma cycle_from_iff_lasso: "cycle_from_node x ys \<longleftrightarrow> (\<exists>xs. lasso_from_node x xs ys)"
+    unfolding lasso_from_node_def cycle_from_node_def by simp
+
+  (** A lasso from a node with spoke and loop in a single list *)
   definition lasso_from_node' :: "'v \<Rightarrow> 'v list \<Rightarrow> bool" where
-    "lasso_from_node' v xs \<equiv> \<exists>v' xs1 xs2. xs=xs1@xs2 \<and>  path v xs1 v' \<and> path v' xs2 v' \<and> xs2 \<noteq> []"
+    "lasso_from_node' x vs \<equiv> \<exists>y xs ys. vs=xs@ys \<and>  path x xs y \<and> cycle_node y ys"
 
   lemma lasso_from_node'_not_empty[simp]: "\<not>lasso_from_node' v []"
-    unfolding lasso_from_node'_def by auto
+    unfolding lasso_from_node'_def by simp
 
-  lemma lasso_from_node'_in_E: "lasso_from_node' v xs \<Longrightarrow> set xs \<subseteq> (fst ` E \<union> snd ` E)"
-    unfolding lasso_from_node'_def
+  (** The length of a lasso is always greater than 0 *)
+  lemma lasso_from_node'_length: "lasso_from_node' v vs \<Longrightarrow> 0 < length vs"
+    by force
+
+  (** The nodes in a lasso are in the graph *)
+  lemma lasso_from_node'_in_E: "lasso_from_node' x vs \<Longrightarrow> set vs \<subseteq> (fst ` E \<union> snd ` E)"
+    unfolding lasso_from_node'_def cycle_node_def
     using path_append path_in_E by blast
 
-  lemma lasso_from_node'_length: "lasso_from_node' v vs \<Longrightarrow> 0 < length vs"
-    unfolding lasso_from_node'_def by fast
+  (** The origin of a lasso is in its nodes *)
+  lemma origin_in_lasso': "lasso_from_node' x vs \<Longrightarrow> x \<in> set vs"
+    unfolding lasso_from_node'_def cycle_node_def
+    using path_append origin_in_path by blast
 
-  lemma cycle_impl_lasso': "cycle_node v xs \<Longrightarrow> lasso_from_node' v xs"
-    unfolding cycle_node_def lasso_from_node'_def by fastforce
+  (** A lasso is equivalent to two paths; a spoke and a loop *)
+  lemma lasso_from_node'_paths:
+    "lasso_from_node' x vs \<longleftrightarrow> (\<exists>y xs ys. vs=xs@ys \<and> path x xs y \<and> path y ys y \<and> ys \<noteq> [])"
+    unfolding lasso_from_node'_def cycle_node_def by simp
 
-  lemma path_loop_impl_lasso': "\<lbrakk>path v vs v; vs \<noteq> []\<rbrakk> \<Longrightarrow> lasso_from_node' v vs"
-    using path_loop_iff_cycle_node cycle_impl_lasso' by blast
+  (** If there is a lasso, then there is a single path over the spoke and loop, terminating at the
+      start of the loop *)
+  lemma lasso'_impl_path: "lasso_from_node' x vs \<Longrightarrow> \<exists>y. y \<in> set vs \<and> path x vs y"
+    unfolding lasso_from_node'_def cycle_node_def
+    using path_append origin_in_path by fastforce
 
+  (** If there exists a loop, then that is a lasso reachable from its starting point *)
+  lemma loop_impl_lasso': "\<lbrakk>path v vs v; vs \<noteq> []\<rbrakk> \<Longrightarrow> lasso_from_node' v vs"
+    unfolding lasso_from_node'_def cycle_node_def by fastforce
+
+  (** If there is a cycle, then that is a lasso reachable from its starting point *)
+  lemma cycle_impl_lasso': "cycle_node v vs \<Longrightarrow> lasso_from_node' v vs"
+    unfolding lasso_from_node'_def cycle_node_def by fastforce
+
+  (** The two lassos are equivalent *)
   lemma lassos_equiv: "lasso_from_node' v xs \<longleftrightarrow> (\<exists>xs1 xs2. xs=xs1@xs2 \<and> lasso_from_node v xs1 xs2)"
-    unfolding lasso_from_node'_def lasso_from_node_def cycle_node_def
-    apply (induction xs arbitrary: v) by auto
+    unfolding lasso_from_node'_def lasso_from_node_def cycle_node_def by auto
 
-  lemma lasso'_impl_path: "lasso_from_node' v xs \<Longrightarrow> \<exists>v'. path v xs v'"
-    unfolding lasso_from_node'_def by force
-
-  lemma origin_in_lasso': "lasso_from_node' v xs \<Longrightarrow> v \<in> set xs"
-    apply (induction xs arbitrary: v; simp)
-    using lasso'_impl_path origin_in_path by fastforce
-
-  lemma lasso'_iff_path: "lasso_from_node' v xs \<longleftrightarrow> (\<exists>v'\<in>set xs. path v xs v')"
-    unfolding lasso_from_node'_def
-    apply (auto simp: in_set_conv_decomp neq_Nil_conv) by force
-
-  lemma lasso_from_node'_consD: "lasso_from_node' v (x#xs)
-    \<Longrightarrow> (\<exists>v' xs'. x=v \<and> (v,v')\<in>E \<and> lasso_from_node' v' xs' \<and> set xs'\<subseteq>set (x#xs))"
-    by (auto simp: lasso_from_node'_def Cons_eq_append_conv; force)
-
-  lemma lasso_from_node'_prepend: "\<lbrakk> lasso_from_node' v' xs; (v,v') \<in> E \<rbrakk> \<Longrightarrow> lasso_from_node' v (v#xs)"
-    unfolding lasso_from_node'_def
-    apply (induction xs arbitrary: v')
-    subgoal by simp
-    subgoal for x' xs' by (metis path.simps(2) append_Cons)
-    done
-
-  lemma self_lasso': "\<lbrakk> path v vs v; vs \<noteq> [] \<rbrakk> \<Longrightarrow> lasso_from_node' v vs"
-    unfolding lasso_from_node'_def by force
-
-  lemma lasso'_close_loop: "\<lbrakk> path v' vs v; vs \<noteq> []; (v,v') \<in> E \<rbrakk> \<Longrightarrow> lasso_from_node' v' (vs@[v])"
-    unfolding lasso_from_node'_def by fastforce
-
-  lemma lasso'_extend_loop: "lasso_from_node' v vs \<Longrightarrow> \<exists>vs'. length vs < length vs' \<and> set vs = set vs' \<and> lasso_from_node' v vs'"
+  (** A lasso can be extended by appending its loop to the end. *)
+  lemma lasso'_extend_loop: "lasso_from_node' x vs \<Longrightarrow> \<exists>vs'. length vs < length vs' \<and> set vs = set vs' \<and> lasso_from_node' x vs'"
   proof -
-    assume lasso: "lasso_from_node' v vs"
-    then obtain v' vs1 vs2 where
-      vs_decomp: "vs = vs1@vs2" and
-      path_vs1: "path v vs1 v'" and
-      path_vs2: "path v' vs2 v'" and
-      vs2_not_empty: "vs2 \<noteq> []"
-      unfolding lasso_from_node'_def by blast
-    define vs' where "vs' = vs1@vs2@vs2"
+    assume lasso: "lasso_from_node' x vs"
+    then obtain y xs ys where
+      vs_decomp: "vs=xs@ys" and
+      path_x_xs_y: "path x xs y" and
+      path_y_ys_y: "path y ys y" and
+      ys_notempty: "ys\<noteq>[]"
+      using lasso_from_node'_paths by auto
+    let ?vs' = "xs@ys@ys"
     show ?thesis
-    proof (rule exI[where x=vs']; intro conjI)
-      from vs_decomp vs2_not_empty show "length vs < length vs'"
-        unfolding vs'_def by fastforce
-      from vs_decomp show "set vs = set vs'"
-        unfolding vs'_def by simp
-      from path_vs1 path_vs2 vs2_not_empty show "lasso_from_node' v vs'"
-        unfolding lasso_from_node'_def vs'_def by fastforce
+    proof (rule exI[where x="?vs'"]; intro conjI)
+      from vs_decomp ys_notempty show "length vs < length ?vs'" by simp
+      from vs_decomp show "set vs = set ?vs'" by simp
+      from path_x_xs_y path_y_ys_y ys_notempty show "lasso_from_node' x ?vs'"
+        unfolding lasso_from_node'_def cycle_node_def by fastforce
     qed
   qed
 
+  (** A lasso can be extended to any length *)
   lemma lasso'_extend_any_length: "lasso_from_node' v vs \<Longrightarrow> \<exists>vs'. n < length vs' \<and> set vs = set vs' \<and> lasso_from_node' v vs'"
     apply (induction n)
     subgoal using lasso_from_node'_length by blast
     subgoal using lasso'_extend_loop Suc_lessI by metis
     done
-
-  lemma lasso_from_equiv_cycle_from: "cycle_from_node v ys \<longleftrightarrow> (\<exists>xs. lasso_from_node v xs ys)"
-    unfolding lasso_from_node_def cycle_from_node_def cycle_node_def ..
 end
 
 locale finite_graph_V =
@@ -317,7 +344,7 @@ begin
     then obtain xs x' where xs: "length (xs::'v list) = (card V) + 1 \<and> path E x xs x'"
       using path_any_length by blast
     have "\<not>distinct xs" proof -
-      from xs have "set xs \<subseteq> V" using path_in_E E_in_V by fastforce
+      from xs have "set xs \<subseteq> V" using path_in_V[OF \<open>x\<in>V\<close>] by fastforce
       moreover from xs have "length xs > card V" by auto
       ultimately show ?thesis using finite_subset_not_distinct by blast
     qed
@@ -325,8 +352,7 @@ begin
       using not_distinct_decomp by blast
     with xs have "path E x (xs1) y" by auto
     moreover from decomp xs have "path E y (y#xs2) y" by auto
-    hence "cycle_node E y (y#xs2)" by (simp add: cycle_node_def)
-    ultimately have "cycle_from_node E x (y#xs2)" using cycle_from_node_comp by fastforce
+    ultimately have "cycle_from_node E x (y#xs2)" using cycle_from_node_paths by fast
     then show "\<exists>xs. cycle_from_node E x xs" by auto
   qed
 
@@ -344,7 +370,7 @@ begin
       using not_distinct_decomp by blast
     with xs have "path E x xs1 y" by auto
     moreover from decomp xs have "path E y (y#xs2) y" by auto
-    ultimately have "lasso_from_node' E x (xs1@(y#xs2))" unfolding lasso_from_node'_def by blast
+    ultimately have "lasso_from_node' E x (xs1@(y#xs2))" unfolding lasso_from_node'_def cycle_node_def by blast
     then show "\<exists>xs. lasso_from_node' E x xs" by auto
   qed
 
@@ -376,7 +402,7 @@ lemma subgraph_lasso: "E' \<subseteq> E \<Longrightarrow> lasso_from_node E' v x
   unfolding lasso_from_node_def using subgraph_path subgraph_cycle by meson
 
 lemma subgraph_lasso': "E' \<subseteq> E \<Longrightarrow> lasso_from_node' E' v vs \<Longrightarrow> lasso_from_node' E v vs"
-  unfolding lasso_from_node'_def
+  unfolding lasso_from_node'_def cycle_node_def
   apply (induction vs arbitrary: v; simp)
   by (meson subgraph_path)
 
@@ -415,7 +441,7 @@ proof -
     path_v_xs_v': "path E v xs v'" and
     path_v'_ys_v': "path E v' ys v'" and
     [simp]: "ys \<noteq> []" and [simp]: "vs = xs@ys"
-    unfolding lasso_from_node'_def by blast
+    unfolding lasso_from_node'_def cycle_node_def by blast
 
   from vs_in_V have xs_in_V: "set xs \<subseteq> V" by simp
   from vs_in_V have ys_in_V: "set ys \<subseteq> V" by simp
@@ -429,7 +455,8 @@ proof -
   have path_v'_ys_v'_restr_V: "path (E \<inter> V\<times>V) v' ys v'" .
 
   from path_v_xs_v'_restr_V path_v'_ys_v'_restr_V show ?thesis
-    using lasso_from_node'_def by fastforce
+    using lasso_from_node'_def cycle_node_def
+    by (metis \<open>vs = xs @ ys\<close> \<open>ys \<noteq> []\<close>)
 qed
 
 lemma cycle_from_node_inter_1: "cycle_from_node (E1 \<inter> E2) v vs \<Longrightarrow> cycle_from_node E1 v vs"
@@ -1291,7 +1318,7 @@ begin
         by blast
 
       from lasso'_impl_path[OF lasso_xs']
-      obtain v' where "path (induced_by_strategy V\<^sub>\<alpha> \<sigma>) v xs' v'" ..
+      obtain v' where "path (induced_by_strategy V\<^sub>\<alpha> \<sigma>) v xs' v'" by blast
 
       hence "set xs' \<inter> X \<noteq> {}" using forces_\<sigma> v_in_rank_n len_xs' by blast
       with set_xs'_eq show "set xs \<inter> X \<noteq> {}" by simp
@@ -2031,8 +2058,7 @@ proof -
             from cycle_ys obtain xs v' where [simp]: "ys \<noteq> []" and
               path_xs: "path (induced_by_strategy (dom \<sigma>') \<sigma>') w xs v'" and
               path_ys: "path (induced_by_strategy (dom \<sigma>') \<sigma>') v' ys v'"
-              using lasso_from_equiv_cycle_from[of "(induced_by_strategy (dom \<sigma>') \<sigma>')" w ys]
-              unfolding lasso_from_node_def cycle_node_def by blast
+              using cycle_from_node_paths[of "induced_by_strategy (dom \<sigma>') \<sigma>'" w ys] by blast
 
             from w_in_W path_xs have subgame_path_xs: "path (subgame.induced_by_strategy (dom \<sigma>') \<sigma>') w xs v'"
               using W_paths_persist_in_subgame by simp
@@ -2046,7 +2072,7 @@ proof -
             from subgame_path_xs subgame_path_ys have "lasso_from_node (subgame.induced_by_strategy (dom \<sigma>') \<sigma>') w xs ys"
               unfolding lasso_from_node_def cycle_node_def by auto
             hence subgame_cycle_ys: "cycle_from_node (subgame.induced_by_strategy (dom \<sigma>') \<sigma>') w ys"
-              using lasso_from_node_def lasso_from_equiv_cycle_from by fast
+              using lasso_from_node_def cycle_from_iff_lasso by fast
 
             from \<sigma>'_winning_opponent_subgame w_in_W subgame_cycle_ys
             show "player_winningP ?\<beta> (top_priority ys)" by simp
@@ -2138,11 +2164,10 @@ proof -
 
           from cycle_ys obtain b' xs where
             path_\<tau>_b_xs_b': "path ?\<tau>_subgame b xs b'" and
-            path_\<tau>_b'_ys_b': "path ?\<tau>_subgame b' ys b'"
-            using cycle_from_node_decomp path_loop_iff_cycle_node by meson
+            path_\<tau>_b'_ys_b': "path ?\<tau>_subgame b' ys b'" and
+            b'_in_ys: "b' \<in> set ys"
+            using cycle_from_node_paths[of ?\<tau>_subgame b ys] origin_in_path by fast
 
-          from path_\<tau>_b'_ys_b' ys_notempty have b'_in_ys: "b' \<in> set ys"
-            using origin_in_path by fast
           from path_closed_dest[OF b_in_B \<tau>_closed_B path_\<tau>_b_xs_b']
           have b'_in_B: "b'\<in>B" .
           from path_closed_set[OF b'_in_B \<tau>_closed_B path_\<tau>_b'_ys_b']
@@ -2160,7 +2185,7 @@ proof -
 
             from subgraph_path[OF subset path_restr_V[OF path_\<tau>_b'_ys_b' ys_in_B_min_W b'_in_B_min_W]] ys_notempty
             have "lasso_from_node' (induced_by_strategy (V_player (opponent \<alpha>)) \<sigma>) b' ys"
-              using path_loop_impl_lasso' by fast
+              using loop_impl_lasso' by fast
 
             with \<sigma>_forces_W b'_in_B no_W_in_ys show "False" by blast
           qed
@@ -2171,7 +2196,7 @@ proof -
               x_in_ys: "x\<in>set ys" and
               x_in_W: "x \<in> W" and
               path_\<tau>_x_ys'_x: "path ?\<tau>_subgame x ys' x"
-              using path_loop_intermediate_node[OF path_\<tau>_b'_ys_b'] by blast
+              using loop_intermediate_node[OF path_\<tau>_b'_ys_b'] by blast
 
             from path_closed_set[OF x_in_W \<tau>_closed_W path_\<tau>_x_ys'_x] sets_eq
             show ?thesis by simp
@@ -2182,7 +2207,7 @@ proof -
             unfolding induced_by_strategy_def E_of_strat_def by auto
           from subgraph_path[OF this path_restr_V[OF path_\<tau>_b'_ys_b' ys_in_W b'_in_W]]
           have "cycle_from_node (induced_by_strategy (dom \<sigma>') \<sigma>') b' ys"
-            using path_loop_impl_cycle_from_node ys_notempty by fast
+            using loop_impl_cycle_from_node ys_notempty by fast
 
           with \<sigma>'_winning_opponent b'_in_W
           show "player_winningP (opponent \<alpha>) (top_priority ys)" by blast
@@ -2346,8 +2371,7 @@ proof -
             from cycle_x_ys obtain xs y where
               path_x_xs_y: "path ?\<sigma>_subgame x xs y" and
               path_y_ys_y: "path ?\<sigma>_subgame y ys y"
-              using lasso_from_equiv_cycle_from[of ?\<sigma>_subgame x ys]
-              unfolding lasso_from_node_def cycle_node_def by blast
+              using cycle_from_node_paths[of ?\<sigma>_subgame x ys] by blast
 
             from \<sigma>_closed have \<sigma>_closed': "?\<sigma>_subgame `` X\<^sub>\<alpha> \<subseteq> X\<^sub>\<alpha>" by blast
             from path_closed_dest[OF x_in_X\<^sub>\<alpha> \<sigma>_closed' path_x_xs_y]
@@ -2360,7 +2384,7 @@ proof -
               using X\<^sub>\<alpha>_in_V'' unfolding E''_def V''_def by blast
             from subgraph_path[OF subset path_restr_V[OF path_y_ys_y ys_in_X\<^sub>\<alpha> y_in_X\<^sub>\<alpha>]] ys_notempty
             have "cycle_from_node (subgame'.induced_by_strategy (dom \<sigma>) \<sigma>) y ys"
-              using path_loop_impl_cycle_from_node by fast
+              using loop_impl_cycle_from_node by fast
 
             with \<sigma>_winning_\<alpha>_subgame' y_in_X\<^sub>\<alpha> show "player_winningP \<alpha> (top_priority ys)" by blast
           qed
@@ -2504,8 +2528,7 @@ proof -
             from cycle_x_ys obtain xs y where
               path_x_xs_y: "path ?\<tau>_subgame x xs y" and
               path_y_ys_y: "path ?\<tau>_subgame y ys y"
-              using lasso_from_equiv_cycle_from[of ?\<tau>_subgame x ys]
-              unfolding lasso_from_node_def cycle_node_def by blast
+              using cycle_from_node_paths[of ?\<tau>_subgame x ys] by blast
             hence y_in_ys: "y \<in> set ys" using origin_in_path ys_notempty by fast
 
             from path_closed_dest[OF x_in_B_X\<^sub>\<beta> \<tau>_closed' path_x_xs_y]
@@ -2522,7 +2545,7 @@ proof -
                 y'_in_ys: "y' \<in> set ys" and
                 y'_in_B: "y'\<in>B" and
                 path_y'_ys'_y': "path ?\<tau>_subgame y' ys' y'"
-                using path_loop_intermediate_node[OF path_y_ys_y] by blast
+                using loop_intermediate_node[OF path_y_ys_y] by blast
 
                 from path_closed_set[OF y'_in_B \<tau>_closed_B path_y'_ys'_y'] sets_eq
                 show ?thesis by simp
@@ -2533,7 +2556,7 @@ proof -
                 using incomplete_ind_subgraph_add_disjoint_\<sigma>[OF \<tau>_doms_disj] by blast
               from subgraph_path[OF this path_y_ys_y] ys_notempty
               have "cycle_from_node (induced_by_strategy (dom \<sigma>) \<sigma>) y ys"
-                using path_loop_impl_cycle_from_node by fast
+                using loop_impl_cycle_from_node by fast
 
               with \<sigma>_winning_opp y_in_B show ?thesis by blast
             next
@@ -2545,7 +2568,7 @@ proof -
                 unfolding E''_def V''_def by auto
               from subgraph_path[OF this path_restr_V[OF path_y_ys_y ys_in_X\<^sub>\<beta> y_in_X\<^sub>\<beta>]] ys_notempty
               have "cycle_from_node (subgame'.induced_by_strategy (dom \<sigma>') \<sigma>') y ys"
-                using path_loop_impl_cycle_from_node by fast
+                using loop_impl_cycle_from_node by fast
 
               with \<sigma>'_winning_opp_subgame' y_in_X\<^sub>\<beta> show ?thesis by blast
             qed
@@ -2711,7 +2734,7 @@ proof -
 
             from lasso'_\<tau>_a_xs obtain a' where a'_in_xs: "a'\<in>set xs" and
               path_\<tau>_a_xs_a': "path ?\<tau>_subgame a xs a'"
-              using lasso'_iff_path by fast
+              using lasso'_impl_path by fast
             from a'_in_xs v_notin_xs have a'_not_v: "a'\<noteq>v" by fast
 
             from a_in_A_min_v v_notin_xs path_\<tau>_a_xs_a'
@@ -2758,28 +2781,28 @@ proof -
 
             from cycle_\<tau>_x_ys obtain xs y where
               path_\<tau>_x_xs_y: "path ?\<tau>_subgame x xs y" and
-              path_\<tau>_y_ys_y: "path ?\<tau>_subgame y ys y"
-              using cycle_from_node_decomp path_loop_iff_cycle_node by meson
-            with ys_notempty have y_in_ys: "y \<in> set ys" using origin_in_path by fast
+              path_\<tau>_y_ys_y: "path ?\<tau>_subgame y ys y" and
+              y_in_ys: "y \<in> set ys"
+              using cycle_from_node_paths[of ?\<tau>_subgame x ys] origin_in_path by fast
 
             consider (A_in_ys) "set ys \<inter> A \<noteq> {}" | (A_notin_ys) "set ys \<inter> A = {}" by blast
             thus "player_winningP \<alpha> (top_priority ys)" proof cases
               case A_in_ys
 
               then obtain y' where y'_in_ys: "y'\<in>set ys" and y'_in_A: "y'\<in>A" by blast
-              from path_loop_intermediate_node[OF path_\<tau>_y_ys_y y'_in_ys]
+              from loop_intermediate_node[OF path_\<tau>_y_ys_y y'_in_ys]
               obtain ys' where sets_eq: "set ys' = set ys" and
                 path_\<tau>_y'_ys'_y': "path ?\<tau>_subgame y' ys' y'"
                 by blast
               from sets_eq ys_notempty have ys'_notempty: "ys'\<noteq>[]" by force
 
-              with y'_in_A path_loop_impl_lasso'[OF path_\<tau>_y'_ys'_y' ys'_notempty] \<tau>_forces_v sets_eq
+              with y'_in_A loop_impl_lasso'[OF path_\<tau>_y'_ys'_y' ys'_notempty] \<tau>_forces_v sets_eq
               have "v \<in> set ys" by fastforce
               with player_wins_v ys_in_V show ?thesis by simp
             next
               case A_notin_ys
 
-              from path_loop_impl_lasso'[OF path_\<tau>_y_ys_y ys_notempty]
+              from loop_impl_lasso'[OF path_\<tau>_y_ys_y ys_notempty]
               have lasso'_\<tau>_y_ys: "lasso_from_node' ?\<tau>_subgame y ys" .
 
               from ys_in_V A_notin_ys y_in_ys have y_in_V': "y\<in>V'"
@@ -2792,7 +2815,7 @@ proof -
                 using \<sigma>'_v_choice_dom_disj by auto
               from subgraph_path[OF this path_restr_V[OF path_\<tau>_y_ys_y ys_in_V' y_in_V']] ys_notempty
               have "cycle_from_node (subgame.induced_by_strategy (dom \<sigma>') \<sigma>') y ys"
-                using path_loop_impl_cycle_from_node by fastforce
+                using loop_impl_cycle_from_node by fastforce
 
               with \<sigma>'_winning_subgame y_in_V' show ?thesis by blast
             qed
