@@ -273,42 +273,50 @@ begin
     done
 end
 
-locale finite_graph_V =
+subsection \<open>Paths and Cycles in Graphs with a Specific V and no Dead Ends\<close>
+locale finite_graph_V_Succ =
   fixes E :: "'v dgraph"
   fixes V :: "'v set"
   assumes E_in_V: "E \<subseteq> V \<times> V"
   assumes fin_V[simp, intro]: "finite V"
   assumes succ: "v\<in>V \<Longrightarrow> E``{v}\<noteq>{}"
 begin
+  (** E is finite *)
   lemma fin_E[simp, intro!]: "finite E"
     using E_in_V by (simp add: finite_subset)
 
+  (** E applied to any set ends up in a subset of V *)
   lemma E_closed_V: "E `` V' \<subseteq> V"
     using Image_subset[OF E_in_V] by simp
 
+  (** A path is closed in V *)
   lemma path_closed_V: "v\<in>V \<Longrightarrow> path E v xs v' \<Longrightarrow> v'\<in>V"
     using path_closed_dest[OF _ E_closed_V] by blast
 
+  (** All nodes in a path are in V *)
   lemma path_in_V: "\<lbrakk>v\<in>V; path E v xs v'\<rbrakk> \<Longrightarrow> set xs \<subseteq> V"
     using path_in_E E_in_V by fastforce
 
+  (** All nodes in a cycle are in V *)
   lemma cycle_node_in_V: "\<lbrakk>v\<in>V; cycle_node E v xs\<rbrakk> \<Longrightarrow> set xs \<subseteq> V"
     using cycle_node_in_E E_in_V by fastforce
 
   lemma cycle_from_node_in_V: "\<lbrakk>v\<in>V; cycle_from_node E v xs\<rbrakk> \<Longrightarrow> set xs \<subseteq> V"
     using cycle_from_node_in_E E_in_V by fastforce
 
+  (** All nodes in a lasso reachable from a node are in V *)
   lemma lasso_from_node_in_V: "\<lbrakk>v\<in>V; lasso_from_node E v xs ys\<rbrakk> \<Longrightarrow> set xs \<subseteq> V \<and> set ys \<subseteq> V"
     using lasso_from_node_in_E E_in_V by fastforce
 
   lemma lasso_from_node'_in_V: "\<lbrakk>v\<in>V; lasso_from_node' E v xs\<rbrakk> \<Longrightarrow> set xs \<subseteq> V"
     using lasso_from_node'_in_E E_in_V by fastforce
 
+  (** You can obtain a path of any desired length in the graph *)
   lemma path_any_length: "v\<in>V \<Longrightarrow> \<exists>xs v'. length xs = n \<and> path E v xs v'"
   proof (induction n)
     case 0
     then obtain xs v' where "xs=([]::'v list)" and "v' = v" by simp
-    then show ?case by auto
+    thus ?case by auto
   next
     case (Suc n)
     then obtain xs v' where path: "length xs = n" "path E v xs v'" by auto
@@ -319,34 +327,16 @@ begin
     with length show ?case by auto
   qed
 
-  lemma distinct_length: "distinct xs \<Longrightarrow> length xs = card (set xs)"
-    apply (induction xs) by auto
-
-  lemma not_distinct_length: "length xs > card (set xs) \<Longrightarrow> \<not>distinct xs"
-    apply (induction xs) by auto
-
-  lemma finite_subset_not_distinct: "finite S \<Longrightarrow> set xs \<subseteq> S \<Longrightarrow> length xs > card S \<Longrightarrow> \<not>distinct xs"
-  proof (rule ccontr; simp)
-    assume finite: "finite S"
-      and subset: "set xs \<subseteq> S"
-      and len: "length xs > card S"
-      and distinct: "distinct xs"
-    hence "card (set xs) = length xs" by (simp add: distinct_length)
-    with len have card_gt: "card (set xs) > card S" by simp
-    also from subset finite have card_lt_eq: "card (set xs) \<le> card S"
-      using card_mono by blast
-    finally show "False" by auto
-  qed
-
-  lemma finite_graph_always_has_cycle_from_node: "x\<in>V \<Longrightarrow> \<exists>xs. cycle_from_node E x xs"
+  (** You can always get a cycle in a finite graph where every node has a successor *)
+  lemma cycle_always_exists: "x\<in>V \<Longrightarrow> \<exists>xs. cycle_from_node E x xs"
   proof -
     assume "x\<in>V"
-    then obtain xs x' where xs: "length (xs::'v list) = (card V) + 1 \<and> path E x xs x'"
+    then obtain xs x' where xs: "length (xs::'v list) = Suc (card V) \<and> path E x xs x'"
       using path_any_length by blast
     have "\<not>distinct xs" proof -
-      from xs have "set xs \<subseteq> V" using path_in_V[OF \<open>x\<in>V\<close>] by fastforce
-      moreover from xs have "length xs > card V" by auto
-      ultimately show ?thesis using finite_subset_not_distinct by blast
+      from xs have ss: "set xs \<subseteq> V" using path_in_V[OF \<open>x\<in>V\<close>] by fastforce
+      from xs have len: "length xs > card V" by auto
+      thus ?thesis using card_mono[OF fin_V ss] distinct_card[of xs] by fastforce
     qed
     then obtain y xs1 xs2 xs3 where decomp: "xs = xs1 @ [y] @ xs2 @ [y] @ xs3"
       using not_distinct_decomp by blast
@@ -356,27 +346,15 @@ begin
     then show "\<exists>xs. cycle_from_node E x xs" by auto
   qed
 
-  lemma finite_graph_always_has_lasso': "x\<in>V \<Longrightarrow> \<exists>xs. lasso_from_node' E x xs"
-  proof-
-    assume "x\<in>V"
-    then obtain xs x' where xs: "length (xs::'v list) = (card V) + 1 \<and> path E x xs x'"
-      using path_any_length by blast
-    have "\<not>distinct xs" proof -
-      from xs have "set xs \<subseteq> V" using path_in_E E_in_V by fastforce
-      moreover from xs have "length xs > card V" by auto
-      ultimately show ?thesis using finite_subset_not_distinct by blast
-    qed
-    then obtain y xs1 xs2 xs3 where decomp: "xs = xs1 @ [y] @ xs2 @ [y] @ xs3"
-      using not_distinct_decomp by blast
-    with xs have "path E x xs1 y" by auto
-    moreover from decomp xs have "path E y (y#xs2) y" by auto
-    ultimately have "lasso_from_node' E x (xs1@(y#xs2))" unfolding lasso_from_node'_def cycle_node_def by blast
-    then show "\<exists>xs. lasso_from_node' E x xs" by auto
-  qed
+  (** You can always get a lasso in a finite graph where every node has a successor *)
+  lemma lasso_always_exists: "x\<in>V \<Longrightarrow> \<exists>xs ys. lasso_from_node E x xs ys"
+    using cycle_always_exists cycle_from_iff_lasso[of E] by blast
 
+  lemma lasso'_always_exists: "x\<in>V \<Longrightarrow> \<exists>xs. lasso_from_node' E x xs"
+    using lasso_always_exists lassos_equiv[of E] by simp
 end
 
-subsection \<open>Paths in Subgraphs\<close>
+subsection \<open>Paths and Cycles in Subgraphs\<close>
 
 lemma simulate_path_aux:
   assumes "E``(Y-X) \<subseteq> Y"
@@ -388,24 +366,26 @@ lemma simulate_path_aux:
   using assms(1)
   by auto
 
+(** If a path exists in a subgraph, it exists in the whole graph *)
 lemma subgraph_path: "E' \<subseteq> E \<Longrightarrow> path E' v vs v' \<Longrightarrow> path E v vs v'"
   apply (induction vs arbitrary: v) by auto
 
+(** If a cycle exists in a subgraph, it exists in the whole graph *)
 lemma subgraph_cycle: "E' \<subseteq> E \<Longrightarrow> cycle_node E' v vs \<Longrightarrow> cycle_node E v vs"
   unfolding cycle_node_def
   by (simp add: subgraph_path)
 
 lemma subgraph_cycle_from_node: "E' \<subseteq> E \<Longrightarrow> cycle_from_node E' v vs \<Longrightarrow> cycle_from_node E v vs"
-  unfolding cycle_from_node_def using subgraph_path subgraph_cycle by meson
+  unfolding cycle_from_node_def using subgraph_path[of E' E] subgraph_cycle[of E' E] by fast
 
+(** If a lasso exists in a subgraph, it exists in the whole graph *)
 lemma subgraph_lasso: "E' \<subseteq> E \<Longrightarrow> lasso_from_node E' v xs ys \<Longrightarrow> lasso_from_node E v xs ys"
-  unfolding lasso_from_node_def using subgraph_path subgraph_cycle by meson
+  unfolding lasso_from_node_def using subgraph_path[of E' E] subgraph_cycle[of E' E] by fast
 
 lemma subgraph_lasso': "E' \<subseteq> E \<Longrightarrow> lasso_from_node' E' v vs \<Longrightarrow> lasso_from_node' E v vs"
-  unfolding lasso_from_node'_def cycle_node_def
-  apply (induction vs arbitrary: v; simp)
-  by (meson subgraph_path)
+  using lassos_equiv[of E'] subgraph_lasso[of E' E] lassos_equiv[of E] by blast
 
+(** If all nodes in a path exists in a region V, then it exists in the whole graph restricted to V *)
 lemma path_restr_V: "path E v vs v' \<Longrightarrow> set vs \<subseteq> V \<Longrightarrow> v' \<in> V \<Longrightarrow> path (E \<inter> V\<times>V) v vs v'"
 proof (induction vs arbitrary: v)
   case Nil thus ?case by simp
@@ -429,8 +409,14 @@ next
   from vw_in_Restr_E_V path_wv_Restr_E_V show ?case by auto
 qed
 
+(** If all nodes in a cycle exist in a region V, then it exists in the whole graph restricted to V *)
+lemma cycle_restr_V: "cycle_node E v xs \<Longrightarrow> set xs \<subseteq> V \<Longrightarrow> cycle_node (E \<inter> V\<times>V) v xs"
+  unfolding cycle_node_def using path_restr_V[of E v xs v V] origin_in_path[of E v xs v] by fast
+
+(** If all nodes in a lasso exist in a region V, then it exists in the whole graph restricted to V *)
 lemma lasso_restr_V: "lasso_from_node E v xs ys \<Longrightarrow> set xs \<subseteq> V \<Longrightarrow> set ys \<subseteq> V \<Longrightarrow> lasso_from_node (E \<inter> V\<times>V) v xs ys"
-  unfolding lasso_from_node_def cycle_node_def using path_restr_V origin_in_path by (metis subset_iff)
+  unfolding lasso_from_node_def cycle_node_def
+  using path_restr_V[of E _ _ _ V] origin_in_path[of E] by blast
 
 lemma lasso'_restr_V: "lasso_from_node' E v vs \<Longrightarrow> set vs \<subseteq> V \<Longrightarrow> lasso_from_node' (E \<inter> V\<times>V) v vs"
 proof -
@@ -440,12 +426,12 @@ proof -
   from lasso_v_vs obtain xs v' ys where
     path_v_xs_v': "path E v xs v'" and
     path_v'_ys_v': "path E v' ys v'" and
-    [simp]: "ys \<noteq> []" and [simp]: "vs = xs@ys"
+    ys_notempty: "ys \<noteq> []" and vs_concat: "vs = xs@ys"
     unfolding lasso_from_node'_def cycle_node_def by blast
 
-  from vs_in_V have xs_in_V: "set xs \<subseteq> V" by simp
-  from vs_in_V have ys_in_V: "set ys \<subseteq> V" by simp
-  from path_v'_ys_v' ys_in_V have v'_in_V: "v' \<in> V"
+  from vs_in_V vs_concat have xs_in_V: "set xs \<subseteq> V" by simp
+  from vs_in_V vs_concat have ys_in_V: "set ys \<subseteq> V" by simp
+  from path_v'_ys_v' ys_in_V ys_notempty have v'_in_V: "v' \<in> V"
     using origin_in_path by fastforce
 
   from path_restr_V[OF path_v_xs_v' xs_in_V v'_in_V]
@@ -454,29 +440,40 @@ proof -
   from path_restr_V[OF path_v'_ys_v' ys_in_V v'_in_V]
   have path_v'_ys_v'_restr_V: "path (E \<inter> V\<times>V) v' ys v'" .
 
-  from path_v_xs_v'_restr_V path_v'_ys_v'_restr_V show ?thesis
-    using lasso_from_node'_def cycle_node_def
-    by (metis \<open>vs = xs @ ys\<close> \<open>ys \<noteq> []\<close>)
+  from path_v_xs_v'_restr_V path_v'_ys_v'_restr_V vs_concat ys_notempty
+  show ?thesis
+    using lasso_from_node'_def cycle_node_def by metis
 qed
 
-lemma cycle_from_node_inter_1: "cycle_from_node (E1 \<inter> E2) v vs \<Longrightarrow> cycle_from_node E1 v vs"
-  proof -
-    assume "cycle_from_node (E1 \<inter> E2) v vs"
-    moreover have "(E1 \<inter> E2) \<subseteq> E1" by fast
-    ultimately show "cycle_from_node E1 v vs" using subgraph_cycle_from_node by metis
-  qed
+lemma path_inter:
+  "path (E \<inter> E') v vs v' \<Longrightarrow> path E v vs v'"
+  "path (E \<inter> E') v vs v' \<Longrightarrow> path E' v vs v'"
+  using inf_sup_ord(1,2)[of E E'] subgraph_path[of "E\<inter>E'"] by fast+
 
-lemma cycle_from_node_inter_2: "cycle_from_node (E1 \<inter> E2) v vs \<Longrightarrow> cycle_from_node E2 v vs"
-  proof -
-    assume "cycle_from_node (E1 \<inter> E2) v vs"
-    moreover have "(E1 \<inter> E2) \<subseteq> E2" by fast
-    ultimately show "cycle_from_node E2 v vs" using subgraph_cycle_from_node by metis
-  qed
+lemma cycle_inter:
+  "cycle_node (E \<inter> E') v vs \<Longrightarrow> cycle_node E v vs"
+  "cycle_node (E \<inter> E') v vs \<Longrightarrow> cycle_node E' v vs"
+  using inf_sup_ord(1,2)[of E E'] subgraph_cycle[of "E\<inter>E'"] by fast+
+
+lemma cycle_from_node_inter:
+  "cycle_from_node (E \<inter> E') v vs \<Longrightarrow> cycle_from_node E v vs"
+  "cycle_from_node (E \<inter> E') v vs \<Longrightarrow> cycle_from_node E' v vs"
+  using inf_sup_ord(1,2)[of E E'] subgraph_cycle_from_node[of "E\<inter>E'"] by fast+
+
+lemma lasso_from_node_inter:
+  "lasso_from_node (E \<inter> E') x xs ys \<Longrightarrow> lasso_from_node E x xs ys"
+  "lasso_from_node (E \<inter> E') x xs ys \<Longrightarrow> lasso_from_node E' x xs ys"
+  using inf_sup_ord(1,2)[of E E'] subgraph_lasso[of "E\<inter>E'"] by fast+
+
+lemma lasso_from_node'_inter:
+  "lasso_from_node' (E \<inter> E') v vs \<Longrightarrow> lasso_from_node' E v vs"
+  "lasso_from_node' (E \<inter> E') v vs \<Longrightarrow> lasso_from_node' E' v vs"
+  using inf_sup_ord(1,2)[of E E'] subgraph_lasso'[of "E\<inter>E'"] by fast+
 
 section \<open>Parity Game Definitions\<close>
 
 subsection \<open>Strategies\<close>
-locale arena_defs = finite_graph_V +
+locale arena_defs = finite_graph_V_Succ +
   fixes V\<^sub>0 :: "'v set"
   fixes prio :: "'v \<Rightarrow> nat"
   assumes V\<^sub>0_in_V: "V\<^sub>0 \<subseteq> V"
@@ -817,21 +814,12 @@ begin
     qed
   qed
 
-  lemma ind_subgraph_is_finite_graph: "strategy_of V\<^sub>\<alpha> \<sigma> \<Longrightarrow> finite_graph_V (induced_by_strategy (dom \<sigma>) \<sigma>) (induced_by_strategy_V (dom \<sigma>) \<sigma>)"
+  lemma ind_subgraph_is_finite_graph: "strategy_of V\<^sub>\<alpha> \<sigma> \<Longrightarrow> finite_graph_V_Succ (induced_by_strategy (dom \<sigma>) \<sigma>) (induced_by_strategy_V (dom \<sigma>) \<sigma>)"
     apply (unfold_locales)
     subgoal unfolding induced_by_strategy_V_def by force
     subgoal by simp
     subgoal using incomplete_ind_subgraph_succ by simp
     done
-
-  (** These names are getting very verbose *)
-  lemma incomplete_ind_subgraph_always_has_cycle_from_node: "\<lbrakk>strategy_of V\<^sub>\<alpha> \<sigma>; v \<in> induced_by_strategy_V (dom \<sigma>) \<sigma>\<rbrakk>
-    \<Longrightarrow> \<exists>xs. cycle_from_node (induced_by_strategy (dom \<sigma>) \<sigma>) v xs"
-    using ind_subgraph_is_finite_graph finite_graph_V.finite_graph_always_has_cycle_from_node
-    by fast
-
-  lemma ind_subgraph_retain_path_notin_dom: "path E v vs v' \<Longrightarrow> set vs \<inter> dom \<sigma> = {} \<Longrightarrow> path (induced_by_strategy (dom \<sigma>) \<sigma>) v vs v'"
-    using ind_subgraph_not_in_dom by (induction vs arbitrary: v; simp) meson
 end
 
 subsection \<open>Attractors\<close>
@@ -1471,11 +1459,11 @@ context player_arena begin
       qed
       subgoal by (rule V\<^sub>0_in_V)
       done
-    from Ginter.finite_graph_always_has_cycle_from_node[OF \<open>v\<in>V\<close>] Ginter.succ \<open>v\<in>V\<close>
+    from Ginter.cycle_always_exists[OF \<open>v\<in>V\<close>] Ginter.succ \<open>v\<in>V\<close>
     obtain xs where xs: "cycle_from_node (G\<sigma> \<inter> G\<sigma>') v xs" by blast
-    moreover from xs have "cycle_from_node G\<sigma> v xs" using cycle_from_node_inter_1 by fastforce
+    moreover from xs have "cycle_from_node G\<sigma> v xs" using cycle_from_node_inter(1) by fastforce
     with \<sigma>_win have "winningP (top_priority xs)" by blast
-    moreover from xs have "cycle_from_node G\<sigma>' v xs" using cycle_from_node_inter_2 by fastforce
+    moreover from xs have "cycle_from_node G\<sigma>' v xs" using cycle_from_node_inter(2) by fastforce
     ultimately show "\<exists>xs. cycle_from_node (G\<sigma>') v xs \<and> winning_player xs" by blast
   qed
 
@@ -1511,12 +1499,12 @@ proof -
 
 qed
 
-context finite_graph_V begin
+context finite_graph_V_Succ begin
   lemma restrict_graph:
     assumes "V' \<subseteq> V"
     assumes "E' \<subseteq> ((E\<union>Id) \<inter> V'\<times>V')"
     assumes succ: "\<And>v. v\<in>V' \<Longrightarrow> E'``{v}\<noteq>{}"
-    shows "finite_graph_V E' V'"
+    shows "finite_graph_V_Succ E' V'"
     using assms apply unfold_locales
     by (auto dest: finite_subset)
 
