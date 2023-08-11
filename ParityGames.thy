@@ -665,6 +665,16 @@ begin
       induced_subgraph (dom \<sigma>') \<sigma>'"
     unfolding induced_subgraph_def E_of_strat_def by auto
 
+  (** If you add two strategies, any edge that does not start in one of their domains exists in
+      the induced subgraph of the other strategy *)
+  lemma ind_subgraph_add_notin_dom:
+    "\<lbrakk>(v,v')\<in>induced_subgraph (dom (\<sigma> ++ \<sigma>')) (\<sigma> ++ \<sigma>'); v \<notin> dom \<sigma>'\<rbrakk>
+      \<Longrightarrow> (v,v') \<in> induced_subgraph (dom \<sigma>) \<sigma>"
+    "\<lbrakk>(v,v')\<in>induced_subgraph (dom (\<sigma> ++ \<sigma>')) (\<sigma> ++ \<sigma>'); v \<notin> dom \<sigma>\<rbrakk>
+      \<Longrightarrow> (v,v') \<in> induced_subgraph (dom \<sigma>') \<sigma>'"
+    unfolding induced_subgraph_def E_of_strat_def
+    using map_add_dom_app_simps by auto
+
   (** Paths that exist in an induced subgraph also exist in the whole graph. Shorthand for an
       existing combination of lemmas *)
   lemma ind_subgraph_path: "path (induced_subgraph V\<^sub>\<alpha> \<sigma>) v xs v' \<Longrightarrow> path E v xs v'"
@@ -1442,8 +1452,9 @@ context paritygame begin
 
   (** If a player's winning region is non-empty, it is not a winning region for their opponent *)
   lemma nonempty_winning_region_not_winning_for_opponent:
-    "\<lbrakk>W \<noteq> {}; winning_region \<alpha> W\<rbrakk> \<Longrightarrow> \<not>winning_region (opponent \<alpha>) W"
-    using P0.nonempty_winning_region_exclusive P1.nonempty_winning_region_exclusive
+    assumes "W \<noteq> {}"
+    shows "winning_region \<alpha> W \<Longrightarrow> \<not>winning_region (opponent \<alpha>) W"
+    using assms P0.nonempty_winning_region_exclusive P1.nonempty_winning_region_exclusive
     by (cases \<alpha>) auto
 
   (** A node cannot be won by a player and their opponent at the same time. *)
@@ -1490,16 +1501,15 @@ context paritygame begin
     from \<sigma>_strat \<sigma>'_strat have \<tau>_strat: "strategy_of ?V\<^sub>\<alpha> ?\<tau>" by simp
 
     (** The domain of \<tau> is all of the player's vertices in X *)
-    from \<sigma>_dom \<sigma>'_dom W_in_X have \<tau>_dom: "dom ?\<tau> = ?V\<^sub>\<alpha> \<inter> X"
-      unfolding strategy_of_def by auto
+    from \<sigma>_dom \<sigma>'_dom W_in_X have \<tau>_dom: "dom ?\<tau> = ?V\<^sub>\<alpha> \<inter> X" by auto
 
     (** The range of \<tau> is in X *)
     from \<sigma>_ran \<sigma>'_ran W_in_X have \<tau>_ran: "ran ?\<tau> \<subseteq> X"
-      unfolding X_def using ran_map_add[OF \<tau>_doms_disj] by simp
+      using ran_map_add[OF \<tau>_doms_disj] by simp
 
     (** The subgame of \<tau> is closed in W *)
-    from \<sigma>'_closed \<tau>_strat \<tau>_doms_disj have \<tau>_closed_W: "?\<tau>_subgame `` W \<subseteq> W"
-      unfolding induced_subgraph_def strategy_of_def E_of_strat_def by auto
+    from \<sigma>'_closed have \<tau>_closed_W: "?\<tau>_subgame `` W \<subseteq> W"
+      unfolding induced_subgraph_def E_of_strat_def by auto
 
     (** The subgame of \<tau> is closed in X *)
     have "\<forall>v\<in>X. \<forall>v'. (v,v')\<in>?\<tau>_subgame \<longrightarrow> v'\<in>X"
@@ -1511,25 +1521,10 @@ context paritygame begin
         case in_W with W_in_X edge_in_subgame \<tau>_closed_W show ?thesis by fast
       next
         case in_X_min_W
-        from edge_in_subgame have edge_in_game: "(v,v')\<in>E" using ind_subgraph by blast
-        hence "v\<in>V" using E_in_V by blast
-        then consider (player) "v\<in>?V\<^sub>\<alpha>" | (opp) "v\<in>V_player (opponent \<alpha>)"
-          by (cases \<alpha>; simp add: V\<^sub>1_def) blast+
-        hence "(v,v')\<in>induced_subgraph ?V\<^sub>\<alpha> \<sigma>" proof cases
-          case player
-          from player \<tau>_dom in_X_min_W have v_in_dom_\<tau>: "v\<in>dom ?\<tau>" by simp
-          with player \<sigma>'_dom in_X_min_W have v_in_dom_\<sigma>: "v\<in>dom \<sigma>" by simp
-          with \<tau>_doms_disj have v_notin_dom_\<sigma>': "v\<notin>dom \<sigma>'" by fast
-
-          from ind_subgraph_to_strategy[OF edge_in_subgame v_in_dom_\<tau>] v_notin_dom_\<sigma>'
-          have "\<sigma> v = Some v'" by blast
-
-          from strategy_to_ind_subgraph[of \<sigma> v v', OF this edge_in_game]
-          show ?thesis by simp
-        next
-          case opp with edge_in_game show ?thesis
-            using ind_subgraph_notin_dom by (cases \<alpha>; simp add: V\<^sub>1_def)
-        qed
+        with \<sigma>'_dom have v_notin_\<sigma>': "v \<notin> dom \<sigma>'" by simp
+        from in_X_min_W \<sigma>_dom have  "(v,v')\<in>induced_subgraph ?V\<^sub>\<alpha> \<sigma>"
+          using ind_subgraph_add_notin_dom(1)[OF edge_in_subgame v_notin_\<sigma>']
+          unfolding induced_subgraph_def by simp
         with in_X_min_W \<sigma>_closed show ?thesis by blast
       qed
     qed
@@ -1740,11 +1735,10 @@ context paritygame begin
       from cycle_from_node_closed_set[OF w_in_W this cycle_w_ys]
       have ys_in_W: "set ys \<subseteq> W" .
 
-      from cycle_w_ys obtain w' where
-        path_w'_ys_w': "path ?\<sigma>_subgraph w' ys w'"
-        using cycle_from_node_paths[of ?\<sigma>_subgraph] by auto
-      from ys_in_W path_w'_ys_w' have w'_in_W: "w'\<in>W"
-        using origin_in_path ys_notempty by fast
+      from cycle_w_ys ys_in_W obtain w' where
+        path_w'_ys_w': "path ?\<sigma>_subgraph w' ys w'" and
+        w'_in_W: "w'\<in>W"
+        using cycle_from_node_paths[of ?\<sigma>_subgraph] origin_in_path by fastforce
 
       have "?\<sigma>_subgraph \<inter> W\<times>W \<subseteq> subgame.induced_subgraph (dom \<sigma>) \<sigma>"
         using ind_subgraph_restr_subarena[OF subgame.arena_axioms, of "dom \<sigma>" "dom \<sigma>" \<sigma>]
@@ -2400,12 +2394,12 @@ qed (** maximal_winning_regions *)
 
 context paritygame begin
 (** The nonempty winning regions for EVEN and ODD are disjoint; they cannot be winning for both *)
-lemma nonempty_winning_regions_disjoint:
+theorem nonempty_winning_regions_disjoint:
   assumes "W \<noteq> {}"
   shows "\<not>(winning_region EVEN W \<and> winning_region ODD W)"
   using assms nonempty_winning_region_not_winning_for_opponent opponent.simps by metis
 
-(** All nodes are won by one of the two player *)
+(** All nodes are won by one of the two players *)
 lemma all_v_won:
   assumes "v\<in>V"
   shows "won_by EVEN v \<or> won_by ODD v"
@@ -2416,7 +2410,8 @@ lemma all_v_won:
 lemma v_won_by_one_player: "\<not>(won_by EVEN v \<and> won_by ODD v)"
   using won_by_player_not_won_by_opponent by fastforce
 
-lemma v_won_by_disjoint:
+(** Nodes are always won won exclusively by one of the two players *)
+theorem v_won_by_disjoint:
   assumes "v\<in>V"
   shows "won_by EVEN v \<noteq> won_by ODD v"
   using assms all_v_won v_won_by_one_player by blast
