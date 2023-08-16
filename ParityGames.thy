@@ -1,14 +1,19 @@
-chapter \<open>Parity Games\<close>
 theory ParityGames
 imports Main
 begin
-
+chapter \<open>Parity Games\<close>
 (** This section contains all definitions of graph-related concepts that are not specific to parity
     games *)
 section \<open>Graph Definitions\<close>
 subsection \<open>Directed Graphs\<close>
 (** We represent a graph as a set of directed edges *)
 type_synonym 'v dgraph = "'v rel"
+
+abbreviation EV :: "'v dgraph \<Rightarrow> 'v set" where
+  "EV E \<equiv> fst ` E \<union> snd ` E"
+
+definition strongly_connected :: "'v dgraph \<Rightarrow> bool" where
+  "strongly_connected E \<equiv> \<forall>v \<in> EV E. \<forall>v' \<in> EV E. (v,v') \<in> E\<^sup>* \<and> (v',v) \<in> E\<^sup>*"
 
 subsection \<open>Paths and cycles\<close>
 context
@@ -35,7 +40,7 @@ begin
     using rtrancl_is_path path_is_rtrancl by auto
 
   (** The nodes in the path are in the graph *)
-  lemma path_in_E: "path v xs v' \<Longrightarrow> set xs \<subseteq> fst ` E \<union> snd ` E"
+  lemma path_in_E: "path v xs v' \<Longrightarrow> set xs \<subseteq> EV E"
   proof (induction xs arbitrary: v)
     case Nil thus ?case by simp
   next
@@ -115,7 +120,7 @@ begin
     unfolding cycle_node_def using origin_in_path by blast
 
   (** The nodes in a cycle exist in the graph *)
-  lemma cycle_node_in_E: "cycle_node x xs \<Longrightarrow> set xs \<subseteq> fst ` E \<union> snd ` E"
+  lemma cycle_node_in_E: "cycle_node x xs \<Longrightarrow> set xs \<subseteq> EV E"
     unfolding cycle_node_def using path_in_E by blast
 
   (** If a cycle is in a closed region of a graph, its nodes are all in that region *)
@@ -134,7 +139,7 @@ begin
     unfolding cycle_from_node_def by auto
 
   (** The nodes in a cycle are in the graph *)
-  lemma cycle_from_node_in_E: "cycle_from_node v ys \<Longrightarrow> set ys \<subseteq> fst ` E \<union> snd ` E"
+  lemma cycle_from_node_in_E: "cycle_from_node v ys \<Longrightarrow> set ys \<subseteq> EV E"
     unfolding cycle_from_node_def
     using path_in_E cycle_node_in_E by blast
 
@@ -173,7 +178,7 @@ begin
 
   (** The nodes in the lasso are in the graph *)
   lemma lasso_from_node_in_E: "lasso_from_node x xs ys
-    \<Longrightarrow> set xs \<subseteq> (fst ` E \<union> snd ` E) \<and> set ys \<subseteq> (fst ` E \<union> snd ` E)"
+    \<Longrightarrow> set xs \<subseteq> (EV E) \<and> set ys \<subseteq> (EV E)"
     unfolding lasso_from_node_def
     using path_in_E cycle_node_in_E by force
 
@@ -225,7 +230,7 @@ begin
     by force
 
   (** The nodes in a lasso are in the graph *)
-  lemma lasso_from_node'_in_E: "lasso_from_node' x vs \<Longrightarrow> set vs \<subseteq> (fst ` E \<union> snd ` E)"
+  lemma lasso_from_node'_in_E: "lasso_from_node' x vs \<Longrightarrow> set vs \<subseteq> (EV E)"
     unfolding lasso_from_node'_def cycle_node_def
     using path_append path_in_E by blast
 
@@ -768,6 +773,9 @@ locale paritygame = arena E V V\<^sub>0
   for E V and V\<^sub>0 :: "'v set" +
   fixes prio :: "'v \<Rightarrow> nat"
 begin
+  definition top_priority_region :: "'v set \<Rightarrow> nat" where
+    "top_priority_region R \<equiv> MAX v \<in> R. prio v"
+
   definition top_priority :: "'v list \<Rightarrow> nat" where
     "top_priority xs \<equiv> MAX v \<in> set xs. prio v"
 end
@@ -841,26 +849,26 @@ begin
 
 subsection \<open>Attractors\<close>
   (** A maximal attractor for a target set *)
-  inductive_set attractor :: "'v set \<Rightarrow> 'v set" for X where
-    base: "x \<in> X \<Longrightarrow> x \<in> attractor X"
-  | own: "\<lbrakk> x \<in> V\<^sub>\<alpha>-X; (x,y)\<in>E; y\<in>attractor X \<rbrakk> \<Longrightarrow> x \<in> attractor X"
-  | opponent: "\<lbrakk> x\<in>V\<^sub>\<beta>-X; \<forall>y. (x,y)\<in>E \<longrightarrow> y\<in>attractor X \<rbrakk> \<Longrightarrow> x \<in> attractor X"
+  inductive_set player_attractor :: "'v set \<Rightarrow> 'v set" for X where
+    base: "x \<in> X \<Longrightarrow> x \<in> player_attractor X"
+  | own: "\<lbrakk> x \<in> V\<^sub>\<alpha>-X; (x,y)\<in>E; y\<in>player_attractor X \<rbrakk> \<Longrightarrow> x \<in> player_attractor X"
+  | opponent: "\<lbrakk> x\<in>V\<^sub>\<beta>-X; \<forall>y. (x,y)\<in>E \<longrightarrow> y\<in>player_attractor X \<rbrakk> \<Longrightarrow> x \<in> player_attractor X"
 
   (** The target set X is a subset of its maximal attractor *)
-  lemma attractor_subset[simp]: "X \<subseteq> attractor X"
+  lemma player_attractor_subset[simp]: "X \<subseteq> player_attractor X"
     by (auto intro: base)
 
   (** Every node not part of the maximal attractor still has at least one successor *)
-  lemma notin_attractor_succ: "\<lbrakk>v\<in>V; v \<notin> attractor X\<rbrakk> \<Longrightarrow> E `` {v} - attractor X \<noteq> {}"
-    using attractor.simps succ V\<^sub>\<alpha>_subset by fast
+  lemma notin_player_attractor_succ: "\<lbrakk>v\<in>V; v \<notin> player_attractor X\<rbrakk> \<Longrightarrow> E `` {v} - player_attractor X \<noteq> {}"
+    using player_attractor.simps succ V\<^sub>\<alpha>_subset by fast
 
   (** A player's attractor is maximal; no player nodes have a successor in the attractor *)
-  lemma player_attractor_max: "\<lbrakk>v\<in>V\<^sub>\<alpha>; v \<notin> attractor X\<rbrakk> \<Longrightarrow> \<forall>w \<in> E `` {v}. w \<notin> attractor X"
-    using attractor.simps by fast
+  lemma player_attractor_max_player: "\<lbrakk>v\<in>V\<^sub>\<alpha>; v \<notin> player_attractor X\<rbrakk> \<Longrightarrow> \<forall>w \<in> E `` {v}. w \<notin> player_attractor X"
+    using player_attractor.simps by fast
 
   (** An opponent's attractor is maximal: no opponent nodes have a successor in the attractor *)
-  lemma opponent_attractor_max: "\<lbrakk>v\<in>V\<^sub>\<beta>; v \<notin> attractor X\<rbrakk> \<Longrightarrow> \<exists>w \<in> E `` {v}. w \<notin> attractor X"
-    using attractor.simps by fast
+  lemma player_attractor_max_opponent: "\<lbrakk>v\<in>V\<^sub>\<beta>; v \<notin> player_attractor X\<rbrakk> \<Longrightarrow> \<exists>w \<in> E `` {v}. w \<notin> player_attractor X"
+    using player_attractor.simps by fast
 
   context
     fixes X :: "'v set"
@@ -883,13 +891,13 @@ subsection \<open>Attractors\<close>
       using nodes_in_rank.simps(1) nodes_in_rank_mono by blast
 
     (** nodes_in_rank is a subset of the maximal attractor *)
-    lemma nodes_in_rank_ss_attractor: "nodes_in_rank n \<subseteq> attractor X"
+    lemma nodes_in_rank_ss_player_attractor: "nodes_in_rank n \<subseteq> player_attractor X"
       apply (induction n)
-      by (auto intro: attractor.intros)
+      by (auto intro: player_attractor.intros)
 
     (** There is a rank that contains all nodes in the maximal attractor *)
-    lemma attractor_ss_nodes_in_rank: "x\<in>attractor X \<Longrightarrow> (\<exists>n. x\<in>nodes_in_rank n)"
-    proof (induction rule: attractor.induct)
+    lemma player_attractor_ss_nodes_in_rank: "x\<in>player_attractor X \<Longrightarrow> (\<exists>n. x\<in>nodes_in_rank n)"
+    proof (induction rule: player_attractor.induct)
       case (base x) thus ?case by (auto intro: exI[where x=0])
     next
       case (own x y) thus ?case
@@ -915,8 +923,8 @@ subsection \<open>Attractors\<close>
     qed
 
     (** The maximal attractor is the union of all ranks *)
-    lemma attractor_eq_nodes_in_rank: "attractor X = \<Union>(nodes_in_rank`UNIV)"
-      using attractor_ss_nodes_in_rank nodes_in_rank_ss_attractor by auto
+    lemma player_attractor_eq_nodes_in_rank: "player_attractor X = \<Union>(nodes_in_rank`UNIV)"
+      using player_attractor_ss_nodes_in_rank nodes_in_rank_ss_player_attractor by auto
 
     (** All edges in a rank n lead to at most the same rank *)
     lemma nodes_in_rank_edges_same: "\<lbrakk>x \<in> nodes_in_rank n; x \<notin> X; (x, y) \<in> E; x \<notin> V\<^sub>\<alpha>\<rbrakk> \<Longrightarrow> y \<in> nodes_in_rank n"
@@ -1105,8 +1113,8 @@ subsection \<open>Attractors\<close>
     using fin_V finite_Un[of X V] finite_subset[OF nodes_in_rank_ss, of X n] by simp
 
   (** The maximal attractor is a subset of all of the target set in V *)
-  lemma attractor_ss: "attractor X \<subseteq> X \<union> V"
-    using attractor_ss_nodes_in_rank nodes_in_rank_ss by blast
+  lemma player_attractor_ss: "player_attractor X \<subseteq> X \<union> V"
+    using player_attractor_ss_nodes_in_rank nodes_in_rank_ss by blast
 
   lemma finite_union_nat_range_bound:
     fixes f :: "nat \<Rightarrow> 'a set"
@@ -1130,35 +1138,35 @@ subsection \<open>Attractors\<close>
   qed
 
   (** The attractor minus its target set is always finite *)
-  lemma finite_attractor: "finite (attractor X - X)"
-    using attractor_ss[of X] Diff_subset_conv[of "attractor X" X V] rev_finite_subset[OF fin_V]
+  lemma finite_player_attractor: "finite (player_attractor X - X)"
+    using player_attractor_ss[of X] Diff_subset_conv[of "player_attractor X" X V] rev_finite_subset[OF fin_V]
     by simp
 
   (** There exists a maximum rank that is equal to the maximal attractor *)
-  lemma attractor_max_rank_eq: "\<exists>n. attractor X = nodes_in_rank X n"
+  lemma player_attractor_max_rank_eq: "\<exists>n. player_attractor X = nodes_in_rank X n"
   proof -
     have 1: "\<Union>(range (nodes_in_rank X)) - X = \<Union>(range (\<lambda>x. nodes_in_rank X x - X))" by auto
 
-    have "\<exists>n. attractor X - X = nodes_in_rank X n - X"
-      using finite_attractor
-      unfolding attractor_eq_nodes_in_rank
+    have "\<exists>n. player_attractor X - X = nodes_in_rank X n - X"
+      using finite_player_attractor
+      unfolding player_attractor_eq_nodes_in_rank
       apply (subst 1)
       apply (rule finite_union_nat_range_bound)
       apply simp
       by (simp add: Diff_mono nodes_in_rank_mono)
 
     thus ?thesis
-      using attractor_subset[of X] nodes_in_rank_subset[of X] Diff_partition[of X "attractor X"]
+      using player_attractor_subset[of X] nodes_in_rank_subset[of X] Diff_partition[of X "player_attractor X"]
       by blast
   qed
 
   (** There exists a strategy for the maximal attractor that forces all plays in it to go to X *)
-  lemma attractor_attracts: "\<exists>\<sigma>. strategy_of V\<^sub>\<alpha> \<sigma> \<and> dom \<sigma> = (attractor X - X) \<inter> V\<^sub>\<alpha> \<and> ran \<sigma> \<subseteq> attractor X \<and>
-    (\<forall>v\<in>attractor X - X. \<forall>v'. (v,v') \<in> (induced_subgraph V\<^sub>\<alpha> \<sigma>) \<longrightarrow> v' \<in> attractor X) \<and>
-    (\<forall>v\<in>attractor X. \<forall>xs. lasso_from_node' (induced_subgraph V\<^sub>\<alpha> \<sigma>) v xs \<longrightarrow> set xs \<inter> X \<noteq> {})"
+  lemma player_attractor_attracts: "\<exists>\<sigma>. strategy_of V\<^sub>\<alpha> \<sigma> \<and> dom \<sigma> = (player_attractor X - X) \<inter> V\<^sub>\<alpha> \<and> ran \<sigma> \<subseteq> player_attractor X \<and>
+    (\<forall>v\<in>player_attractor X - X. \<forall>v'. (v,v') \<in> (induced_subgraph V\<^sub>\<alpha> \<sigma>) \<longrightarrow> v' \<in> player_attractor X) \<and>
+    (\<forall>v\<in>player_attractor X. \<forall>xs. lasso_from_node' (induced_subgraph V\<^sub>\<alpha> \<sigma>) v xs \<longrightarrow> set xs \<inter> X \<noteq> {})"
   proof -
-    obtain n where attr_x_rank_n: "attractor X = nodes_in_rank X n"
-      using attractor_max_rank_eq by blast
+    obtain n where attr_x_rank_n: "player_attractor X = nodes_in_rank X n"
+      using player_attractor_max_rank_eq by blast
 
     from nodes_in_rank_forces_X[of X n] obtain \<sigma> where
       strat_\<sigma>: "strategy_of V\<^sub>\<alpha> \<sigma>" and
@@ -1171,18 +1179,18 @@ subsection \<open>Attractors\<close>
     show ?thesis
     proof (rule exI[where x=\<sigma>]; intro conjI ballI impI allI)
       show "strategy_of V\<^sub>\<alpha> \<sigma>" by fact
-      from dom_\<sigma> attr_x_rank_n show "dom \<sigma> = (attractor X - X) \<inter> V\<^sub>\<alpha>" by simp
-      from ran_\<sigma> attr_x_rank_n show "ran \<sigma> \<subseteq> attractor X" by simp
+      from dom_\<sigma> attr_x_rank_n show "dom \<sigma> = (player_attractor X - X) \<inter> V\<^sub>\<alpha>" by simp
+      from ran_\<sigma> attr_x_rank_n show "ran \<sigma> \<subseteq> player_attractor X" by simp
 
       fix v v'
-      assume v_in_attr_min_X: "v \<in> attractor X - X" and
+      assume v_in_attr_min_X: "v \<in> player_attractor X - X" and
              edge_in_subgame: "(v,v') \<in> induced_subgraph V\<^sub>\<alpha> \<sigma>"
-      with closed_\<sigma> show "v' \<in> attractor X"
+      with closed_\<sigma> show "v' \<in> player_attractor X"
         using attr_x_rank_n by fastforce
 
     next
       fix v xs
-      assume v_in_attr: "v \<in> attractor X"
+      assume v_in_attr: "v \<in> player_attractor X"
          and lasso_v_xs: "lasso_from_node' (induced_subgraph V\<^sub>\<alpha> \<sigma>) v xs"
 
       from v_in_attr attr_x_rank_n have v_in_rank_n: "v \<in> nodes_in_rank X n" by simp
@@ -1212,18 +1220,18 @@ context player_paritygame begin
   (** A winning region is a region in the graph where one player has a strategy that makes it
       closed, and where every cycle reachable from every node in that region is won by that
       player *)
-  definition winning_region :: "'v set \<Rightarrow> bool" where
-    "winning_region W \<equiv> (W\<subseteq>V \<and> (\<exists>\<sigma>. strategy_of V\<^sub>\<alpha> \<sigma> \<and> dom \<sigma> = V\<^sub>\<alpha> \<inter> W \<and> ran \<sigma> \<subseteq> W \<and>
+  definition player_winning_region :: "'v set \<Rightarrow> bool" where
+    "player_winning_region W \<equiv> (W\<subseteq>V \<and> (\<exists>\<sigma>. strategy_of V\<^sub>\<alpha> \<sigma> \<and> dom \<sigma> = V\<^sub>\<alpha> \<inter> W \<and> ran \<sigma> \<subseteq> W \<and>
     (\<forall>v\<in>W. \<forall>xs. cycle_from_node (induced_subgraph (dom \<sigma>) \<sigma>) v xs \<longrightarrow> winning_player xs) \<and>
     (\<forall>v\<in>W. v \<in> V\<^sub>\<beta> \<longrightarrow> E `` {v} \<subseteq> W)))"
 
-  lemma winning_region_empty[simp]: "winning_region {}"
-    unfolding winning_region_def strategy_of_def E_of_strat_def
+  lemma player_winning_region_empty[simp]: "player_winning_region {}"
+    unfolding player_winning_region_def strategy_of_def E_of_strat_def
     by auto
 
   (** The winning region exists in the graph *)
-  lemma winning_region_in_V: "winning_region W \<Longrightarrow> W\<subseteq>V"
-    unfolding winning_region_def by simp
+  lemma player_winning_region_in_V: "player_winning_region W \<Longrightarrow> W\<subseteq>V"
+    unfolding player_winning_region_def by simp
 
   (** This definition exists for symmetry *)
   definition losing_region :: "'v set \<Rightarrow> bool" where
@@ -1259,8 +1267,8 @@ context player_paritygame begin
     unfolding won_by_opponent_def by simp
 
   (** Every node in a winning region for a player is won by that player *)
-  lemma winning_region_won_by_player: "winning_region W \<Longrightarrow> \<forall>w\<in>W. won_by_player w"
-    unfolding winning_region_def won_by_player_def by blast
+  lemma player_winning_region_won_by_player: "player_winning_region W \<Longrightarrow> \<forall>w\<in>W. won_by_player w"
+    unfolding player_winning_region_def won_by_player_def by blast
 
   (** Every node in a losing region for a player is won by their opponent *)
   lemma losing_region_won_by_opponent: "losing_region W \<Longrightarrow> \<forall>w\<in>W. won_by_opponent w"
@@ -1294,13 +1302,13 @@ context player_paritygame begin
 
   (** If a winning region is not empty, it cannot also be a losing region.
       Empty regions are technically won by both players. *)
-  lemma nonempty_winning_region_exclusive:
+  lemma nonempty_player_winning_region_exclusive:
     assumes "W \<noteq> {}"
-    shows "winning_region W \<Longrightarrow> \<not>losing_region W"
+    shows "player_winning_region W \<Longrightarrow> \<not>losing_region W"
   proof -
-    assume "winning_region W"
+    assume "player_winning_region W"
     with assms obtain w where "w \<in> W" "won_by_player w"
-      using winning_region_won_by_player by fast
+      using player_winning_region_won_by_player by fast
     hence "\<not>won_by_opponent w" using winning_v_exclusive by simp
     from \<open>w\<in>W\<close> \<open>\<not>won_by_opponent w\<close> show "\<not>losing_region W"
       using losing_region_won_by_opponent by blast
@@ -1360,51 +1368,51 @@ context paritygame begin
   subsubsection\<open>Attractors for Players\<close>
   (** Specifies attractors for the players *)
   fun attractor where
-    "attractor EVEN = P0.attractor"
-  | "attractor ODD = P1.attractor"
+    "attractor EVEN = P0.player_attractor"
+  | "attractor ODD = P1.player_attractor"
 
   (** The target set X is a subset of an attractor *)
   lemma attractor_subset: "X \<subseteq> attractor \<alpha> X"
-    using P0.attractor_subset P1.attractor_subset by (cases \<alpha>) auto
+    using P0.player_attractor_subset P1.player_attractor_subset by (cases \<alpha>) auto
 
   (** If the target set is part of the graph, so is the attractor *)
   lemma attractor_subset_graph: "X \<subseteq> V \<Longrightarrow> attractor \<alpha> X \<subseteq> V"
-    using P0.attractor_ss P1.attractor_ss by (cases \<alpha>; simp) blast+
+    using P0.player_attractor_ss P1.player_attractor_ss by (cases \<alpha>; simp) blast+
 
   (** If a node is not in the attractor, then they have a successor in the graph with the attractor
       removed from it *)
   lemma notin_attractor_succ: "\<lbrakk>v \<in> V ; v \<notin> attractor \<alpha> X\<rbrakk> \<Longrightarrow> E `` {v} - attractor \<alpha> X \<noteq> {}"
-    using P0.notin_attractor_succ P1.notin_attractor_succ by (cases \<alpha>) auto
+    using P0.notin_player_attractor_succ P1.notin_player_attractor_succ by (cases \<alpha>) auto
 
   (** The attractor is maximal for the player; all player nodes not in the attractor have no successors
       in it *)
-  lemma player_attractor_max: "\<lbrakk>v \<in> V_player \<alpha>; v \<notin> attractor \<alpha> X\<rbrakk> \<Longrightarrow> \<forall>w \<in> E `` {v}. w \<notin> attractor \<alpha> X"
-    using P0.player_attractor_max P1.player_attractor_max by (cases \<alpha>) auto
+  lemma attractor_max_player: "\<lbrakk>v \<in> V_player \<alpha>; v \<notin> attractor \<alpha> X\<rbrakk> \<Longrightarrow> \<forall>w \<in> E `` {v}. w \<notin> attractor \<alpha> X"
+    using P0.player_attractor_max_player P1.player_attractor_max_player by (cases \<alpha>) auto
 
   (** The attractor is maximal for the opponent: all opponent nodes not in the attractor have at least
       one successor that is also not in the attractor *)
-  lemma opponent_attractor_max: "\<lbrakk>v \<in> V_opponent \<alpha>; v \<notin> attractor \<alpha> X\<rbrakk> \<Longrightarrow> \<exists>w \<in> E `` {v}. w \<notin> attractor \<alpha> X"
-    using P0.opponent_attractor_max P1.opponent_attractor_max V\<^sub>1_def V\<^sub>0_in_V by (cases \<alpha>) auto
+  lemma attractor_max_opponent: "\<lbrakk>v \<in> V_opponent \<alpha>; v \<notin> attractor \<alpha> X\<rbrakk> \<Longrightarrow> \<exists>w \<in> E `` {v}. w \<notin> attractor \<alpha> X"
+    using P0.player_attractor_max_opponent P1.player_attractor_max_opponent V\<^sub>1_def V\<^sub>0_in_V by (cases \<alpha>) auto
 
   (** The player has a strategy that forces all plays in the attractor to move to the target *)
   lemma attractor_attracts: "\<exists>\<sigma>. strategy_of (V_player \<alpha>) \<sigma> \<and>
       dom \<sigma> = (attractor \<alpha> X - X) \<inter> V_player \<alpha> \<and> ran \<sigma> \<subseteq> attractor \<alpha> X \<and>
       (\<forall>v\<in>attractor \<alpha> X - X. \<forall>v'. (v,v') \<in> induced_subgraph (V_player \<alpha>) \<sigma> \<longrightarrow> v' \<in> attractor \<alpha> X) \<and>
       (\<forall>v\<in>attractor \<alpha> X. \<forall>xs. lasso_from_node' (induced_subgraph (V_player \<alpha>) \<sigma>) v xs \<longrightarrow> set xs \<inter> X \<noteq> {})"
-      using P0.attractor_attracts P1.attractor_attracts by (cases \<alpha>) auto
+      using P0.player_attractor_attracts P1.player_attractor_attracts by (cases \<alpha>) auto
 
   subsubsection \<open>Winning for Players\<close>
   (** Specifies winning regions for the players *)
   fun winning_region where
-    "winning_region EVEN = P0.winning_region"
-  | "winning_region ODD = P1.winning_region"
+    "winning_region EVEN = P0.player_winning_region"
+  | "winning_region ODD = P1.player_winning_region"
 
   lemma winning_region_empty[simp]: "winning_region \<alpha> {}"
     by (cases \<alpha>; simp)
 
   (** A winning region is part of the graph *)
   lemma winning_region_in_V: "winning_region \<alpha> W \<Longrightarrow> W\<subseteq>V"
-    using P0.winning_region_in_V P1.winning_region_in_V by (cases \<alpha>) auto
+    using P0.player_winning_region_in_V P1.player_winning_region_in_V by (cases \<alpha>) auto
 
   (** The player has a strategy under which their winning region is closed and all cycles reachable
       from nodes in the region are won by the player *)
@@ -1412,7 +1420,7 @@ context paritygame begin
     strategy_of (V_player \<alpha>) \<sigma> \<and> dom \<sigma> = V_player \<alpha> \<inter> W \<and> ran \<sigma> \<subseteq> W \<and>
     (\<forall>w\<in>W. \<forall>xs. cycle_from_node (induced_subgraph (dom \<sigma>) \<sigma>) w xs \<longrightarrow> player_winningP \<alpha> (top_priority xs)) \<and>
     (\<forall>v\<in>W. v \<in> V_opponent \<alpha> \<longrightarrow> E `` {v} \<subseteq> W)))"
-    using P0.winning_region_def P1.winning_region_def V\<^sub>1_def V\<^sub>0_opposite_V\<^sub>1 by (cases \<alpha>; simp)
+    using P0.player_winning_region_def P1.player_winning_region_def V\<^sub>1_def V\<^sub>0_opposite_V\<^sub>1 by (cases \<alpha>; simp)
 
   (** A player can win a node *)
   fun won_by where
@@ -1433,9 +1441,9 @@ context paritygame begin
 
   (** The winning and losing regions are symmetrical for the two sublocales *)
   lemma losing_region_simps[simp]:
-    "P1.losing_region = P0.winning_region"
-    "P0.losing_region = P1.winning_region"
-    unfolding P0.losing_region_def P1.losing_region_def P0.winning_region_def P1.winning_region_def
+    "P1.losing_region = P0.player_winning_region"
+    "P0.losing_region = P1.player_winning_region"
+    unfolding P0.losing_region_def P1.losing_region_def P0.player_winning_region_def P1.player_winning_region_def
     unfolding V\<^sub>1_def
     by (auto simp: V_diff_diff_V0)
 
@@ -1448,13 +1456,13 @@ context paritygame begin
 
   (** If a node is in a player's winning region, it is won by that player *)
   lemma winning_region_won_by: "\<lbrakk>winning_region \<alpha> W; v\<in>W\<rbrakk> \<Longrightarrow> won_by \<alpha> v"
-    using P0.winning_region_won_by_player P1.winning_region_won_by_player by (cases \<alpha>) auto
+    using P0.player_winning_region_won_by_player P1.player_winning_region_won_by_player by (cases \<alpha>) auto
 
   (** If a player's winning region is non-empty, it is not a winning region for their opponent *)
   lemma nonempty_winning_region_not_winning_for_opponent:
     assumes "W \<noteq> {}"
     shows "winning_region \<alpha> W \<Longrightarrow> \<not>winning_region (opponent \<alpha>) W"
-    using assms P0.nonempty_winning_region_exclusive P1.nonempty_winning_region_exclusive
+    using assms P0.nonempty_player_winning_region_exclusive P1.nonempty_player_winning_region_exclusive
     by (cases \<alpha>) auto
 
   (** A node cannot be won by a player and their opponent at the same time. *)
@@ -1708,7 +1716,7 @@ context paritygame begin
         proof -
           from edge_in_subgraph have edge_in_E: "(w,w')\<in>E" using ind_subgraph by blast
           moreover from w_in_W W_in_V' have w_notin_A: "w\<notin>A" unfolding V'_def by blast
-          moreover from player_attractor_max[OF w_opp'] w_notin_A edge_in_E
+          moreover from attractor_max_player[OF w_opp'] w_notin_A edge_in_E
           have w'_notin_A: "w'\<notin>A" unfolding V'_def A_def by blast
           ultimately show ?thesis using E'_def E_in_V by auto
         qed
@@ -2385,7 +2393,7 @@ proof -
         thus ?thesis
           apply (cases \<alpha>; simp)
           subgoal by fastforce
-          subgoal using P0.winning_region_empty by blast
+          subgoal using P0.player_winning_region_empty by blast
           done
       qed
     qed
