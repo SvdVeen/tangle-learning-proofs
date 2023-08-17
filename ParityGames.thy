@@ -610,6 +610,10 @@ begin
   lemma ind_subgraph_finite[simp]: "finite (induced_subgraph V\<^sub>\<alpha> \<sigma>)"
     using ind_subgraph fin_E finite_subset by blast
 
+  (** A more specific simplification of the induced subgraph definition *)
+  lemma ind_subgraph_in_V: "induced_subgraph V\<^sub>\<alpha> \<sigma> = E \<inter> ((V-V\<^sub>\<alpha>) \<times> V \<union> E_of_strat \<sigma>)"
+    unfolding induced_subgraph_def using E_in_V by blast
+
   (** The induced subgraph with some domain is a subset of the induced subgraph with a subset of
       that domain *)
   lemma ind_subgraph_anti_mono: "V\<^sub>\<alpha> \<subseteq> V\<^sub>\<alpha>' \<Longrightarrow> induced_subgraph V\<^sub>\<alpha>' \<sigma> \<subseteq> induced_subgraph V\<^sub>\<alpha> \<sigma>"
