@@ -214,11 +214,15 @@ begin
 definition opponent_escapes :: "'v set \<Rightarrow> 'v set" where
   "opponent_escapes t \<equiv> {v. \<exists>u. (u,v) \<in> E \<and> u \<in> t \<inter> V\<^sub>\<beta> \<and> v \<in> V - t}"
 
+  
+  
+  
 inductive_set player_tangle_attractor :: "'v set set \<Rightarrow> 'v set \<Rightarrow> 'v set" for T A where
   base: "x \<in> A \<Longrightarrow> x \<in> player_tangle_attractor T A"
 | own: "\<lbrakk>x \<in> V\<^sub>\<alpha>-A; (x,y)\<in>E; y \<in> player_tangle_attractor T A\<rbrakk> \<Longrightarrow> x \<in> player_tangle_attractor T A"
 | opponent: "\<lbrakk>x \<in> V\<^sub>\<beta>-A; \<forall>y. (x,y)\<in>E \<longrightarrow> y \<in> player_tangle_attractor T A\<rbrakk> \<Longrightarrow> x \<in> player_tangle_attractor T A"
-| escape: "\<lbrakk>x \<in> t-A; t \<in> T; opponent_escapes t \<noteq> {}; opponent_escapes t \<subseteq> player_tangle_attractor T A\<rbrakk> \<Longrightarrow> x \<in> player_tangle_attractor T A"
+| escape: "\<lbrakk>x \<in> t-A; t \<in> T; opponent_escapes t \<noteq> {}; \<forall>x. x\<in>opponent_escapes t \<longrightarrow> x\<in> player_tangle_attractor T A\<rbrakk> \<Longrightarrow> x \<in> player_tangle_attractor T A"
+| escape': "\<lbrakk> t\<in>T; opponent_escapes t \<noteq> {}; \<forall>x. x\<in>opponent_escapes t \<longrightarrow> x\<in>player_tangle_attractor T A; x\<in>t \<rbrakk> \<Longrightarrow> x \<in> player_tangle_attractor T A"
 end
 
 end
