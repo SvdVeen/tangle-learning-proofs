@@ -777,20 +777,21 @@ end
 
 locale paritygame = arena E V V\<^sub>0
   for E V and V\<^sub>0 :: "'v set" +
-  fixes prio :: "'v \<Rightarrow> nat"
+  fixes pr :: "'v \<Rightarrow> nat"
 begin
-  definition top_priority :: "'v list \<Rightarrow> nat" where
-    "top_priority xs \<equiv> MAX v \<in> set xs. prio v"
+  definition top_pr :: "'v list \<Rightarrow> nat" where
+    "top_pr xs \<equiv> MAX v \<in> set xs. pr v"
 
-  definition top_priority' :: "'v set \<Rightarrow> nat" where
-    "top_priority' U \<equiv> MAX v \<in> U. prio v"
+  definition pr_set :: "'v set \<Rightarrow> nat" where
+    "pr_set S \<equiv> Max (pr ` S)"
 end
 
-locale player_paritygame = paritygame E V V\<^sub>0 prio
-  for E V and V\<^sub>0 :: "'v set" and prio +
+locale player_paritygame = paritygame E V V\<^sub>0 pr
+  for E V and V\<^sub>0 :: "'v set" and pr +
   fixes V\<^sub>\<alpha> :: "'v set"
   fixes winningP :: "nat \<Rightarrow> bool"
   assumes V\<^sub>\<alpha>_subset: "V\<^sub>\<alpha> \<subseteq> V"
+  assumes V\<^sub>\<alpha>_player: "V\<^sub>\<alpha> = V\<^sub>0 \<or> V\<^sub>\<alpha> = V\<^sub>1"
 begin
   (** Shorthand for the opponent's vertices *)
   abbreviation (input) V\<^sub>\<beta> :: "'v set" where
@@ -1220,38 +1221,8 @@ end (** locale player_paritygame *)
 subsection \<open>Winning Regions\<close>
 context player_paritygame begin
 
-  abbreviation "winning_player xs \<equiv> winningP (top_priority xs)"
-  abbreviation "winning_opponent xs \<equiv> \<not>winningP (top_priority xs)"
-
-  sorry xxx 
-  (** TODO: work out dominions, possibly rework existing winning regions and related proofs.
-      In our current definition, we defined a winning region basically as we would define a dominion.
-      In reality, a winning region is the maximal dominion for a player.
-      We could rewrite the winning region definition, but this would require significant rewriting
-      of all related proofs. Before I start on this, I'd like to get a second opinion on my
-      definitions.*)
-
-  (** A dominion D is a set of vertices in V for which the player has a strategy \<sigma> such that
-      all plays consistent with \<sigma> stay in D and are winning for player \<alpha>.
-      Hence: a dominion is a region in D that is closed under \<sigma> and winning for \<alpha>. *)
-  definition player_dominion :: "'v set \<Rightarrow> bool" where
-    "player_dominion D \<equiv> D \<subseteq> V \<and> (\<exists>\<sigma>. strategy_of V\<^sub>\<alpha> \<sigma> \<and> dom \<sigma> = D \<inter> V\<^sub>\<alpha> \<and>
-     ran \<sigma> \<subseteq> D \<and> (\<forall>v\<in>D. v \<in> V\<^sub>\<beta> \<longrightarrow> E `` {v} \<subseteq> D) \<and>
-    (\<forall>v\<in>D. \<forall>xs. cycle_from_node (induced_subgraph (dom \<sigma>) \<sigma>) v xs \<longrightarrow> winning_player xs))"
-
-  definition player_p_dominion :: "nat \<Rightarrow> 'v set \<Rightarrow> bool" where
-    "player_p_dominion p D \<equiv> D \<subseteq> V \<and> (\<exists>\<sigma>. strategy_of V\<^sub>\<alpha> \<sigma> \<and> dom \<sigma> = D \<inter> V\<^sub>\<alpha> \<and>
-     ran \<sigma> \<subseteq> D \<and> (\<forall>v\<in>D. v \<in> V\<^sub>\<beta> \<longrightarrow> E `` {v} \<subseteq> D) \<and>
-    (\<forall>v\<in>D. \<forall>xs. cycle_from_node (induced_subgraph (dom \<sigma>) \<sigma>) v xs \<longrightarrow> winning_player xs) \<and>
-    p = Max (prio ` {x. \<exists>v xs. cycle_node (induced_subgraph (dom \<sigma>) \<sigma>) v xs \<and> x \<in> set xs}))"
-
-  lemma dominion_iff_p_dominion: "player_dominion D \<longleftrightarrow> (\<exists>p. player_p_dominion p D)"
-    unfolding player_dominion_def player_p_dominion_def
-    by simp
-
-  (** A winning region is their maximal dominion. *)
-  definition player_winning_region' :: "'v set \<Rightarrow> bool" where
-    "player_winning_region' W \<equiv> player_dominion W \<and> (\<forall>D. player_dominion D \<longrightarrow> card D \<le> card W)"
+  abbreviation "winning_player xs \<equiv> winningP (top_pr xs)"
+  abbreviation "winning_opponent xs \<equiv> \<not>winningP (top_pr xs)"
 
   (** A winning region is a region in the graph where one player has a strategy that makes it
       closed, and where every cycle reachable from every node in that region is won by that
@@ -1318,16 +1289,16 @@ context player_paritygame begin
     define G\<sigma> where "G\<sigma> = induced_subgraph (dom \<sigma>) \<sigma>"
     define G\<sigma>' where "G\<sigma>' = induced_subgraph (dom \<sigma>') \<sigma>'"
     assume \<sigma>_player: "strategy_of V\<^sub>\<alpha> \<sigma>"
-      and \<sigma>_win: "\<forall>xs. cycle_from_node G\<sigma> v xs \<longrightarrow> winningP (top_priority xs)"
+      and \<sigma>_win: "\<forall>xs. cycle_from_node G\<sigma> v xs \<longrightarrow> winningP (top_pr xs)"
       and \<sigma>'_opp: "strategy_of (V-V\<^sub>\<alpha>) \<sigma>'"
       and "v\<in>V"
-    interpret Ginter: paritygame "G\<sigma> \<inter> G\<sigma>'" V V\<^sub>0 prio
+    interpret Ginter: paritygame "G\<sigma> \<inter> G\<sigma>'" V V\<^sub>0 pr
       using ind_subgraph_inter_opposed[OF G\<sigma>_def G\<sigma>'_def \<sigma>_player \<sigma>'_opp] .
 
     from Ginter.cycle_always_exists[OF \<open>v\<in>V\<close>] Ginter.succ \<open>v\<in>V\<close>
     obtain xs where xs: "cycle_from_node (G\<sigma> \<inter> G\<sigma>') v xs" by blast
     moreover from xs have "cycle_from_node G\<sigma> v xs" using cycle_from_node_inter by fastforce
-    with \<sigma>_win have "winningP (top_priority xs)" by blast
+    with \<sigma>_win have "winningP (top_pr xs)" by blast
     moreover from xs have "cycle_from_node G\<sigma>' v xs" using cycle_from_node_inter by fastforce
     ultimately show "\<exists>xs. cycle_from_node (G\<sigma>') v xs \<and> winning_player xs" by blast
   qed
@@ -1367,8 +1338,8 @@ lemma opponent2[simp]: "opponent (opponent \<alpha>) = \<alpha>"
   by (cases \<alpha>) auto
 
 (** Gives the player that would win a priority *)
-definition player_wins_prio :: "nat \<Rightarrow> player" where
-  "player_wins_prio p \<equiv> if even p then EVEN else ODD"
+definition player_wins_pr :: "nat \<Rightarrow> player" where
+  "player_wins_pr p \<equiv> if even p then EVEN else ODD"
 
 (** Gives the winning priority function for the players *)
 fun player_winningP :: "player \<Rightarrow> nat \<Rightarrow> bool" where
@@ -1377,16 +1348,16 @@ fun player_winningP :: "player \<Rightarrow> nat \<Rightarrow> bool" where
 
 context paritygame begin
   (** We can see a parity game as two player-specific parity games for either player *)
-  sublocale P0: player_paritygame E V V\<^sub>0 prio V\<^sub>0 even
+  sublocale P0: player_paritygame E V V\<^sub>0 pr V\<^sub>0 even
     apply unfold_locales
-    by (rule V\<^sub>0_in_V)
+    by (auto simp: V\<^sub>0_in_V)
 
-  sublocale P1: player_paritygame E V V\<^sub>0 prio V\<^sub>1 odd
+  sublocale P1: player_paritygame E V V\<^sub>0 pr V\<^sub>1 odd
     apply unfold_locales
-    by (rule V\<^sub>1_in_V)
+    by (auto simp: V\<^sub>1_in_V)
 
   abbreviation player_wins_list :: "player \<Rightarrow> 'v list \<Rightarrow> bool" where
-    "player_wins_list \<alpha> xs \<equiv> player_winningP \<alpha> (top_priority xs)"
+    "player_wins_list \<alpha> xs \<equiv> player_winningP \<alpha> (top_pr xs)"
 
   (** Gives the vertices belonging to a player *)
   fun V_player where
@@ -1412,6 +1383,9 @@ context paritygame begin
 
   lemma V_opponent_opposite_V_player: "V_opponent \<alpha> = V - V_player \<alpha>"
       using V_diff_diff_V\<^sub>0 by (cases \<alpha>; simp add: V\<^sub>1_def)
+
+  lemma V_opponent_player_int: "V' \<subseteq> V \<Longrightarrow> V' \<inter> V_opponent \<alpha> = V' - V_player \<alpha>"
+    using V\<^sub>1_def by (cases \<alpha>) auto
 
   (** Checks that a strategy belongs to a specific player *)
   definition strategy_of_player :: "player \<Rightarrow> 'v strat \<Rightarrow> bool" where
@@ -1460,70 +1434,6 @@ context paritygame begin
       using P0.player_attractor_attracts P1.player_attractor_attracts by (cases \<alpha>) auto
 
   subsubsection \<open>Winning for Players\<close>
-  sorry xxx
-  (** Bringing dominions into the general parity game context *)
-  fun dominion where
-    "dominion EVEN = P0.player_dominion"
-  | "dominion ODD = P1.player_dominion"
-
-  lemma dominion_in_V: "dominion \<alpha> D \<Longrightarrow> D \<subseteq> V"
-    using P0.player_dominion_def P1.player_dominion_def by (cases \<alpha>; simp)
-
-  lemma dominion_strat: "dominion \<alpha> D = (D \<subseteq> V \<and> (\<exists>\<sigma>.
-    strategy_of_player \<alpha> \<sigma> \<and> dom \<sigma> = D \<inter> V_player \<alpha> \<and> ran \<sigma> \<subseteq> D \<and> (\<forall>v\<in>D. v \<in> V_opponent \<alpha> \<longrightarrow> E `` {v} \<subseteq> D) \<and>
-    (\<forall>v\<in>D. \<forall>xs. cycle_from_node (induced_subgraph (dom \<sigma>) \<sigma>) v xs \<longrightarrow> player_wins_list \<alpha> xs)))"
-    unfolding strategy_of_player_def
-    using P0.player_dominion_def P1.player_dominion_def V\<^sub>1_def V\<^sub>0_opposite_V\<^sub>1 by (cases \<alpha>; simp)
-
-  fun p_dominion where
-    "p_dominion EVEN = P0.player_p_dominion"
-  | "p_dominion ODD = P1.player_p_dominion"
-
-  lemma p_dominion_in_V: "p_dominion \<alpha> p D \<Longrightarrow> D \<subseteq> V"
-    using P0.player_p_dominion_def P1.player_p_dominion_def by (cases \<alpha>; simp)
-
-  lemma p_dominion_strat: "p_dominion \<alpha> p D = (D \<subseteq> V \<and> (\<exists>\<sigma>.
-    strategy_of_player \<alpha> \<sigma> \<and> dom \<sigma> = D \<inter> V_player \<alpha> \<and> ran \<sigma> \<subseteq> D \<and> (\<forall>v\<in>D. v \<in> V_opponent \<alpha> \<longrightarrow> E `` {v} \<subseteq> D) \<and>
-    (\<forall>v\<in>D. \<forall>xs. cycle_from_node (induced_subgraph (dom \<sigma>) \<sigma>) v xs \<longrightarrow> player_wins_list \<alpha> xs) \<and>
-    p = Max (prio ` {x. \<exists>v xs. cycle_node (induced_subgraph (dom \<sigma>) \<sigma>) v xs \<and> x \<in> set xs})))"
-    unfolding strategy_of_player_def
-    using P0.player_p_dominion_def P1.player_p_dominion_def V\<^sub>1_def V\<^sub>0_opposite_V\<^sub>1 by (cases \<alpha>; simp)
-
-  lemma dominion_iff_p_dominion: "dominion \<alpha> D \<longleftrightarrow> (\<exists>p. p_dominion \<alpha> p D)"
-    using P0.dominion_iff_p_dominion P1.dominion_iff_p_dominion by (cases \<alpha>) auto
-
-  (** A p_dominion should always belong to the player who wins p, by definition, so this might be a more useful definition *)
-  definition p_dominion' :: "nat \<Rightarrow> 'v set \<Rightarrow> bool" where
-    "p_dominion' p \<equiv> if even p then P0.player_p_dominion p else P1.player_p_dominion p"
-
-  lemma p_dominion'_in_V: "p_dominion' p D \<Longrightarrow> D \<subseteq> V"
-    unfolding p_dominion'_def P0.player_p_dominion_def P1.player_p_dominion_def
-    by (cases "even p"; simp)
-
-  lemma p_dominion'_strat: "p_dominion' p D = (D \<subseteq> V \<and> (\<exists>\<sigma>.
-      strategy_of_player (player_wins_prio p) \<sigma> \<and> dom \<sigma> = D \<inter> V_player (player_wins_prio p) \<and> ran \<sigma> \<subseteq> D \<and>
-      (\<forall>v\<in>D. v \<in> V_opponent (player_wins_prio p) \<longrightarrow> E `` {v} \<subseteq> D) \<and>
-      (\<forall>v\<in>D. \<forall>xs. cycle_from_node (induced_subgraph (dom \<sigma>) \<sigma>) v xs \<longrightarrow> player_wins_list (player_wins_prio p) xs) \<and>
-      p = Max (prio ` {x. \<exists>v xs. cycle_node (induced_subgraph (dom \<sigma>) \<sigma>) v xs \<and> x \<in> set xs})))"
-    unfolding p_dominion'_def strategy_of_player_def P0.player_p_dominion_def P1.player_p_dominion_def player_wins_prio_def
-    using V\<^sub>1_def V\<^sub>0_opposite_V\<^sub>1 by (cases "even p"; simp)
-
-  (** Alternatively, with the existing definition *)
-  definition p_dominion'' :: "nat \<Rightarrow> 'v set \<Rightarrow> bool" where
-    "p_dominion'' p \<equiv> p_dominion (player_wins_prio p) p"
-
-  lemma p_dominion''_in_V: "p_dominion'' p D \<Longrightarrow> D \<subseteq> V"
-    unfolding p_dominion''_def player_wins_prio_def
-    using P0.player_p_dominion_def P1.player_p_dominion_def
-    by (cases "even p"; simp)
-
-  lemma p_dominion''_strat: "p_dominion'' p D = (D \<subseteq> V \<and> (\<exists>\<sigma>.
-        strategy_of_player (player_wins_prio p) \<sigma> \<and> dom \<sigma> = D \<inter> V_player (player_wins_prio p) \<and> ran \<sigma> \<subseteq> D \<and>
-        (\<forall>v\<in>D. v \<in> V_opponent (player_wins_prio p) \<longrightarrow> E `` {v} \<subseteq> D) \<and>
-        (\<forall>v\<in>D. \<forall>xs. cycle_from_node (induced_subgraph (dom \<sigma>) \<sigma>) v xs \<longrightarrow> player_wins_list (player_wins_prio p) xs) \<and>
-        p = Max (prio ` {x. \<exists>v xs. cycle_node (induced_subgraph (dom \<sigma>) \<sigma>) v xs \<and> x \<in> set xs})))"
-    unfolding p_dominion''_def player_wins_prio_def strategy_of_player_def
-    using P0.player_p_dominion_def P1.player_p_dominion_def V\<^sub>1_def V\<^sub>0_opposite_V\<^sub>1 by (cases "even p"; simp)
 
   (** Specifies winning regions for the players *)
   fun winning_region where
@@ -1710,7 +1620,7 @@ context paritygame begin
         using loop_impl_cycle_from_node ys_notempty by fast
 
       with \<sigma>'_winning y_in_W
-      show "player_winningP \<alpha> (top_priority ys)" by blast
+      show "player_winningP \<alpha> (top_pr ys)" by blast
     qed
 
     (** X is closed for the opponent, regardless of \<tau> *)
@@ -1797,7 +1707,7 @@ context paritygame begin
     assumes V\<^sub>0'_def: "V\<^sub>0' = V\<^sub>0-A"
     assumes W_in_V': "W \<subseteq> V'"
     assumes A_def: "A = attractor (opponent \<alpha>) X"
-    assumes W_winning_subgame: "paritygame.winning_region E' V' V\<^sub>0' prio \<alpha> W"
+    assumes W_winning_subgame: "paritygame.winning_region E' V' V\<^sub>0' pr \<alpha> W"
     shows "winning_region \<alpha> W"
   proof -
     interpret subgame: paritygame E' V' V\<^sub>0' by fact
@@ -1881,7 +1791,7 @@ context paritygame begin
         using loop_impl_cycle_from_node by fast
 
       with \<sigma>_winning_subgame w'_in_W
-      show "player_winningP \<alpha> (top_priority ys)" by blast
+      show "player_winningP \<alpha> (top_pr ys)" by blast
     qed
 
     have \<sigma>_closed_opp: "\<forall>v\<in>W. v \<in> V_opponent \<alpha> \<longrightarrow> E `` {v} \<subseteq> W"
@@ -1915,8 +1825,8 @@ lemma maximal_winning_regions:
   fixes V :: "'v set"
   assumes "paritygame E V V\<^sub>0"
   shows "\<exists>W\<^sub>0 W\<^sub>1. V = W\<^sub>0 \<union> W\<^sub>1 \<and> W\<^sub>0 \<inter> W\<^sub>1 = {}
-    \<and> paritygame.winning_region E V V\<^sub>0 prio EVEN W\<^sub>0
-    \<and> paritygame.winning_region E V V\<^sub>0 prio ODD W\<^sub>1"
+    \<and> paritygame.winning_region E V V\<^sub>0 pr EVEN W\<^sub>0
+    \<and> paritygame.winning_region E V V\<^sub>0 pr ODD W\<^sub>1"
 proof -
   have "finite V" proof -
     interpret paritygame E V V\<^sub>0 by fact
@@ -1934,23 +1844,23 @@ proof -
 
       interpret paritygame E V V\<^sub>0 by fact
 
-      have fin_prio: "finite (prio`V)" by simp
+      have fin_pr: "finite (pr`V)" by simp
 
       (** Get the highest priority p in V *)
-      define p :: "nat" where "p = (MAX v \<in> V. prio v)"
+      define p :: "nat" where "p = (MAX v \<in> V. pr v)"
 
       (** Get the player who wins p *)
-      then obtain \<alpha> :: player where "\<alpha> = player_wins_prio p" by simp
+      then obtain \<alpha> :: player where "\<alpha> = player_wins_pr p" by simp
       hence player_wins_p: "player_winningP \<alpha> p"
-        by (cases \<alpha>; simp add: player_wins_prio_def split: if_splits)
+        by (cases \<alpha>; simp add: player_wins_pr_def split: if_splits)
       (** Useful shorthand for later *)
       let ?V\<^sub>\<alpha> = "V_player \<alpha>"
       let ?\<beta> = "opponent \<alpha>"
       let ?V\<^sub>\<beta> = "V_player ?\<beta>"
 
       (** Get any v of the highest priority *)
-      obtain v :: "'v" where v_in_V: "v \<in> V" and v_prio: "prio v = p"
-        using Max_in[OF fin_prio] V_notempty p_def by fastforce
+      obtain v :: "'v" where v_in_V: "v \<in> V" and v_pr: "pr v = p"
+        using Max_in[OF fin_pr] V_notempty p_def by fastforce
 
       (** Any list that contains v will have p as its top priority, and thus it is won by \<alpha> if it is a play *)
       have player_wins_v: "\<forall>vs. set vs \<subseteq> V \<and> v \<in> set vs \<longrightarrow> player_wins_list \<alpha> vs"
@@ -1959,12 +1869,12 @@ proof -
         assume vs_in_V: "set vs \<subseteq> V" and v_in_vs: "v \<in> set vs"
         hence "vs \<noteq> []" by fastforce
 
-        with vs_in_V have top_prio_vs_le_p: "top_priority vs \<le> p"
-          unfolding top_priority_def p_def
+        with vs_in_V have top_pr_vs_le_p: "top_pr vs \<le> p"
+          unfolding top_pr_def p_def
           using image_mono Max_mono by auto
-        moreover from v_in_vs v_prio have "p \<in> prio ` set vs" by blast
-        ultimately have "top_priority vs = p"
-          unfolding top_priority_def by (simp add: antisym)
+        moreover from v_in_vs v_pr have "p \<in> pr ` set vs" by blast
+        ultimately have "top_pr vs = p"
+          unfolding top_pr_def by (simp add: antisym)
 
         with player_wins_p show "player_wins_list \<alpha> vs" by simp
       qed
@@ -1987,7 +1897,7 @@ proof -
 
       (** Show that the subgame is a valid arena *)
       from attractor_subgame[OF A_def E'_def V'_def V\<^sub>0'_def]
-      interpret subgame: paritygame E' V' V\<^sub>0' prio .
+      interpret subgame: paritygame E' V' V\<^sub>0' pr .
 
       have "E' \<subseteq> E" unfolding E'_def using E_in_V by simp
       note subgame_propagate_strategy_of_V_player =
@@ -2222,7 +2132,7 @@ proof -
               using cycle_from_node_paths [of ?\<tau>_subgame x ys] origin_in_path by fast
 
             from ys_in_B_X\<^sub>\<beta> consider (B_in_ys) "set ys \<inter> B \<noteq> {}" | (ys_in_X\<^sub>\<beta>) "set ys \<subseteq> X\<^sub>\<beta>" by blast
-            thus "player_winningP ?\<beta> (top_priority ys)" proof cases
+            thus "player_winningP ?\<beta> (top_pr ys)" proof cases
               case B_in_ys
               have ys_in_B: "set ys \<subseteq> B" proof -
               from B_in_ys obtain y' ys' where
@@ -2475,7 +2385,7 @@ proof -
               using cycle_from_node_paths[of ?\<tau>_subgame x ys] origin_in_path by fast
 
             consider (A_in_ys) "set ys \<inter> A \<noteq> {}" | (A_notin_ys) "set ys \<inter> A = {}" by blast
-            thus "player_winningP \<alpha> (top_priority ys)" proof cases
+            thus "player_winningP \<alpha> (top_pr ys)" proof cases
               case A_in_ys
               then obtain y' where y'_in_ys: "y'\<in>set ys" and y'_in_A: "y'\<in>A" by blast
               from loop_intermediate_node[OF path_y_ys_y y'_in_ys]
