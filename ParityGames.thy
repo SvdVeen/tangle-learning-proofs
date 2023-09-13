@@ -905,12 +905,9 @@ subsection \<open>Attractors\<close>
     (** There is a rank that contains all nodes in the maximal attractor *)
     lemma player_attractor_ss_nodes_in_rank: "x\<in>player_attractor X \<Longrightarrow> (\<exists>n. x\<in>nodes_in_rank n)"
     proof (induction rule: player_attractor.induct)
-      case (base x) thus ?case by (auto intro: exI[where x=0])
+      case (base x) thus ?case using nodes_in_rank.simps(1) by fast
     next
-      case (own x y) thus ?case
-        apply clarsimp
-        subgoal for n by (auto intro!: exI[where x="Suc n"])
-        done
+      case (own x y) thus ?case using nodes_in_rank.simps(2) by blast
     next
       case (opponent x)
       define n_of_y where "n_of_y \<equiv> \<lambda>y. SOME n. y \<in> nodes_in_rank n"
