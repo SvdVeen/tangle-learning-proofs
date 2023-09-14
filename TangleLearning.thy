@@ -19,6 +19,27 @@ context paritygame begin
         (\<forall>v \<in> U. \<forall>xs. cycle_node E' v xs \<longrightarrow> player_wins_list \<alpha> xs)
     ))))"
 
+  definition tangle_strat :: "'v set \<Rightarrow> 'v strat \<Rightarrow> bool" where
+  "tangle_strat U \<sigma> \<equiv> U \<noteq> {} \<and> U \<subseteq> V \<and>
+   (let \<alpha> = player_wins_pr (pr_set U) in (
+      strategy_of_player \<alpha> \<sigma> \<and> dom \<sigma> = U \<inter> V_player \<alpha> \<and> ran \<sigma> \<subseteq> U \<and>
+        (let E' = E \<inter> (E_of_strat \<sigma> \<union> (U \<inter> V_opponent \<alpha>) \<times> U) in (
+          strongly_connected E' \<and>
+          (\<forall>v \<in> U. \<forall>xs. cycle_node E' v xs \<longrightarrow> player_wins_list \<alpha> xs)
+   ))))"
+
+  lemma tangle_strat_notempty[simp]: "\<not>tangle_strat {} \<sigma>"
+    unfolding tangle_strat_def by simp
+
+  lemma tangle_strat_in_V: "tangle_strat U \<sigma> \<Longrightarrow> U \<subseteq> V"
+    unfolding tangle_strat_def by simp
+
+  definition tangle' :: "'v set \<Rightarrow> bool" where
+    "tangle' U \<equiv> \<exists>\<sigma>. tangle_strat U \<sigma>"
+
+  lemma tangle'_notempty[simp]: "\<not>tangle' {}"
+    unfolding tangle'_def by simp
+
   definition tangle :: "'v set \<Rightarrow> bool" where
     "tangle U \<equiv> U \<noteq> {} \<and> U \<subseteq> V \<and>
     (let \<alpha> = player_wins_pr (pr_set U) in (
@@ -163,7 +184,8 @@ begin
 
 context
   fixes T :: "'v set set"
-  assumes T_tangles : "\<forall>t\<in>T. player_tangle' t"
+  assumes tangles_T : "\<forall>t\<in>T. player_tangle' t"
+  assumes finite_T: "finite T"
 begin
 
   inductive_set player_tangle_attractor :: "'v set \<Rightarrow> 'v set" for A where
@@ -289,7 +311,7 @@ begin
           and escapes_in_n: "\<forall>v. v \<in> opponent_escapes t \<longrightarrow> v \<in> tangle_nodes_in_rank n"
             by blast
 
-          from t_in_T have t_tangle: "player_tangle' t" using T_tangles by fast
+          from t_in_T have t_tangle: "player_tangle' t" using tangles_T by fast
 
           from Suc.prems(3,4) have "x \<in> V\<^sub>\<beta>" using E_in_V by blast
           with x_in_t have x_in_V\<^sub>\<beta>_U_t: "x \<in> V\<^sub>\<beta> \<inter> (t - A)" by blast
@@ -338,17 +360,76 @@ begin
         from Cons show ?case sorry
       qed
 
-      lemma T_strat: "\<exists>\<sigma>. strategy_of V\<^sub>\<alpha> \<sigma> \<and> dom \<sigma> = \<Union>T \<inter> V\<^sub>\<alpha> \<and> ran \<sigma> \<subseteq> \<Union>T \<and>
-        (\<forall>v\<in>\<Union>T. \<forall>xs. cycle_node (E \<inter> (E_of_strat \<sigma> \<union> (\<Union>T \<inter> V\<^sub>\<beta>) \<times> \<Union>T)) v xs \<longrightarrow> winning_player xs)"
-      proof -
-        (** I would like to combine the strategies of all tangles in T in a way that makes
-            all cycles in the combined set of T are won by the player.
-            I do not think I can say anything about the strong connectedness, as the individual
-            tangles may be completely disconnected from one another. *)
+lemma combined_tangle_strat:
+  assumes fin_S: "finite S"
+  assumes tangles_S: "\<forall>t\<in>S. player_tangle' t"
+  shows "\<exists>\<sigma>. strategy_of V\<^sub>\<alpha> \<sigma> \<and>
+             dom \<sigma> = \<Union>S \<inter> V\<^sub>\<alpha> \<and>
+             ran \<sigma> \<subseteq> \<Union>S"
+proof -
+  define tangle_strat where "tangle_strat = (\<lambda>t \<sigma>.
+    strategy_of V\<^sub>\<alpha> \<sigma> \<and>
+    dom \<sigma> = t \<inter> V\<^sub>\<alpha> \<and>
+    ran \<sigma> \<subseteq> t \<and>
+    strongly_connected (E \<inter> (E_of_strat \<sigma> \<union> (t \<inter> (V - V\<^sub>\<alpha>)) \<times> t)) \<and>
+    (\<forall>v\<in>t. \<forall>xs. cycle_node (E \<inter> (E_of_strat \<sigma> \<union> (t \<inter> (V - V\<^sub>\<alpha>)) \<times> t)) v xs
+       \<longrightarrow> winning_player xs))"
 
-        define max_tangles where "max_tangles = {t. t \<in> T \<and> (\<nexists>t'. t'\<in>T \<and> t \<subseteq> t')}"
-        show ?thesis sorry
-      qed
+  define t_target where "t_target = (\<lambda>t. SOME \<sigma>. tangle_strat t \<sigma>)"
+
+  {
+    fix t
+    assume "t\<in>S"
+    with tangles_S have \<sigma>_exI: "\<exists>\<sigma>. tangle_strat t \<sigma>"
+      unfolding player_tangle'_def Let_def tangle_strat_def by fast
+    have "tangle_strat t (t_target t)"
+      using someI_ex[OF \<sigma>_exI]
+      unfolding t_target_def .
+  } note S_target=this
+
+  define S_strats where "S_strats = t_target ` S"
+
+  have S_strats_all_S: "\<forall>t\<in>S. \<exists>\<sigma>\<in>S_strats. tangle_strat t \<sigma>"
+    unfolding S_strats_def
+    using S_target by fast
+
+  have S_all_S_strats: "\<forall>\<sigma>\<in>S_strats. \<exists>t\<in>S. tangle_strat t \<sigma>"
+    unfolding S_strats_def
+    using S_target by fast
+
+  have S_empty_iff_strats_empty: "S = {} \<longleftrightarrow> S_strats = {}"
+    unfolding S_strats_def by simp
+
+  obtain xs where xs_set_strats: "set xs = S_strats"
+    unfolding S_strats_def
+    using finite_list[OF finite_imageI[OF fin_S, of "t_target"]] by blast
+
+  have strats_empty_iff_xs_empty: "S_strats = {} \<longleftrightarrow> xs = []"
+    using xs_set_strats by auto
+
+  have S_empty_iff_xs_empty: "S = {} \<longleftrightarrow> xs = []"
+    by (simp add: S_empty_iff_strats_empty strats_empty_iff_xs_empty)
+
+  define combine_strats where
+    "combine_strats = (\<lambda>xs::'v strat list. fold (\<lambda>\<sigma> \<sigma>'. \<sigma> ++ (\<sigma>' |` (-dom \<sigma>))) xs Map.empty)"
+
+  define \<sigma> where "\<sigma> = fold (\<lambda>\<sigma> \<sigma>'. \<sigma> ++ (\<sigma>' |` (-dom \<sigma>))) xs Map.empty"
+
+  find_theorems fold
+  have \<sigma>_dom: "dom \<sigma> = \<Union>S \<inter> V\<^sub>\<alpha>"
+  proof (cases xs)
+    case Nil with S_empty_iff_xs_empty show ?thesis
+      unfolding \<sigma>_def by simp
+  next
+    case (Cons a list)
+    then show ?thesis
+      unfolding \<sigma>_def sorry
+  qed
+
+  show ?thesis
+    apply (rule exI[where x="\<sigma>"])
+    sorry
+qed
 
       (** There are two possibilities with tangle attractors: either they force a play to A,
           or the player wins the play because it stays in a tangle for that player.
@@ -383,6 +464,41 @@ begin
 
         have new_player_nodes_disjoint: "new_player_nodes_no_tangle \<inter> new_player_nodes_tangle = {}"
           unfolding new_player_nodes_no_tangle_def new_player_nodes_tangle_def by blast
+
+        define tangle_strat where "tangle_strat = (\<lambda>t \<sigma>.
+          strategy_of V\<^sub>\<alpha> \<sigma> \<and>
+          dom \<sigma> = t \<inter> V\<^sub>\<alpha> \<and>
+          ran \<sigma> \<subseteq> t \<and>
+          strongly_connected (E \<inter> (E_of_strat \<sigma> \<union> (t \<inter> (V - V\<^sub>\<alpha>)) \<times> t)) \<and>
+          (\<forall>v\<in>t. \<forall>xs. cycle_node (E \<inter> (E_of_strat \<sigma> \<union> (t \<inter> (V - V\<^sub>\<alpha>)) \<times> t)) v xs
+             \<longrightarrow> winning_player xs))"
+
+        define new_tangles where "new_tangles = {t. t\<in>T \<and> t \<inter> new_player_nodes_tangle \<noteq> {}}"
+        have new_tangles_tangles: "\<forall>t\<in>new_tangles. player_tangle' t"
+          unfolding new_tangles_def
+          using tangles_T by fast
+        have finite_new_tangles: "finite new_tangles"
+          unfolding new_tangles_def using finite_T by force
+        hence new_tangles_strats: "\<forall>t \<in> new_tangles. \<exists>\<sigma>. tangle_strat t \<sigma>"
+          unfolding new_tangles_def player_tangle'_def Let_def tangle_strat_def by blast
+
+        define t_strat where "t_strat = (\<lambda>t. SOME \<sigma>. tangle_strat t \<sigma>)"
+        {
+          fix t
+          assume "t \<in> new_tangles"
+          hence exI_\<sigma>: "\<exists>\<sigma>. tangle_strat t \<sigma>"
+            using new_tangles_strats by simp
+          hence "tangle_strat t (t_strat t)"
+            unfolding t_strat_def
+            using someI_ex[of "tangle_strat t"] by fast
+        } note t_strat=this
+
+        define new_tangle_strats where "new_tangle_strats = t_strat ` new_tangles"
+        have finite_new_tangle_strats: "finite new_tangle_strats"
+          unfolding new_tangle_strats_def
+          using finite_new_tangles by simp
+        then obtain xs where xs_is_tangle_strats: "set xs = new_tangle_strats"
+          using finite_list by auto
 
         define target where "target = (\<lambda>x. SOME x'. x'\<in>tangle_nodes_in_rank n \<and> (x,x')\<in>E)"
 
