@@ -2,10 +2,159 @@ theory TangleLearning
 imports Main ParityGames
 begin
 chapter \<open>Tangle Learning\<close>
+section \<open>Utilities\<close>
+
+subsection \<open>Asymmetric Map Combination\<close>
+
+definition map_asym_add :: "('a, 'b) map \<Rightarrow> ('a, 'b) map \<Rightarrow> ('a, 'b) map" (infixl "++`" 120) where
+  "map_asym_add \<sigma> \<sigma>' \<equiv> \<sigma> ++ (\<sigma>' |` (- dom \<sigma>))"
+
+lemma map_asym_add_empty[simp]: "\<sigma> ++` Map.empty = \<sigma>"
+  unfolding map_asym_add_def by simp
+
+lemma empty_map_asym_add[simp]: "Map.empty ++` \<sigma> = \<sigma>"
+  unfolding map_asym_add_def by auto
+
+lemma map_asym_add_dom: "dom (\<sigma> ++` \<sigma>') = dom \<sigma> \<union> dom \<sigma>'"
+  unfolding map_asym_add_def by force
+
+lemma map_asym_add_ran: "ran (\<sigma> ++` \<sigma>') \<subseteq> ran \<sigma> \<union> ran \<sigma>'"
+  unfolding map_asym_add_def ran_def
+  using ranI ran_restrictD by fast
+
+lemma map_asym_add_strat: "\<sigma> \<subseteq>\<^sub>m \<sigma> ++` \<sigma>'"
+  unfolding map_asym_add_def
+  by (simp add: map_add_comm map_le_iff_map_add_commute)
+
+lemma fold_map_asym_add_dom: "dom (fold (++`) xs \<sigma>) = dom \<sigma> \<union> \<Union>(dom ` set xs)"
+  by (induction xs arbitrary: \<sigma>; simp add: map_asym_add_dom) fast
+
+lemma fold_map_asym_add_ran: "ran (fold (++`) xs \<sigma>) \<subseteq> ran \<sigma> \<union> \<Union>(ran ` set xs)"
+  apply (induction xs arbitrary: \<sigma>; simp)
+  using map_asym_add_ran by fastforce
+
+lemma fold_map_asym_add_ran_bound:
+  "\<lbrakk>ran \<sigma> \<subseteq> R; \<forall>\<sigma>'\<in>set xs. ran \<sigma>' \<subseteq> R\<rbrakk> \<Longrightarrow> ran (fold (++`) xs \<sigma>) \<subseteq> R"
+  apply (induction xs arbitrary: \<sigma>; simp)
+  using map_asym_add_ran subset_trans sup.boundedI by metis
+
+definition asym_combine :: "('a, 'b) map list \<Rightarrow> ('a, 'b) map" where
+  "asym_combine xs \<equiv> fold (++`) xs Map.empty"
+
+lemma asym_combine_empty[simp]: "asym_combine [] = Map.empty"
+  unfolding asym_combine_def by simp
+
+lemma asym_combine_dom: "dom (asym_combine xs) = \<Union>(dom ` set xs)"
+  unfolding asym_combine_def
+  using fold_map_asym_add_dom[of xs "Map.empty"] by simp
+
+lemma asym_combine_ran: "ran (asym_combine xs) \<subseteq> \<Union>(ran ` set xs)"
+  unfolding asym_combine_def
+  using fold_map_asym_add_ran[of xs "Map.empty"] by simp
+
+lemma asym_combine_ran_bound: "\<forall>\<sigma>\<in>set xs. ran \<sigma> \<subseteq> R \<Longrightarrow> ran (asym_combine xs) \<subseteq> R"
+  unfolding asym_combine_def
+  using fold_map_asym_add_ran_bound[of "Map.empty" R xs] by simp
+
+(** Van Dijk defines a tangle as follows:
+      A p-tangle is a nonempty set of vertices U \<subseteq> V with p = pr(U),
+      for which player \<alpha> \<equiv>\<^sub>2 p has a strategy \<sigma>: U\<^sub>\<alpha> \<rightarrow> U, such that the graph (U,E'),
+      with E' := E \<inter> (\<sigma> \<union> (U\<^sub>\<beta> \<times> U)), is strongly connected and player \<alpha> wins all cycles in (U,E').
+    We will work with several variations of this definition. *)
 section \<open>Tangle Definitions\<close>
 
-context paritygame begin
+(** We will need a definition for a tangle tied to a specific player for future proofs.
+    We start by working from this definition; we will tie it to the general definition as given by
+    Van Dijk later *)
+subsection \<open>Tangles for a specific player\<close>
+context player_paritygame
+begin
+  (** We say that a strategy is a tangle strategy if it belongs to the player, is of the form
+      \<sigma>: U\<^sub>\<alpha> \<longrightarrow> U, and the graph (U,E'), with E' := E \<inter> (\<sigma> \<union> (U\<^sub>\<beta> \<times> U)), is strongly connected and
+      the player wins all cycles in (U,E'). *)
+  definition is_player_tangle_strat :: "'v set \<Rightarrow> 'v strat \<Rightarrow> bool" where
+    "is_player_tangle_strat U \<sigma> \<equiv> strategy_of V\<^sub>\<alpha> \<sigma> \<and> dom \<sigma> = U \<inter> V\<^sub>\<alpha> \<and> ran \<sigma> \<subseteq> U \<and>
+     (let E' = E \<inter> (E_of_strat \<sigma> \<union> (U \<inter> V\<^sub>\<beta>) \<times> U) in (
+        strongly_connected E' \<and>
+        (\<forall>v \<in> U. \<forall>xs. cycle_node E' v xs \<longrightarrow> winning_player xs)
+     ))"
 
+  (** We can show that E' is actually equal to the induced subgraph of \<sigma> restricted to U.
+      This is useful for relating it to lemmas from paritygames.thy *)
+  lemma player_E'_eq_restr_subgraph:
+    assumes "U \<subseteq> V"
+    assumes "dom \<sigma> = U \<inter> V\<^sub>\<alpha>"
+    assumes "ran \<sigma> \<subseteq> U"
+    shows "E \<inter> (E_of_strat \<sigma> \<union> (U \<inter> V\<^sub>\<beta>) \<times> U) = induced_subgraph (dom \<sigma>) \<sigma> \<inter> (U\<times>U)"
+    unfolding induced_subgraph_def E_of_strat_def
+    using assms by (auto simp: ranI)
+
+  (** We can then say that a tangle for a player is a nonempty set of vertices U in V, where
+      the player wins pr(U), and there exists a strategy \<sigma> that is a tangle strategy for the player. *)
+  definition player_tangle :: "'v set \<Rightarrow> bool" where
+    "player_tangle U \<equiv> U \<noteq> {} \<and> U \<subseteq> V \<and> winningP (pr_set U) \<and> (\<exists>\<sigma>. is_player_tangle_strat U \<sigma>)"
+
+  lemma player_tangle_notempty[simp]: "\<not>player_tangle {}"
+    unfolding player_tangle_def by simp
+
+  lemma player_tangle_in_V: "player_tangle U \<Longrightarrow> U \<subseteq> V"
+    unfolding player_tangle_def by simp
+
+  (** Van Dijk observes that a tangle from which the opponent cannot escape is a dominion (which we
+      call a winning region). Proving this shows that our definition matches his, and this property
+      may be useful in future proofs. *)
+  lemma closed_player_tangle_is_winning_region:
+    assumes player_tangle: "player_tangle U"
+    assumes U_closed_opp: "E `` (U \<inter> V\<^sub>\<beta>) \<subseteq> U"
+    shows "player_winning_region U"
+  proof -
+    from player_tangle_in_V[OF player_tangle]
+    have U_in_V: "U \<subseteq> V" .
+
+    from player_tangle obtain \<sigma> where
+        \<sigma>_strat: "strategy_of V\<^sub>\<alpha> \<sigma>"
+    and \<sigma>_dom: "dom \<sigma> = U \<inter> V\<^sub>\<alpha>"
+    and \<sigma>_ran: "ran \<sigma> \<subseteq> U"
+    and \<sigma>_winning: "\<forall>v\<in>U. \<forall>xs. cycle_node (E \<inter> (E_of_strat \<sigma> \<union> (U \<inter> V\<^sub>\<beta>) \<times> U)) v xs \<longrightarrow> winning_player xs"
+      unfolding player_tangle_def is_player_tangle_strat_def Let_def by auto
+
+    have \<sigma>_winning_subgraph: "\<forall>u\<in>U. \<forall>ys. cycle_from_node (induced_subgraph (dom \<sigma>) \<sigma>) u ys
+        \<longrightarrow> winning_player ys"
+    proof (rule ballI; rule allI; rule impI)
+      fix u ys
+      assume u_in_U: "u \<in> U" and cycle_u_ys: "cycle_from_node (induced_subgraph (dom \<sigma>) \<sigma>) u ys"
+
+      from \<sigma>_dom U_closed_opp have "induced_subgraph (dom \<sigma>) \<sigma> `` U \<subseteq> U"
+        using ind_subgraph_closed_region[OF U_in_V _ \<sigma>_ran, of "dom \<sigma>"] by blast
+      from cycle_from_node_closed_set[OF u_in_U this cycle_u_ys]
+      have ys_in_U: "set ys \<subseteq> U" .
+
+      from cycle_u_ys ys_in_U obtain y where
+          cycle_y_ys: "cycle_node (induced_subgraph (dom \<sigma>) \<sigma>) y ys"
+      and y_in_U: "y \<in> U"
+        unfolding cycle_from_node_def
+        using origin_in_cycle_node by fastforce
+
+        have "induced_subgraph (dom \<sigma>) \<sigma> \<inter> (U\<times>U) \<subseteq> (E \<inter> (E_of_strat \<sigma> \<union> (U \<inter> V\<^sub>\<beta>) \<times> U))"
+          using player_E'_eq_restr_subgraph[OF U_in_V \<sigma>_dom \<sigma>_ran] by simp
+        from \<sigma>_winning y_in_U subgraph_cycle[OF this cycle_restr_V[OF cycle_y_ys ys_in_U]]
+        show "winning_player ys" by simp
+    qed
+
+    show ?thesis
+      unfolding player_winning_region_def
+      apply (simp add: U_in_V)
+      apply (rule exI[where x="\<sigma>"]; intro conjI)
+        subgoal using \<sigma>_strat .
+        subgoal using \<sigma>_dom Int_commute ..
+        subgoal using \<sigma>_ran .
+        subgoal using \<sigma>_winning_subgraph .
+        subgoal using U_closed_opp by fast
+      done
+  qed
+end
+
+context paritygame begin
   (** As defined by Van Dijk:
       A p-tangle is a nonempty set of vertices U \<subseteq> V with p = pr(U),
       for which player \<alpha> \<equiv>\<^sub>2 p has a strategy \<sigma>: U\<^sub>\<alpha> \<rightarrow> U, such that the graph (U,E'),
@@ -19,27 +168,6 @@ context paritygame begin
         (\<forall>v \<in> U. \<forall>xs. cycle_node E' v xs \<longrightarrow> player_wins_list \<alpha> xs)
     ))))"
 
-  definition tangle_strat :: "'v set \<Rightarrow> 'v strat \<Rightarrow> bool" where
-  "tangle_strat U \<sigma> \<equiv> U \<noteq> {} \<and> U \<subseteq> V \<and>
-   (let \<alpha> = player_wins_pr (pr_set U) in (
-      strategy_of_player \<alpha> \<sigma> \<and> dom \<sigma> = U \<inter> V_player \<alpha> \<and> ran \<sigma> \<subseteq> U \<and>
-        (let E' = E \<inter> (E_of_strat \<sigma> \<union> (U \<inter> V_opponent \<alpha>) \<times> U) in (
-          strongly_connected E' \<and>
-          (\<forall>v \<in> U. \<forall>xs. cycle_node E' v xs \<longrightarrow> player_wins_list \<alpha> xs)
-   ))))"
-
-  lemma tangle_strat_notempty[simp]: "\<not>tangle_strat {} \<sigma>"
-    unfolding tangle_strat_def by simp
-
-  lemma tangle_strat_in_V: "tangle_strat U \<sigma> \<Longrightarrow> U \<subseteq> V"
-    unfolding tangle_strat_def by simp
-
-  definition tangle' :: "'v set \<Rightarrow> bool" where
-    "tangle' U \<equiv> \<exists>\<sigma>. tangle_strat U \<sigma>"
-
-  lemma tangle'_notempty[simp]: "\<not>tangle' {}"
-    unfolding tangle'_def by simp
-
   definition tangle :: "'v set \<Rightarrow> bool" where
     "tangle U \<equiv> U \<noteq> {} \<and> U \<subseteq> V \<and>
     (let \<alpha> = player_wins_pr (pr_set U) in (
@@ -49,120 +177,61 @@ context paritygame begin
         (\<forall>v \<in> U. \<forall>xs. cycle_node E' v xs \<longrightarrow> player_wins_list \<alpha> xs)
     ))))"
 
+  lemma tangle_iff_p_tangle: "tangle U \<longleftrightarrow> p_tangle (pr_set U) U"
+    unfolding tangle_def p_tangle_def pr_set_def Let_def by auto
+
   lemma tangle_notempty[simp]: "\<not>tangle {}"
     unfolding tangle_def by simp
 
   lemma tangle_in_V: "tangle U \<Longrightarrow> U \<subseteq> V"
     unfolding tangle_def by simp
 
+  fun tangle_player :: "player \<Rightarrow> 'v set \<Rightarrow> bool" where
+    "tangle_player EVEN = P0.player_tangle"
+  | "tangle_player ODD = P1.player_tangle"
+
+  lemma closed_tangle_player_is_winning_region:
+    assumes tangle_player_U: "tangle_player \<alpha> U"
+    assumes U_closed_opp: "E `` (U \<inter> V_opponent \<alpha>) \<subseteq> U"
+    shows "winning_region \<alpha> U"
+    using assms P0.closed_player_tangle_is_winning_region P1.closed_player_tangle_is_winning_region
+    by (cases \<alpha>; simp add: V\<^sub>1_def V_diff_diff_V\<^sub>0)
+
+  lemma tangle_player_iff_tangle: "tangle_player \<alpha> U \<longleftrightarrow> (\<alpha> = player_wins_pr (pr_set U) \<and> tangle U)"
+    using P0.is_player_tangle_strat_def P1.is_player_tangle_strat_def P0.player_tangle_def P1.player_tangle_def
+    unfolding tangle_def Let_def strategy_of_player_def player_wins_pr_def
+    by (cases \<alpha>; simp add: V\<^sub>1_def V_diff_diff_V\<^sub>0)
+
   lemma closed_tangle_is_winning_region:
-    assumes tangle: "tangle U"
+    assumes tangle_U: "tangle U"
+    assumes U_closed_opp: "E `` (U \<inter> V_opponent (player_wins_pr(pr_set U))) \<subseteq> U"
+    shows "winning_region (player_wins_pr (pr_set U)) U"
+    using assms tangle_player_iff_tangle closed_tangle_player_is_winning_region by simp
+
+  definition tangle_strat :: "'v set \<Rightarrow> 'v strat \<Rightarrow> bool" where
+  "tangle_strat U \<sigma> \<equiv> U \<noteq> {} \<and> U \<subseteq> V \<and>
+   (let \<alpha> = player_wins_pr (pr_set U) in (
+      strategy_of_player \<alpha> \<sigma> \<and> dom \<sigma> = U \<inter> V_player \<alpha> \<and> ran \<sigma> \<subseteq> U \<and>
+        (let E' = E \<inter> (E_of_strat \<sigma> \<union> (U \<inter> V_opponent \<alpha>) \<times> U) in (
+          strongly_connected E' \<and>
+          (\<forall>v \<in> U. \<forall>xs. cycle_node E' v xs \<longrightarrow> player_wins_list \<alpha> xs)
+   ))))"
+
+  lemma tangle_iff_tangle_strat:"tangle U \<longleftrightarrow> (\<exists>\<sigma>. tangle_strat U \<sigma>)"
+    unfolding tangle_def tangle_strat_def Let_def
+    by auto
+
+  lemma tangle_strat_notempty[simp]: "\<not>tangle_strat {} \<sigma>"
+    unfolding tangle_strat_def by simp
+
+  lemma tangle_strat_in_V: "tangle_strat U \<sigma> \<Longrightarrow> U \<subseteq> V"
+    unfolding tangle_strat_def by simp
+
+  lemma closed_tangle_strat_is_winning_region:
+    assumes tangle: "tangle_strat U \<sigma>"
     assumes closed_opp: "\<forall>u \<in> U. u \<in> V_opponent (player_wins_pr(pr_set U)) \<longrightarrow> E `` {u} \<subseteq> U"
     shows "winning_region (player_wins_pr (pr_set U)) U"
-  proof -
-    from tangle have U_in_V: "U \<subseteq> V" using tangle_in_V by simp
-
-    let ?\<alpha> = "player_wins_pr (pr_set U)"
-    from tangle obtain \<sigma> where
-        \<sigma>_strat: "strategy_of_player ?\<alpha> \<sigma>"
-    and \<sigma>_dom: "dom \<sigma> = U \<inter> V_player ?\<alpha>"
-    and \<sigma>_ran: "ran \<sigma> \<subseteq> U"
-    and \<sigma>_conn: "strongly_connected (E \<inter> (E_of_strat \<sigma> \<union> (U \<inter> V_opponent ?\<alpha>) \<times> U))"
-    and \<sigma>_winning: "\<forall>v\<in>U. \<forall>xs. cycle_node (E \<inter> (E_of_strat \<sigma> \<union> (U \<inter> V_opponent ?\<alpha>) \<times> U)) v xs
-      \<longrightarrow> player_wins_list ?\<alpha> xs"
-      unfolding tangle_def Let_def by auto
-
-    from \<sigma>_dom closed_opp have \<sigma>_subgraph_closed: "induced_subgraph (dom \<sigma>) \<sigma> `` U \<subseteq> U"
-      using ind_subgraph_closed_region[OF U_in_V _ \<sigma>_ran, of "dom \<sigma>"]
-      using V_opponent_player_int[OF U_in_V, of ?\<alpha>]
-      by blast
-
-    have \<sigma>_winning': "\<forall>u\<in>U. \<forall>ys. cycle_from_node (induced_subgraph (dom \<sigma>) \<sigma>) u ys
-          \<longrightarrow> player_wins_list (player_wins_pr (pr_set U)) ys"
-    proof (rule ballI; rule allI; rule impI)
-      fix u ys
-      assume u_in_U: "u \<in> U" and cycle_u_ys: "cycle_from_node (induced_subgraph (dom \<sigma>) \<sigma>) u ys"
-      from cycle_from_node_closed_set[OF u_in_U \<sigma>_subgraph_closed cycle_u_ys]
-      have ys_in_U: "set ys \<subseteq> U" .
-
-        from cycle_u_ys ys_in_U obtain y where
-            cycle_y_ys: "cycle_node (induced_subgraph (dom \<sigma>) \<sigma>) y ys"
-        and y_in_U: "y \<in> U"
-          unfolding cycle_from_node_def
-          using origin_in_cycle_node by fastforce
-
-        have "induced_subgraph (dom \<sigma>) \<sigma> \<inter> (U\<times>U) \<subseteq> (E \<inter> (E_of_strat \<sigma> \<union> (U \<inter> V_opponent ?\<alpha>) \<times> U))"
-          apply (subst \<sigma>_dom; simp; rule conjI)
-          subgoal using ind_subgraph[of "U \<inter> V_player ?\<alpha>"] by blast
-          subgoal apply (subst V_opponent_player_int[OF U_in_V])
-            unfolding induced_subgraph_def by fast
-          done
-        from \<sigma>_winning y_in_U subgraph_cycle[OF this cycle_restr_V[OF cycle_y_ys ys_in_U]]
-        show "player_wins_list ?\<alpha> ys" by simp
-    qed
-
-    show "winning_region ?\<alpha> U"
-      apply (simp add: winning_region_strat tangle_in_V[OF tangle])
-      apply (rule exI[where x="\<sigma>"]; intro conjI)
-      subgoal using \<sigma>_strat .
-      subgoal using \<sigma>_dom Int_commute ..
-      subgoal using \<sigma>_ran .
-      subgoal using \<sigma>_winning' .
-      subgoal using closed_opp .
-      done
-  qed
-
-  definition player_tangle :: "player \<Rightarrow> 'v set \<Rightarrow> bool" where
-    "player_tangle \<alpha> U \<equiv> U \<noteq> {} \<and> U \<subseteq> V \<and> \<alpha> = player_wins_pr (pr_set U) \<and>
-    (\<exists>\<sigma>. strategy_of_player \<alpha> \<sigma> \<and> dom \<sigma> = U \<inter> V_player \<alpha> \<and> ran \<sigma> \<subseteq> U \<and>
-    (let E' = E \<inter> (E_of_strat \<sigma> \<union> (U \<inter> V_opponent \<alpha>) \<times> U) in (
-      strongly_connected E' \<and>
-      (\<forall>v \<in> U. \<forall>xs. cycle_node E' v xs \<longrightarrow> player_wins_list \<alpha> xs)
-    )))"
-
-  lemma player_tangle_notempty[simp]: "\<not>player_tangle \<alpha> {}"
-    unfolding player_tangle_def by simp
-
-  lemma player_tangle_in_V: "player_tangle \<alpha> U \<Longrightarrow> U \<subseteq> V"
-    unfolding player_tangle_def by simp
-
-  lemma player_tangle_equiv_tangle: "tangle U \<longleftrightarrow> player_tangle (player_wins_pr (pr_set U)) U"
-    unfolding tangle_def player_tangle_def Let_def by simp
-
-  (** lemma ind_subgraph_int: "\<lbrakk>dom \<sigma> \<subseteq> V\<^sub>\<alpha> \<inter> U; ran \<sigma> \<subseteq> U\<rbrakk>
-    \<Longrightarrow> E \<inter> (((U-V\<^sub>\<alpha>) \<times> U) \<union> E_of_strat \<sigma>) = induced_subgraph (U \<inter> V\<^sub>\<alpha>) \<sigma> \<inter> (U\<times>U)"
-    apply (subst ind_subgraph_in_V)
-    apply safe
-    subgoal using E_in_V by blast
-    subgoal using E_in_V by blast
-    subgoal unfolding E_of_strat_def by blast
-    subgoal unfolding E_of_strat_def using ranI by fast
-    done *)
-end
-
-context player_paritygame
-begin
-  definition player_tangle' :: "'v set \<Rightarrow> bool" where
-    "player_tangle' U \<equiv> U \<noteq> {} \<and> U \<subseteq> V \<and> winningP (pr_set U) \<and>
-    (\<exists>\<sigma>. strategy_of V\<^sub>\<alpha> \<sigma> \<and> dom \<sigma> = U \<inter> V\<^sub>\<alpha> \<and> ran \<sigma> \<subseteq> U \<and>
-    (let E' = E \<inter> (E_of_strat \<sigma> \<union> (U \<inter> V\<^sub>\<beta>) \<times> U) in (
-      strongly_connected E' \<and>
-      (\<forall>v \<in> U. \<forall>xs. cycle_node E' v xs \<longrightarrow> winning_player xs)
-    )))"
-
-  lemma player_tangle'_notempty[simp]: "\<not>player_tangle' {}"
-    unfolding player_tangle'_def by simp
-
-  lemma player_tangle'_in_V: "player_tangle' U \<Longrightarrow> U \<subseteq> V"
-    unfolding player_tangle'_def by simp
-end
-
-context paritygame
-begin
-  lemma player_tangles_equiv: "player_tangle \<alpha> = (if \<alpha> = EVEN then P0.player_tangle' else P1.player_tangle')"
-    unfolding player_tangle_def P0.player_tangle'_def P1.player_tangle'_def Let_def
-    unfolding player_wins_pr_def strategy_of_player_def
-    using V\<^sub>1_def V_diff_diff_V\<^sub>0 by (cases \<alpha>) auto
+    using assms tangle_iff_tangle_strat closed_tangle_is_winning_region by blast
 end
 
 context player_paritygame
@@ -177,31 +246,31 @@ begin
   lemma fin_opponent_escapes: "finite (opponent_escapes t)"
     using finite_subset[OF opponent_escapes_in_V fin_V] .
 
-  lemma player_tangle'_escapes: "player_tangle' U
+  lemma player_tangle_escapes: "player_tangle U
     \<Longrightarrow> (\<forall>v\<in>U \<inter> V\<^sub>\<beta>. \<forall>w. (v,w) \<in> E \<longrightarrow> w \<in> U \<or> w \<in> opponent_escapes U)"
     unfolding opponent_escapes_def
     using E_in_V by auto
 
-context
-  fixes T :: "'v set set"
-  assumes tangles_T : "\<forall>t\<in>T. player_tangle' t"
-  assumes finite_T: "finite T"
-begin
+  context
+    fixes T :: "'v set set"
+    assumes tangles_T : "\<forall>t\<in>T. player_tangle t"
+    assumes finite_T: "finite T"
+  begin
 
-  inductive_set player_tangle_attractor :: "'v set \<Rightarrow> 'v set" for A where
-    base: "x \<in> A \<Longrightarrow> x \<in> player_tangle_attractor A"
-  | own: "\<lbrakk>x \<in> V\<^sub>\<alpha>-A; (x,y) \<in> E; y \<in> player_tangle_attractor A\<rbrakk> \<Longrightarrow> x \<in> player_tangle_attractor A"
-  | opponent: "\<lbrakk>x \<in> V\<^sub>\<beta>-A; \<forall>y. (x,y) \<in> E \<longrightarrow> y \<in> player_tangle_attractor A\<rbrakk>
+    inductive_set player_tangle_attractor :: "'v set \<Rightarrow> 'v set" for A where
+      base: "x \<in> A \<Longrightarrow> x \<in> player_tangle_attractor A"
+    | own: "\<lbrakk>x \<in> V\<^sub>\<alpha>-A; (x,y) \<in> E; y \<in> player_tangle_attractor A\<rbrakk> \<Longrightarrow> x \<in> player_tangle_attractor A"
+    | opponent: "\<lbrakk>x \<in> V\<^sub>\<beta>-A; \<forall>y. (x,y) \<in> E \<longrightarrow> y \<in> player_tangle_attractor A\<rbrakk>
+                  \<Longrightarrow> x \<in> player_tangle_attractor A"
+    | escape: "\<lbrakk>x \<in> t-A; t \<in> T; opponent_escapes t \<noteq> {};
+                \<forall>v. v \<in> opponent_escapes t \<longrightarrow> v \<in> player_tangle_attractor A\<rbrakk>
                 \<Longrightarrow> x \<in> player_tangle_attractor A"
-  | escape: "\<lbrakk>x \<in> t-A; t \<in> T; opponent_escapes t \<noteq> {};
-              \<forall>v. v \<in> opponent_escapes t \<longrightarrow> v \<in> player_tangle_attractor A\<rbrakk>
-              \<Longrightarrow> x \<in> player_tangle_attractor A"
 
-  lemma player_tangle_attractor_subset[simp]: "A \<subseteq> player_tangle_attractor A"
-    by (auto intro: player_tangle_attractor.base)
+    lemma player_tangle_attractor_subset[simp]: "A \<subseteq> player_tangle_attractor A"
+      by (auto intro: player_tangle_attractor.base)
 
-  definition \<alpha>_maximal :: "'v set \<Rightarrow> bool" where
-    "\<alpha>_maximal A \<equiv> A = player_tangle_attractor A"
+    definition \<alpha>_maximal :: "'v set \<Rightarrow> bool" where
+      "\<alpha>_maximal A \<equiv> A = player_tangle_attractor A"
 
     context
       fixes A :: "'v set"
@@ -233,12 +302,12 @@ begin
       lemma tangle_nodes_in_rank_ss_player_tangle_attractor:
         "tangle_nodes_in_rank n \<subseteq> player_tangle_attractor A"
         apply (induction n; rule)
-        subgoal using tangle_nodes_in_rank_subset player_tangle_attractor_subset by fastforce
-        subgoal for n x apply (cases rule: tangle_nodes_in_rank_Suc_cases; simp)
-          subgoal by fast
-          subgoal by (auto intro: player_tangle_attractor.intros)
-          subgoal by (auto intro: player_tangle_attractor.intros)
-          subgoal using player_tangle_attractor.escape DiffI subset_iff by metis
+          subgoal using tangle_nodes_in_rank_subset player_tangle_attractor_subset by fastforce
+          subgoal for n x apply (cases rule: tangle_nodes_in_rank_Suc_cases; simp)
+            subgoal by fast
+            subgoal by (auto intro: player_tangle_attractor.intros)
+            subgoal by (auto intro: player_tangle_attractor.intros)
+            subgoal using player_tangle_attractor.escape DiffI subset_iff by metis
           done
         done
 
@@ -311,58 +380,54 @@ begin
           and escapes_in_n: "\<forall>v. v \<in> opponent_escapes t \<longrightarrow> v \<in> tangle_nodes_in_rank n"
             by blast
 
-          from t_in_T have t_tangle: "player_tangle' t" using tangles_T by fast
+          from t_in_T have t_tangle: "player_tangle t" using tangles_T by fast
 
           from Suc.prems(3,4) have "x \<in> V\<^sub>\<beta>" using E_in_V by blast
           with x_in_t have x_in_V\<^sub>\<beta>_U_t: "x \<in> V\<^sub>\<beta> \<inter> (t - A)" by blast
           with t_tangle Suc.prems(3) have "y \<in> t \<or> y \<in> opponent_escapes t"
-            using player_tangle'_escapes by blast
+            using player_tangle_escapes by blast
 
           with t_in_T t_has_escapes escapes_in_n show ?thesis
             using tangle_nodes_in_rank_subset apply simp by blast
         qed
       qed
 
-      fun construct_strat :: "'v strat \<Rightarrow> 'v strat list \<Rightarrow> 'v strat" where
-        "construct_strat \<sigma> [] = \<sigma>"
-      | "construct_strat \<sigma> (\<sigma>'#xs) = construct_strat (\<sigma> ++ (\<sigma>' |` (- dom \<sigma>))) xs"
+lemma asym_comb_tangle_strats:
+  assumes t1_in_V: "t1 \<subseteq> V"
+  assumes \<sigma>_dom: "dom \<sigma> = t1 \<inter> V\<^sub>\<alpha>"
+  assumes \<sigma>_ran: "ran \<sigma> \<subseteq> t1"
+  assumes \<sigma>_winning_t1: "\<forall>v\<in>t1. \<forall>xs. cycle_node (E \<inter> (E_of_strat \<sigma> \<union> (t1 \<inter> (V - V\<^sub>\<alpha>)) \<times> t1)) v xs \<longrightarrow> winning_player xs"
+  assumes t2_in_V: "t2 \<subseteq> V"
+  assumes \<sigma>'_dom: "dom \<sigma>' = t2 \<inter> V\<^sub>\<alpha>"
+  assumes \<sigma>'_ran: "ran \<sigma>' \<subseteq> t2"
+  assumes \<sigma>'_winning_t2: "\<forall>v\<in>t2. \<forall>xs. cycle_node (E \<inter> (E_of_strat \<sigma>' \<union> (t2 \<inter> (V - V\<^sub>\<alpha>)) \<times> t2)) v xs \<longrightarrow> winning_player xs"
+  shows "\<forall>v\<in>t1\<union>t2. \<forall>xs. cycle_node (E \<inter> (E_of_strat (\<sigma> ++` \<sigma>') \<union> ((t1\<union>t2) \<inter> (V - V\<^sub>\<alpha>)) \<times> (t1\<union>t2))) v xs \<longrightarrow> winning_player xs"
+proof (rule ballI; rule allI; rule impI)
+  fix v xs
+  assume v_in_t1_t2: "v\<in>t1\<union>t2"
+     and cycle_v_xs: "cycle_node (E \<inter> (E_of_strat (\<sigma> ++` \<sigma>') \<union> ((t1\<union>t2) \<inter> (V - V\<^sub>\<alpha>)) \<times> (t1\<union>t2))) v xs"
 
-      lemma construct_strat_dom_empty[simp]: "dom (construct_strat \<sigma> []) = dom \<sigma>"
-        by simp
+  from t1_in_V t2_in_V have t1_t2_in_V: "t1\<union>t2\<subseteq>V" by simp
 
-      lemma construct_strat_ran_empty[simp]: "ran (construct_strat \<sigma> []) = ran \<sigma>"
-        by simp
+  from \<sigma>_dom \<sigma>'_dom have comb_dom: "dom (\<sigma> ++` \<sigma>') = (t1\<union>t2) \<inter> V\<^sub>\<alpha>"
+    using map_asym_add_dom[of \<sigma> \<sigma>'] by force
 
-      lemma construct_strat_dom: "dom (construct_strat \<sigma> xs) = dom \<sigma> \<union> \<Union>(dom ` set xs)"
-        apply (induction xs arbitrary: \<sigma>; simp) by blast
+  from \<sigma>_ran \<sigma>'_ran have comb_ran: "ran (\<sigma> ++` \<sigma>') \<subseteq> t1\<union>t2"
+    using map_asym_add_ran[of \<sigma> \<sigma>'] by fast
 
-      lemma construct_strat_retain_dom: "dom \<sigma> \<subseteq> dom (construct_strat \<sigma> xs)"
-        using construct_strat_dom by auto
+  find_theorems cycle_node
 
-      lemma construct_strat_retain_ran: "ran \<sigma> \<subseteq> ran (construct_strat \<sigma> xs)"
-        apply (rule subsetI)
-        by (induction xs arbitrary: \<sigma>; simp add: ran_map_add)
+  from cycle_v_xs have "cycle_node ((induced_subgraph (dom (\<sigma> ++` \<sigma>')) (\<sigma> ++` \<sigma>')) \<inter> (t1\<union>t2) \<times> (t1\<union>t2)) v xs"
+    using player_E'_eq_restr_subgraph[OF t1_t2_in_V comb_dom comb_ran] by simp
+  hence "set xs \<subseteq> t1\<union>t2" using restr_V_cycle by fast
+  then consider (t1) "set xs \<subseteq> t1" | (t2) "set xs \<subseteq> t2" sorry ,xxx sorry
 
-      lemma construct_strat_retain_strat: "\<sigma> \<subseteq>\<^sub>m construct_strat \<sigma> xs"
-        apply (induction xs arbitrary: \<sigma>; simp)
-        unfolding map_le_def by (simp add: map_add_dom_app_simps(3))
-
-      lemma construct_strat_retain_strat': "x \<in> dom \<sigma> \<Longrightarrow> (construct_strat \<sigma> xs) x = \<sigma> x"
-        using construct_strat_retain_strat unfolding map_le_def by simp
-
-      lemma "\<lbrakk>ran \<sigma> \<subseteq> R; \<forall>\<sigma>' \<in> set xs. ran \<sigma>' \<subseteq> R\<rbrakk> \<Longrightarrow> ran (construct_strat \<sigma> xs) \<subseteq> R"
-      proof (induction xs arbitrary: \<sigma>)
-        case Nil thus ?case by fastforce
-      next
-        case (Cons a xs)
-        from Cons.prems(2) have a_ran: "ran a \<subseteq> R" by simp
-        from Cons.prems(2) have xs_ran: "\<forall>\<sigma>'\<in>set xs. ran \<sigma>' \<subseteq> R" by simp
-        from Cons show ?case sorry
-      qed
+  show "winning_player xs" sorry
+qed
 
 lemma combined_tangle_strat:
   assumes fin_S: "finite S"
-  assumes tangles_S: "\<forall>t\<in>S. player_tangle' t"
+  assumes tangles_S: "\<forall>t\<in>S. player_tangle t"
   shows "\<exists>\<sigma>. strategy_of V\<^sub>\<alpha> \<sigma> \<and>
              dom \<sigma> = \<Union>S \<inter> V\<^sub>\<alpha> \<and>
              ran \<sigma> \<subseteq> \<Union>S"
@@ -381,7 +446,7 @@ proof -
     fix t
     assume "t\<in>S"
     with tangles_S have \<sigma>_exI: "\<exists>\<sigma>. tangle_strat t \<sigma>"
-      unfolding player_tangle'_def Let_def tangle_strat_def by fast
+      unfolding player_tangle_def Let_def tangle_strat_def by fast
     have "tangle_strat t (t_target t)"
       using someI_ex[OF \<sigma>_exI]
       unfolding t_target_def .
@@ -433,12 +498,14 @@ qed
 
       (** There are two possibilities with tangle attractors: either they force a play to A,
           or the player wins the play because it stays in a tangle for that player.
-          This needs work: a path could start anywhere in a tangle t and take several steps before
-          leaving, meaning that the path could reach A in more than n steps. *)
+          TODO: path starts in n
+            - if the path stays in n, the player has won
+            - if the path leaves n, then eventually it reaches A. *)
       lemma tangle_nodes_in_rank_strat: "\<exists>\<sigma>.
-        strategy_of V\<^sub>\<alpha> \<sigma> \<and> dom \<sigma> = V\<^sub>\<alpha> \<inter> (tangle_nodes_in_rank n - A) \<and> ran \<sigma> \<subseteq> tangle_nodes_in_rank n
+        strategy_of V\<^sub>\<alpha> \<sigma>
+        \<and> dom \<sigma> = V\<^sub>\<alpha> \<inter> (tangle_nodes_in_rank n - A) \<and> ran \<sigma> \<subseteq> tangle_nodes_in_rank n
         \<and> (\<forall>m. \<forall>x \<in> tangle_nodes_in_rank m - A. (\<forall>y \<in> (induced_subgraph V\<^sub>\<alpha> \<sigma>) `` {x}. y \<in> tangle_nodes_in_rank m))
-        \<and> (\<forall>x \<in> tangle_nodes_in_rank n. \<forall>xs z. path (induced_subgraph V\<^sub>\<alpha> \<sigma>) x xs z \<and> n < length xs
+        \<and> (\<forall>x \<in> tangle_nodes_in_rank n. \<forall>xs. lasso_from_node' (induced_subgraph V\<^sub>\<alpha> \<sigma>) x xs
            \<longrightarrow> (set xs \<inter> A \<noteq> {} \<or> winning_player xs))"
       proof (induction n)
         case 0 thus ?case
@@ -474,13 +541,13 @@ qed
              \<longrightarrow> winning_player xs))"
 
         define new_tangles where "new_tangles = {t. t\<in>T \<and> t \<inter> new_player_nodes_tangle \<noteq> {}}"
-        have new_tangles_tangles: "\<forall>t\<in>new_tangles. player_tangle' t"
+        have new_tangles_tangles: "\<forall>t\<in>new_tangles. player_tangle t"
           unfolding new_tangles_def
           using tangles_T by fast
         have finite_new_tangles: "finite new_tangles"
           unfolding new_tangles_def using finite_T by force
         hence new_tangles_strats: "\<forall>t \<in> new_tangles. \<exists>\<sigma>. tangle_strat t \<sigma>"
-          unfolding new_tangles_def player_tangle'_def Let_def tangle_strat_def by blast
+          unfolding new_tangles_def player_tangle_def Let_def tangle_strat_def sorry
 
         define t_strat where "t_strat = (\<lambda>t. SOME \<sigma>. tangle_strat t \<sigma>)"
         {
