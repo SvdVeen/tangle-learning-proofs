@@ -133,6 +133,12 @@ begin
   lemma cycle_node_iff_loop:  "cycle_node v vs \<longleftrightarrow> path v vs v \<and> vs \<noteq> []"
     unfolding cycle_node_def by blast
 
+  (** If you have a cycle and an intermediate node in that cycle, you can get another cycle from
+      that intermediate node *)
+  lemma cycle_node_intermadiate_node:
+    "\<lbrakk>cycle_node v vs; x \<in> set vs\<rbrakk> \<Longrightarrow> \<exists>vs'. set vs' = set vs \<and> cycle_node x vs'"
+    using cycle_node_iff_loop loop_intermediate_node[of v vs x] by fastforce
+
   (** A cycle reachable from a node *)
   definition cycle_from_node :: "'v \<Rightarrow> 'v list \<Rightarrow> bool" where
     "cycle_from_node x ys \<equiv> \<exists>xs y. path x xs y \<and> cycle_node y ys"
