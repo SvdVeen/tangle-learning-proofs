@@ -15,12 +15,22 @@ lemma map_asym_add_empty[simp]: "\<sigma> ++` Map.empty = \<sigma>"
 lemma empty_map_asym_add[simp]: "Map.empty ++` \<sigma> = \<sigma>"
   unfolding map_asym_add_def by auto
 
+lemma map_asym_add_subsumed: "\<sigma>' \<subseteq>\<^sub>m \<sigma> \<Longrightarrow> \<sigma> ++` \<sigma>' = \<sigma>"
+  unfolding map_asym_add_def
+  by (simp add: map_add_subsumed2 map_le_def)
+
+lemma map_asym_add_self[simp]: "\<sigma> ++` \<sigma> = \<sigma>"
+  using map_asym_add_subsumed by force
+
 lemma map_asym_add_dom: "dom (\<sigma> ++` \<sigma>') = dom \<sigma> \<union> dom \<sigma>'"
   unfolding map_asym_add_def by force
 
 lemma map_asym_add_ran: "ran (\<sigma> ++` \<sigma>') \<subseteq> ran \<sigma> \<union> ran \<sigma>'"
   unfolding map_asym_add_def ran_def
   using ranI ran_restrictD by fast
+
+lemma map_asym_add_ran_bound: "\<lbrakk>ran \<sigma> \<subseteq> R; ran \<sigma>' \<subseteq> R\<rbrakk> \<Longrightarrow> ran (\<sigma> ++` \<sigma>') \<subseteq> R"
+  using map_asym_add_ran by fast
 
 lemma map_asym_add_strat: "\<sigma> \<subseteq>\<^sub>m \<sigma> ++` \<sigma>'"
   unfolding map_asym_add_def
@@ -30,6 +40,9 @@ lemma map_asym_add_strat_retain: "\<sigma> x = Some y \<Longrightarrow> (\<sigma
   using map_asym_add_strat[of \<sigma> \<sigma>']
   unfolding map_le_def by force
 
+lemma map_asym_add_strat_retain_other: "\<lbrakk>\<sigma>' x = Some y; x \<notin> dom \<sigma>\<rbrakk> \<Longrightarrow> (\<sigma> ++` \<sigma>') x = Some y"
+  unfolding map_asym_add_def by simp
+
 lemma map_asym_add_strat_in_dom: "\<lbrakk>(\<sigma> ++` \<sigma>') x = Some y; x \<in> dom \<sigma>\<rbrakk> \<Longrightarrow> \<sigma> x = Some y"
   using map_asym_add_strat[of \<sigma> \<sigma>']
   unfolding map_le_def by simp
@@ -38,12 +51,54 @@ lemma map_asym_add_strat_in_other_dom:
   "\<lbrakk>(\<sigma> ++` \<sigma>') x = Some y; x \<notin> dom \<sigma>; x \<in> dom \<sigma>'\<rbrakk> \<Longrightarrow> \<sigma>' x = Some y"
   unfolding map_asym_add_def map_add_def restrict_map_def by auto
 
+lemma map_asym_add_strat_notin_dom: "\<lbrakk>x \<notin> dom \<sigma>; x \<notin> dom \<sigma>'\<rbrakk> \<Longrightarrow> (\<sigma> ++` \<sigma>') x = None"
+  unfolding map_asym_add_def by auto
+
 lemma map_asym_add_None: "(\<sigma> ++` \<sigma>') x = None \<Longrightarrow> \<sigma> x = None \<and> \<sigma>' x = None"
   unfolding map_asym_add_def by (auto simp: domIff)
 
 lemma map_asym_add_SomeD: "(\<sigma> ++` \<sigma>') x = Some y \<Longrightarrow> \<sigma> x = Some y \<or> \<sigma> x = None \<and>  \<sigma>' x = Some y"
   using map_add_SomeD[of \<sigma> "\<sigma>' |` (- dom \<sigma>)" x y]
-  unfolding map_asym_add_def restrict_map_def by (auto split: if_splits simp: domIff)
+  unfolding map_asym_add_def restrict_map_def
+  by (auto split: if_splits simp: domIff)
+
+lemma map_asym_add_disjoint_doms: "dom \<sigma> \<inter> dom \<sigma>' = {} \<Longrightarrow> \<sigma> ++` \<sigma>' = \<sigma>' ++` \<sigma>"
+proof
+  fix x
+  assume doms_disj: "dom \<sigma> \<inter> dom \<sigma>' = {}"
+  consider (dom_\<sigma>) "x \<in> dom \<sigma>" | (dom_\<sigma>') "x \<in> dom \<sigma>'" | (notin_dom) "x \<notin> dom \<sigma> \<and> x \<notin> dom \<sigma>'" by fast
+  then show "(\<sigma> ++` \<sigma>') x = (\<sigma>' ++` \<sigma>) x" proof cases
+    case dom_\<sigma>
+    from dom_\<sigma> obtain y where \<sigma>_x_to_y: "\<sigma> x = Some y" by fast
+
+    hence \<sigma>_\<sigma>'_x_to_y: "(\<sigma> ++` \<sigma>') x = Some y"
+      using map_asym_add_strat_retain by fast
+
+    from dom_\<sigma> doms_disj have "x \<notin> dom \<sigma>'" by fast
+    with \<sigma>_x_to_y have \<sigma>'_\<sigma>_x_to_y: "(\<sigma>' ++` \<sigma>) x = Some y"
+      using map_asym_add_strat_retain_other[of \<sigma> x y \<sigma>'] by simp
+
+    from \<sigma>_\<sigma>'_x_to_y \<sigma>'_\<sigma>_x_to_y show ?thesis by simp
+  next
+    case dom_\<sigma>'
+    from dom_\<sigma>' obtain y where \<sigma>'_x_to_y: "\<sigma>' x = Some y" by fast
+
+    hence \<sigma>'_\<sigma>_x_to_y: "(\<sigma>' ++` \<sigma>) x = Some y"
+      using map_asym_add_strat_retain by fast
+
+    from dom_\<sigma>' doms_disj have "x \<notin> dom \<sigma>" by fast
+    with \<sigma>'_x_to_y have  \<sigma>_\<sigma>'_x_to_y: "(\<sigma> ++` \<sigma>') x = Some y"
+      using map_asym_add_strat_retain_other[of \<sigma>' x y \<sigma>] by simp
+
+    from \<sigma>'_\<sigma>_x_to_y \<sigma>_\<sigma>'_x_to_y show ?thesis by simp
+  next
+    case notin_dom
+    thus ?thesis
+      using map_asym_add_strat_notin_dom[of x \<sigma> \<sigma>']
+      using map_asym_add_strat_notin_dom[of x \<sigma>' \<sigma>]
+      by simp
+  qed
+qed
 
 lemma fold_map_asym_add_dom: "dom (fold (++`) xs \<sigma>) = dom \<sigma> \<union> \<Union>(dom ` set xs)"
   by (induction xs arbitrary: \<sigma>; simp add: map_asym_add_dom) fast
@@ -55,7 +110,19 @@ lemma fold_map_asym_add_ran: "ran (fold (++`) xs \<sigma>) \<subseteq> ran \<sig
 lemma fold_map_asym_add_ran_bound:
   "\<lbrakk>ran \<sigma> \<subseteq> R; \<forall>\<sigma>'\<in>set xs. ran \<sigma>' \<subseteq> R\<rbrakk> \<Longrightarrow> ran (fold (++`) xs \<sigma>) \<subseteq> R"
   apply (induction xs arbitrary: \<sigma>; simp)
-  using map_asym_add_ran subset_trans sup.boundedI by metis
+  using map_asym_add_ran_bound by blast
+
+lemma fold_map_asym_add_None:
+  "(fold (++`) xs \<sigma>) x = None \<Longrightarrow> \<sigma> x = None \<and> (\<forall>\<sigma>'\<in>set xs. \<sigma>' x = None)"
+  apply (induction xs arbitrary: \<sigma>)
+    subgoal by simp
+    subgoal using map_asym_add_None set_ConsD by (metis fold_simps(2))
+  done
+
+lemma fold_map_asym_add_SomeD:
+  "(fold (++`) xs \<sigma>) x = Some y \<Longrightarrow> \<sigma> x = Some y \<or> (\<exists>\<sigma>'\<in>set xs. \<sigma>' x = Some y)"
+  apply (induction xs arbitrary: \<sigma>; simp)
+  using map_asym_add_SomeD by fast
 
 definition asym_combine :: "('a, 'b) map list \<Rightarrow> ('a, 'b) map" where
   "asym_combine xs \<equiv> fold (++`) xs Map.empty"
@@ -65,15 +132,23 @@ lemma asym_combine_empty[simp]: "asym_combine [] = Map.empty"
 
 lemma asym_combine_dom: "dom (asym_combine xs) = \<Union>(dom ` set xs)"
   unfolding asym_combine_def
-  using fold_map_asym_add_dom[of xs "Map.empty"] by simp
+  using fold_map_asym_add_dom[of xs Map.empty] by simp
 
 lemma asym_combine_ran: "ran (asym_combine xs) \<subseteq> \<Union>(ran ` set xs)"
   unfolding asym_combine_def
-  using fold_map_asym_add_ran[of xs "Map.empty"] by simp
+  using fold_map_asym_add_ran[of xs Map.empty] by simp
 
 lemma asym_combine_ran_bound: "\<forall>\<sigma>\<in>set xs. ran \<sigma> \<subseteq> R \<Longrightarrow> ran (asym_combine xs) \<subseteq> R"
   unfolding asym_combine_def
-  using fold_map_asym_add_ran_bound[of "Map.empty" R xs] by simp
+  using fold_map_asym_add_ran_bound[of Map.empty R xs] by simp
+
+lemma asym_combine_None: "(asym_combine xs) x = None \<Longrightarrow> \<forall>\<sigma>\<in>set xs. \<sigma> x = None"
+  unfolding asym_combine_def
+  using fold_map_asym_add_None[of xs Map.empty x] by fast
+
+lemma asym_combine_SomeD: "(asym_combine xs) x = Some y \<Longrightarrow> \<exists>\<sigma>\<in>set xs. \<sigma> x = Some y"
+  unfolding asym_combine_def
+  using fold_map_asym_add_SomeD[of xs Map.empty x y] by blast
 
 (** Van Dijk defines a tangle as follows:
       A p-tangle is a nonempty set of vertices U \<subseteq> V with p = pr(U),
@@ -411,23 +486,25 @@ begin
         qed
       qed
 
+sorry xxx
+
 lemma map_asym_add_tangle_strats:
   assumes t1_in_V: "t1 \<subseteq> V"
   assumes t1_no_escapes_t2: "\<forall>v \<in> opponent_escapes t1. v \<notin> t2"
   assumes \<sigma>_dom: "dom \<sigma> = t1 \<inter> V\<^sub>\<alpha>"
   assumes \<sigma>_ran: "ran \<sigma> \<subseteq> t1"
-  assumes \<sigma>_winning_t1: "\<forall>v\<in>t1. \<forall>xs. cycle_node (E \<inter> (E_of_strat \<sigma> \<union> (t1 \<inter> (V - V\<^sub>\<alpha>)) \<times> t1)) v xs \<longrightarrow> winning_player xs"
+  assumes \<sigma>_winning_t1: "\<forall>v\<in>t1. \<forall>xs. cycle_node (E \<inter> (E_of_strat \<sigma> \<union> (t1 \<inter> V\<^sub>\<beta>) \<times> t1)) v xs \<longrightarrow> winning_player xs"
   assumes t2_in_V: "t2 \<subseteq> V"
   assumes \<sigma>'_dom: "dom \<sigma>' = t2 \<inter> V\<^sub>\<alpha>"
   assumes \<sigma>'_ran: "ran \<sigma>' \<subseteq> t2"
-  assumes \<sigma>'_winning_t2: "\<forall>v\<in>t2. \<forall>xs. cycle_node (E \<inter> (E_of_strat \<sigma>' \<union> (t2 \<inter> (V - V\<^sub>\<alpha>)) \<times> t2)) v xs \<longrightarrow> winning_player xs"
-  shows "\<forall>v\<in>t1\<union>t2. \<forall>xs. cycle_node (E \<inter> (E_of_strat (\<sigma> ++` \<sigma>') \<union> ((t1\<union>t2) \<inter> (V - V\<^sub>\<alpha>)) \<times> (t1\<union>t2))) v xs \<longrightarrow> winning_player xs"
+  assumes \<sigma>'_winning_t2: "\<forall>v\<in>t2. \<forall>xs. cycle_node (E \<inter> (E_of_strat \<sigma>' \<union> (t2 \<inter> V\<^sub>\<beta>) \<times> t2)) v xs \<longrightarrow> winning_player xs"
+  shows "\<forall>v\<in>t1\<union>t2. \<forall>xs. cycle_node (E \<inter> (E_of_strat (\<sigma> ++` \<sigma>') \<union> ((t1\<union>t2) \<inter> V\<^sub>\<beta>) \<times> (t1\<union>t2))) v xs \<longrightarrow> winning_player xs"
 proof (rule ballI; rule allI; rule impI)
   fix v xs
   assume v_in_union: "v\<in>t1\<union>t2"
-     and cycle_v_xs: "cycle_node (E \<inter> (E_of_strat (\<sigma> ++` \<sigma>') \<union> ((t1\<union>t2) \<inter> (V - V\<^sub>\<alpha>)) \<times> (t1\<union>t2))) v xs"
+     and cycle_v_xs: "cycle_node (E \<inter> (E_of_strat (\<sigma> ++` \<sigma>') \<union> ((t1\<union>t2) \<inter> V\<^sub>\<beta>) \<times> (t1\<union>t2))) v xs"
 
-  let ?E' = "E \<inter> (E_of_strat (\<sigma> ++` \<sigma>') \<union> ((t1\<union>t2) \<inter> (V - V\<^sub>\<alpha>)) \<times> (t1\<union>t2))"
+  let ?E' = "E \<inter> (E_of_strat (\<sigma> ++` \<sigma>') \<union> ((t1\<union>t2) \<inter> V\<^sub>\<beta>) \<times> (t1\<union>t2))"
 
   from \<sigma>_dom \<sigma>'_dom have comb_dom: "dom (\<sigma> ++` \<sigma>') = (t1\<union>t2) \<inter> V\<^sub>\<alpha>"
     using map_asym_add_dom[of \<sigma> \<sigma>'] by force
@@ -488,10 +565,10 @@ proof (rule ballI; rule allI; rule impI)
     from cycle_node_closed_set[OF v_in_t1 E'_closed_t1 cycle_v_xs]
     have xs_in_t1: "set xs \<subseteq> t1" .
 
-    from t1_in_V \<sigma>_dom have "(?E' \<inter> t1\<times>t1) \<subseteq> (E \<inter> (E_of_strat \<sigma> \<union> (t1 \<inter> (V - V\<^sub>\<alpha>)) \<times> t1))"
+    from t1_in_V \<sigma>_dom have "(?E' \<inter> t1\<times>t1) \<subseteq> (E \<inter> (E_of_strat \<sigma> \<union> (t1 \<inter> V\<^sub>\<beta>) \<times> t1))"
       unfolding E_of_strat_def using map_asym_add_strat_in_dom[of \<sigma> \<sigma>'] by auto
     from subgraph_cycle[OF this cycle_restr_V[OF cycle_v_xs xs_in_t1]]
-    have "cycle_node (E \<inter> (E_of_strat \<sigma> \<union> (t1 \<inter> (V - V\<^sub>\<alpha>)) \<times> t1)) v xs" .
+    have "cycle_node (E \<inter> (E_of_strat \<sigma> \<union> (t1 \<inter> V\<^sub>\<beta>) \<times> t1)) v xs" .
 
     with \<sigma>_winning_t1 v_in_t1 show ?thesis by blast
   next
@@ -504,10 +581,10 @@ proof (rule ballI; rule allI; rule impI)
       case t1_notin_xs
       with xs_in_union have xs_in_t2_min_t1: "set xs \<subseteq> t2-t1" by blast
 
-      from t2_in_V \<sigma>_dom \<sigma>'_dom have "(?E' \<inter> (t2-t1)\<times>(t2-t1)) \<subseteq> (E \<inter> (E_of_strat \<sigma>' \<union> (t2 \<inter> (V - V\<^sub>\<alpha>)) \<times> t2))"
+      from t2_in_V \<sigma>_dom \<sigma>'_dom have "(?E' \<inter> (t2-t1)\<times>(t2-t1)) \<subseteq> (E \<inter> (E_of_strat \<sigma>' \<union> (t2 \<inter> V\<^sub>\<beta>) \<times> t2))"
         unfolding E_of_strat_def using map_asym_add_strat_in_other_dom[of \<sigma> \<sigma>'] by auto
       from subgraph_cycle[OF this cycle_restr_V[OF cycle_v_xs xs_in_t2_min_t1]]
-      have "cycle_node (E \<inter> (E_of_strat \<sigma>' \<union> (t2 \<inter> (V - V\<^sub>\<alpha>)) \<times> t2)) v xs" .
+      have "cycle_node (E \<inter> (E_of_strat \<sigma>' \<union> (t2 \<inter> V\<^sub>\<beta>) \<times> t2)) v xs" .
 
       with v_in_t2_min_t1 \<sigma>'_winning_t2 show ?thesis by fast
     next
@@ -527,51 +604,146 @@ proof (rule ballI; rule allI; rule impI)
   qed
 qed
 
-xxx, oops
+sorry xxx
+
+lemma fold_snd_map_asym_add_dom: "dom (fold (\<lambda>a b. snd a ++` b) xs \<sigma>) = dom \<sigma> \<union> \<Union>(dom ` (snd ` set xs))"
+  apply (induction xs arbitrary: \<sigma>; simp)
+  by (simp add: inf_sup_aci(6) inf_sup_aci(7) map_asym_add_dom)
+
+lemma fold_snd_map_asym_add_ran: "ran (fold (\<lambda>a b. snd a ++` b) xs \<sigma>) \<subseteq> ran \<sigma> \<union> \<Union>(ran ` (snd ` set xs))"
+  apply (induction xs arbitrary: \<sigma>; simp)
+  using map_asym_add_ran by fastforce
+
+definition asym_combine' :: "('v set \<times> 'v strat) list \<Rightarrow> 'v strat" where
+  "asym_combine' xs \<equiv> fold (\<lambda>a b. snd a ++` b) xs Map.empty"
+
+lemma asym_combine'_dom: "dom (asym_combine' xs) = \<Union>(dom ` (snd ` set xs))"
+  unfolding asym_combine'_def
+  using fold_snd_map_asym_add_dom[of xs Map.empty] by simp
+
+lemma asym_combine'_ran: "ran (asym_combine' xs) \<subseteq> \<Union>(ran ` (snd ` set xs))"
+  unfolding asym_combine'_def
+  using fold_snd_map_asym_add_ran[of xs Map.empty] by simp
+
+lemma
+  fixes xs :: "('v set \<times> 'v strat) list"
+  assumes S_in_V: "\<forall>s\<in>fst ` set xs. s \<subseteq> V"
+  assumes no_escapes_S: "\<forall>s1\<in>fst ` set xs. \<forall>s2\<in>fst ` set xs. \<forall>v \<in> opponent_escapes s1. v \<notin> s2"
+  assumes tangle_strats: "\<forall>(s,\<sigma>)\<in>set xs. is_player_tangle_strat s \<sigma>"
+  shows "\<forall>v\<in>\<Union>(fst ` set xs). \<forall>vs. cycle_node (E \<inter> (E_of_strat (asym_combine' xs) \<union> (\<Union>(fst ` set xs) \<inter> V\<^sub>\<beta>) \<times> \<Union>(fst ` set xs))) v vs \<longrightarrow> winning_player vs"
+  using assms
+proof (induction xs)
+  case Nil thus ?case by simp
+next
+  case (Cons a xs)
+  from Cons.prems(1) have 1: "\<forall>s\<in>fst ` set xs. s \<subseteq> V" by simp
+  from Cons.prems(2) have 2: "\<forall>s1\<in>fst ` set xs. \<forall>s2\<in>fst ` set xs. \<forall>v\<in>opponent_escapes s1. v\<notin>s2" by auto
+  from Cons.prems(3) have 3: "\<forall>(s',\<sigma>')\<in>set xs. is_player_tangle_strat s' \<sigma>'" by auto
+  note IH = Cons.IH[OF 1 2 3]
+
+  from 1 have a: "\<Union>(fst ` set xs) \<subseteq> V" by blast
+  have b: "\<forall>v \<in> opponent_escapes (\<Union>(fst ` set xs)). v \<notin> fst a"
+  proof (rule ballI)
+    fix v
+    assume v_escape: "v \<in> opponent_escapes (\<Union>(fst ` set xs))"
+    then obtain s1 where s1_in_xs: "s1 \<in> fst ` set xs" and v_escapes_s1: "v \<in> opponent_escapes s1"
+      unfolding opponent_escapes_def by blast
+    from Cons.prems(2) s1_in_xs v_escapes_s1
+    show "v \<notin> fst a" by force
+  qed
+
+  from 3 have "\<forall>(s',\<sigma>')\<in>set xs. dom \<sigma>' = s' \<inter> V\<^sub>\<alpha>"
+    unfolding is_player_tangle_strat_def by fast
+  hence "\<Union>(dom ` (snd ` set xs)) = \<Union>(fst ` set xs) \<inter> V\<^sub>\<alpha>"
+    by (simp add: case_prod_beta)
+  hence c: "dom (asym_combine' xs) = \<Union>(fst ` set xs) \<inter> V\<^sub>\<alpha>"
+    using asym_combine'_dom by simp
+
+  from 3 have "\<forall>(s',\<sigma>')\<in>set xs. ran \<sigma>' \<subseteq> s'"
+    unfolding is_player_tangle_strat_def by fast
+  hence "\<Union>(ran ` (snd ` set xs)) \<subseteq> \<Union>(fst ` set xs)"
+    by simp force
+  hence d: "ran (asym_combine' xs) \<subseteq> \<Union>(fst ` set xs)"
+    using asym_combine'_ran by fast
+
+  from Cons.prems(1) have e: "fst a \<subseteq> V" by auto
+
+  from Cons.prems(3) have f: "dom (snd a) = (fst a) \<inter> V\<^sub>\<alpha>"
+    unfolding is_player_tangle_strat_def by simp force
+
+  from Cons.prems(3) have g: "ran (snd a) \<subseteq> fst a"
+    unfolding is_player_tangle_strat_def by force
+
+  from Cons.prems(3) have h: "\<forall>v\<in>fst a. \<forall>xs. cycle_node (E \<inter> (E_of_strat (snd a) \<union> (fst a \<inter> V\<^sub>\<beta>) \<times> fst a)) v xs \<longrightarrow> winning_player xs"
+    unfolding is_player_tangle_strat_def Let_def by force
+
+  have q: "\<Union>(fst ` set xs) \<union> fst a = \<Union>(fst ` set (a#xs))" by auto
+
+  show ?case
+    using map_asym_add_tangle_strats[OF a b c d IH e f g h]
+    unfolding asym_combine'_def
+    apply (simp add: q) sorry
+qed
 
 lemma combined_tangle_strat:
   assumes fin_S: "finite S"
   assumes tangles_S: "\<forall>t\<in>S. player_tangle t"
   shows "\<exists>\<sigma>. strategy_of V\<^sub>\<alpha> \<sigma> \<and>
              dom \<sigma> = \<Union>S \<inter> V\<^sub>\<alpha> \<and>
-             ran \<sigma> \<subseteq> \<Union>S"
+             ran \<sigma> \<subseteq> \<Union>S \<and>
+             (\<forall>v\<in>\<Union>S. \<forall>xs. cycle_node (E \<inter> (E_of_strat \<sigma> \<union> (\<Union>S \<inter> V\<^sub>\<beta>) \<times> \<Union>S)) v xs \<longrightarrow> winning_player xs)"
 proof -
-  define tangle_strat where "tangle_strat = (\<lambda>t \<sigma>.
-    strategy_of V\<^sub>\<alpha> \<sigma> \<and>
-    dom \<sigma> = t \<inter> V\<^sub>\<alpha> \<and>
-    ran \<sigma> \<subseteq> t \<and>
-    strongly_connected (E \<inter> (E_of_strat \<sigma> \<union> (t \<inter> (V - V\<^sub>\<alpha>)) \<times> t)) \<and>
-    (\<forall>v\<in>t. \<forall>xs. cycle_node (E \<inter> (E_of_strat \<sigma> \<union> (t \<inter> (V - V\<^sub>\<alpha>)) \<times> t)) v xs
-       \<longrightarrow> winning_player xs))"
-
-  define t_target where "t_target = (\<lambda>t. SOME \<sigma>. tangle_strat t \<sigma>)"
+  define t_strat where "t_strat = (\<lambda>t. SOME \<sigma>. is_player_tangle_strat t \<sigma>)"
 
   {
     fix t
     assume "t\<in>S"
-    with tangles_S have \<sigma>_exI: "\<exists>\<sigma>. tangle_strat t \<sigma>"
-      unfolding player_tangle_def Let_def tangle_strat_def by fast
-    have "tangle_strat t (t_target t)"
+    with tangles_S have \<sigma>_exI: "\<exists>\<sigma>. is_player_tangle_strat t \<sigma>"
+      unfolding player_tangle_def Let_def by fast
+    have "is_player_tangle_strat t (t_strat t)"
       using someI_ex[OF \<sigma>_exI]
-      unfolding t_target_def .
-  } note S_target=this
+      unfolding t_strat_def .
+  } note S_strat=this
 
-  define S_strats where "S_strats = t_target ` S"
+  obtain S_list where S_list_set: "set S_list = S" and S_list_len: "length S_list = card S"
+    using finite_list[OF fin_S] length_remdups_card_conv set_remdups by meson
 
-  have S_strats_all_S: "\<forall>t\<in>S. \<exists>\<sigma>\<in>S_strats. tangle_strat t \<sigma>"
+  define S_strats_list where "S_strats_list = map t_strat S_list"
+
+  from S_list_len have S_strats_list_len_1: "length S_strats_list = length S_list"
+    unfolding S_strats_list_def by simp
+
+  from S_strats_list_len_1 S_list_len have S_strats_list_len_2: "length S_strats_list = card S"
+    by simp
+
+  have "\<forall>\<sigma> \<in> set S_strats_list. \<exists>s \<in> S. is_player_tangle_strat s \<sigma>"
+    unfolding S_strats_list_def
+    using S_strat S_list_set by auto
+
+  define S_strats where "S_strats = t_strat ` S"
+
+  have S_strats_all_S: "\<forall>t\<in>S. \<exists>\<sigma>\<in>S_strats. is_player_tangle_strat t \<sigma>"
     unfolding S_strats_def
-    using S_target by fast
+    using S_strat by fast
 
-  have S_all_S_strats: "\<forall>\<sigma>\<in>S_strats. \<exists>t\<in>S. tangle_strat t \<sigma>"
+  have S_all_S_strats: "\<forall>\<sigma>\<in>S_strats. \<exists>t\<in>S. is_player_tangle_strat t \<sigma>"
     unfolding S_strats_def
-    using S_target by fast
+    using S_strat by fast
+
+  from fin_S have card_S_strats_le_card_S: "card S_strats \<le> card S"
+    unfolding S_strats_def t_strat_def
+    using card_image_le fin_S by blast
 
   have S_empty_iff_strats_empty: "S = {} \<longleftrightarrow> S_strats = {}"
     unfolding S_strats_def by simp
 
-  obtain xs where xs_set_strats: "set xs = S_strats"
+  obtain xs where xs_set_strats: "set xs = S_strats" and xs_len_card_S_strats: "length xs = card S_strats"
     unfolding S_strats_def
-    using finite_list[OF finite_imageI[OF fin_S, of "t_target"]] by blast
+    using finite_list[OF finite_imageI[OF fin_S, of "t_strat"]] length_remdups_card_conv set_remdups
+    by metis
+
+  have "length xs \<le> card S"
+    using xs_len_card_S_strats card_S_strats_le_card_S by auto
 
   have strats_empty_iff_xs_empty: "S_strats = {} \<longleftrightarrow> xs = []"
     using xs_set_strats by auto
@@ -579,21 +751,7 @@ proof -
   have S_empty_iff_xs_empty: "S = {} \<longleftrightarrow> xs = []"
     by (simp add: S_empty_iff_strats_empty strats_empty_iff_xs_empty)
 
-  define combine_strats where
-    "combine_strats = (\<lambda>xs::'v strat list. fold (\<lambda>\<sigma> \<sigma>'. \<sigma> ++ (\<sigma>' |` (-dom \<sigma>))) xs Map.empty)"
-
-  define \<sigma> where "\<sigma> = fold (\<lambda>\<sigma> \<sigma>'. \<sigma> ++ (\<sigma>' |` (-dom \<sigma>))) xs Map.empty"
-
-  find_theorems fold
-  have \<sigma>_dom: "dom \<sigma> = \<Union>S \<inter> V\<^sub>\<alpha>"
-  proof (cases xs)
-    case Nil with S_empty_iff_xs_empty show ?thesis
-      unfolding \<sigma>_def by simp
-  next
-    case (Cons a list)
-    then show ?thesis
-      unfolding \<sigma>_def sorry
-  qed
+  define \<sigma> where "\<sigma> = asym_combine xs"
 
   show ?thesis
     apply (rule exI[where x="\<sigma>"])
@@ -609,15 +767,14 @@ qed
         strategy_of V\<^sub>\<alpha> \<sigma>
         \<and> dom \<sigma> = V\<^sub>\<alpha> \<inter> (tangle_nodes_in_rank n - A) \<and> ran \<sigma> \<subseteq> tangle_nodes_in_rank n
         \<and> (\<forall>m. \<forall>x \<in> tangle_nodes_in_rank m - A. (\<forall>y \<in> (induced_subgraph V\<^sub>\<alpha> \<sigma>) `` {x}. y \<in> tangle_nodes_in_rank m))
-        \<and> (\<forall>x \<in> tangle_nodes_in_rank n. \<forall>xs. lasso_from_node' (induced_subgraph V\<^sub>\<alpha> \<sigma>) x xs
-           \<longrightarrow> (set xs \<inter> A \<noteq> {} \<or> winning_player xs))"
+        \<and> (\<forall>x \<in> tangle_nodes_in_rank n. \<forall>xs ys. lasso_from_node (induced_subgraph V\<^sub>\<alpha> \<sigma>) x xs ys
+            \<longrightarrow> (set (xs@ys) \<inter> tangle_nodes_in_rank (n - 1) = {} \<longrightarrow> winning_player ys \<and>
+                 set (xs@ys) \<inter> tangle_nodes_in_rank (n - 1) \<noteq> {} \<longrightarrow> set (xs@ys) \<inter> A \<noteq> {}))"
       proof (induction n)
         case 0 thus ?case
           apply (rule exI[where x="Map.empty"])
           apply (intro conjI; simp)
-          subgoal using tangle_nodes_in_rank_edges_same by blast
-          subgoal using origin_in_path by fast
-          done
+          using tangle_nodes_in_rank_edges_same by blast
       next
         case (Suc n)
         from Suc.IH obtain \<sigma> where
@@ -625,8 +782,9 @@ qed
         and \<sigma>_dom: "dom \<sigma> = V\<^sub>\<alpha> \<inter> (tangle_nodes_in_rank n - A)"
         and \<sigma>_ran: "ran \<sigma> \<subseteq> tangle_nodes_in_rank n"
         and \<sigma>_closed_rank: "\<forall>m. \<forall>x\<in>tangle_nodes_in_rank m - A. \<forall>y\<in>induced_subgraph V\<^sub>\<alpha> \<sigma> `` {x}. y \<in> tangle_nodes_in_rank m"
-        and \<sigma>_forces_A_or_wins: "\<forall>x \<in> tangle_nodes_in_rank n. \<forall>xs z. path (induced_subgraph V\<^sub>\<alpha> \<sigma>) x xs z \<and> n < length xs
-                                 \<longrightarrow> set xs \<inter> A \<noteq> {} \<or> winning_player xs"
+        and \<sigma>_forces_A_or_wins: "\<forall>x\<in>tangle_nodes_in_rank n. \<forall>xs ys. lasso_from_node (induced_subgraph V\<^sub>\<alpha> \<sigma>) x xs ys
+             \<longrightarrow> set (xs @ ys) \<inter> tangle_nodes_in_rank (n - 1) \<noteq> {} \<longrightarrow> set (xs @ ys) \<inter> A \<noteq> {} \<and>
+                 set (xs @ ys) \<inter> tangle_nodes_in_rank (n - 1) = {} \<longrightarrow> winning_player ys"
           by auto
 
         let ?all_new_player_nodes = "(tangle_nodes_in_rank (Suc n) - tangle_nodes_in_rank n) \<inter> V\<^sub>\<alpha>"
@@ -636,40 +794,12 @@ qed
         have new_player_nodes_disjoint: "new_player_nodes_no_tangle \<inter> new_player_nodes_tangle = {}"
           unfolding new_player_nodes_no_tangle_def new_player_nodes_tangle_def by blast
 
-        define tangle_strat where "tangle_strat = (\<lambda>t \<sigma>.
-          strategy_of V\<^sub>\<alpha> \<sigma> \<and>
-          dom \<sigma> = t \<inter> V\<^sub>\<alpha> \<and>
-          ran \<sigma> \<subseteq> t \<and>
-          strongly_connected (E \<inter> (E_of_strat \<sigma> \<union> (t \<inter> (V - V\<^sub>\<alpha>)) \<times> t)) \<and>
-          (\<forall>v\<in>t. \<forall>xs. cycle_node (E \<inter> (E_of_strat \<sigma> \<union> (t \<inter> (V - V\<^sub>\<alpha>)) \<times> t)) v xs
-             \<longrightarrow> winning_player xs))"
-
         define new_tangles where "new_tangles = {t. t\<in>T \<and> t \<inter> new_player_nodes_tangle \<noteq> {}}"
         have new_tangles_tangles: "\<forall>t\<in>new_tangles. player_tangle t"
           unfolding new_tangles_def
           using tangles_T by fast
         have finite_new_tangles: "finite new_tangles"
           unfolding new_tangles_def using finite_T by force
-        hence new_tangles_strats: "\<forall>t \<in> new_tangles. \<exists>\<sigma>. tangle_strat t \<sigma>"
-          unfolding new_tangles_def player_tangle_def Let_def tangle_strat_def sorry
-
-        define t_strat where "t_strat = (\<lambda>t. SOME \<sigma>. tangle_strat t \<sigma>)"
-        {
-          fix t
-          assume "t \<in> new_tangles"
-          hence exI_\<sigma>: "\<exists>\<sigma>. tangle_strat t \<sigma>"
-            using new_tangles_strats by simp
-          hence "tangle_strat t (t_strat t)"
-            unfolding t_strat_def
-            using someI_ex[of "tangle_strat t"] by fast
-        } note t_strat=this
-
-        define new_tangle_strats where "new_tangle_strats = t_strat ` new_tangles"
-        have finite_new_tangle_strats: "finite new_tangle_strats"
-          unfolding new_tangle_strats_def
-          using finite_new_tangles by simp
-        then obtain xs where xs_is_tangle_strats: "set xs = new_tangle_strats"
-          using finite_list by auto
 
         define target where "target = (\<lambda>x. SOME x'. x'\<in>tangle_nodes_in_rank n \<and> (x,x')\<in>E)"
 
