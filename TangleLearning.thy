@@ -9,6 +9,11 @@ subsection \<open>Asymmetric Map Combination\<close>
 definition map_asym_add :: "('a, 'b) map \<Rightarrow> ('a, 'b) map \<Rightarrow> ('a, 'b) map" (infixl "++`" 120) where
   "map_asym_add \<sigma> \<sigma>' \<equiv> \<sigma> ++ (\<sigma>' |` (- dom \<sigma>))"
 
+lemma "\<sigma> ++` \<sigma>' = \<sigma>' ++ \<sigma>"  
+  unfolding map_asym_add_def map_add_def
+  by (auto simp: fun_eq_iff dom_def split: option.splits)
+  
+    
 lemma map_asym_add_empty[simp]: "\<sigma> ++` Map.empty = \<sigma>"
   unfolding map_asym_add_def by simp
 
@@ -799,6 +804,94 @@ next
     unfolding asym_combine'_def
     apply (simp add: q) sorry
 qed
+
+
+definition asym_combine'' :: "('v set \<times> 'v strat) list \<Rightarrow> 'v strat" where
+  "asym_combine'' xs \<equiv> fold (\<lambda>a b. b ++` snd a) xs Map.empty"
+
+lemma asym_combine_append: "asym_combine'' (xs @ [a]) = asym_combine'' xs ++` snd a"
+  unfolding asym_combine''_def 
+  by simp
+   
+  
+lemma
+  fixes xs :: "('v set \<times> 'v strat) list"
+  assumes S_in_V: "\<forall>s\<in>fst ` set xs. s \<subseteq> V"
+  assumes no_escapes_S: "\<forall>s1\<in>fst ` set xs. \<forall>s2\<in>fst ` set xs. \<forall>v \<in> opponent_escapes s1. v \<notin> s2"
+  assumes tangle_strats: "\<forall>(s,\<sigma>)\<in>set xs. is_player_tangle_strat s \<sigma>"
+  shows "\<forall>v\<in>\<Union>(fst ` set xs). \<forall>vs. cycle_node (E \<inter> (E_of_strat (asym_combine'' xs) \<union> (\<Union>(fst ` set xs) \<inter> V\<^sub>\<beta>) \<times> \<Union>(fst ` set xs))) v vs \<longrightarrow> winning_player vs"
+  using assms
+proof (induction xs rule: rev_induct)
+  case Nil thus ?case by simp
+next
+  case (snoc a xs)
+  from snoc.prems(1) have 1: "\<forall>s\<in>fst ` set xs. s \<subseteq> V" by simp
+  from snoc.prems(2) have 2: "\<forall>s1\<in>fst ` set xs. \<forall>s2\<in>fst ` set xs. \<forall>v\<in>opponent_escapes s1. v\<notin>s2" by auto
+  from snoc.prems(3) have 3: "\<forall>(s',\<sigma>')\<in>set xs. is_player_tangle_strat s' \<sigma>'" by auto
+  note IH = snoc.IH[OF 1 2 3]
+
+  from 1 have a: "\<Union>(fst ` set xs) \<subseteq> V" by blast
+  have b: "\<forall>v \<in> opponent_escapes (\<Union>(fst ` set xs)). v \<notin> fst a"
+  proof (rule ballI)
+    fix v
+    assume v_escape: "v \<in> opponent_escapes (\<Union>(fst ` set xs))"
+    then obtain s1 where s1_in_xs: "s1 \<in> fst ` set xs" and v_escapes_s1: "v \<in> opponent_escapes s1"
+      unfolding opponent_escapes_def by blast
+    from snoc.prems(2) s1_in_xs v_escapes_s1
+    show "v \<notin> fst a" by force
+  qed
+
+  from 3 have "\<forall>(s',\<sigma>')\<in>set xs. dom \<sigma>' = s' \<inter> V\<^sub>\<alpha>"
+    unfolding is_player_tangle_strat_def by fast
+  hence "\<Union>(dom ` (snd ` set xs)) = \<Union>(fst ` set xs) \<inter> V\<^sub>\<alpha>"
+    by (simp add: case_prod_beta)
+  hence c: "dom (asym_combine'' xs) = \<Union>(fst ` set xs) \<inter> V\<^sub>\<alpha>"
+    sorry
+
+  from 3 have "\<forall>(s',\<sigma>')\<in>set xs. ran \<sigma>' \<subseteq> s'"
+    unfolding is_player_tangle_strat_def by fast
+  hence "\<Union>(ran ` (snd ` set xs)) \<subseteq> \<Union>(fst ` set xs)"
+    by simp force
+  hence d: "ran (asym_combine'' xs) \<subseteq> \<Union>(fst ` set xs)"
+    sorry
+
+  from snoc.prems(1) have e: "fst a \<subseteq> V" by auto
+
+  from snoc.prems(3) have f: "dom (snd a) = (fst a) \<inter> V\<^sub>\<alpha>"
+    unfolding is_player_tangle_strat_def by simp force
+
+  from snoc.prems(3) have g: "ran (snd a) \<subseteq> fst a"
+    unfolding is_player_tangle_strat_def by force
+
+  from snoc.prems(3) have h: "\<forall>v\<in>fst a. \<forall>xs. cycle_node (E \<inter> (E_of_strat (snd a) \<union> (fst a \<inter> V\<^sub>\<beta>) \<times> fst a)) v xs \<longrightarrow> winning_player xs"
+    unfolding is_player_tangle_strat_def Let_def by force
+
+  have q: "\<Union>(fst ` set xs) \<union> fst a = \<Union>(fst ` set (a#xs))" by auto
+
+  
+  show ?case
+    using map_asym_add_tangle_strats[OF a b c d IH e f g h]
+    apply (simp add: asym_combine_append)
+    apply (simp add: q)
+    done
+    
+qed
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+
 
 lemma combined_tangle_strat:
   assumes fin_S: "finite S"
