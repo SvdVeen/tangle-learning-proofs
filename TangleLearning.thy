@@ -15,6 +15,9 @@ lemma map_asym_add_empty[simp]: "\<sigma> ++` Map.empty = \<sigma>"
 lemma empty_map_asym_add[simp]: "Map.empty ++` \<sigma> = \<sigma>"
   unfolding map_asym_add_def by auto
 
+lemma map_asym_add_assoc[simp]: "\<sigma> ++` (\<sigma>' ++` \<sigma>'') = (\<sigma> ++` \<sigma>') ++` \<sigma>''"
+  by (rule ext) (auto simp: map_asym_add_def map_add_def restrict_map_def domIff split: option.split)
+
 lemma map_asym_add_subsumed: "\<sigma>' \<subseteq>\<^sub>m \<sigma> \<Longrightarrow> \<sigma> ++` \<sigma>' = \<sigma>"
   unfolding map_asym_add_def
   by (simp add: map_add_subsumed2 map_le_def)
@@ -54,52 +57,22 @@ lemma map_asym_add_strat_in_other_dom:
 lemma map_asym_add_strat_notin_dom: "\<lbrakk>x \<notin> dom \<sigma>; x \<notin> dom \<sigma>'\<rbrakk> \<Longrightarrow> (\<sigma> ++` \<sigma>') x = None"
   unfolding map_asym_add_def by auto
 
-lemma map_asym_add_None: "(\<sigma> ++` \<sigma>') x = None \<Longrightarrow> \<sigma> x = None \<and> \<sigma>' x = None"
+lemma map_asym_add_None: "((\<sigma> ++` \<sigma>') x = None) = (\<sigma> x = None \<and> \<sigma>' x = None)"
   unfolding map_asym_add_def by (auto simp: domIff)
 
-lemma map_asym_add_SomeD: "(\<sigma> ++` \<sigma>') x = Some y \<Longrightarrow> \<sigma> x = Some y \<or> \<sigma> x = None \<and>  \<sigma>' x = Some y"
-  using map_add_SomeD[of \<sigma> "\<sigma>' |` (- dom \<sigma>)" x y]
+lemma map_asym_add_Some_iff: "((\<sigma> ++` \<sigma>') x = Some y) = (\<sigma> x = Some y \<or> \<sigma> x = None \<and>  \<sigma>' x = Some y)"
+  using map_add_Some_iff[of \<sigma> "\<sigma>' |` (- dom \<sigma>)" x y]
   unfolding map_asym_add_def restrict_map_def
-  by (auto split: if_splits simp: domIff)
+  by auto
+
+lemma map_asym_add_SomeD: "(\<sigma> ++` \<sigma>') x = Some y \<Longrightarrow> \<sigma> x = Some y \<or> \<sigma> x = None \<and>  \<sigma>' x = Some y"
+  using map_asym_add_Some_iff by fastforce
 
 lemma map_asym_add_disjoint_doms: "dom \<sigma> \<inter> dom \<sigma>' = {} \<Longrightarrow> \<sigma> ++` \<sigma>' = \<sigma>' ++` \<sigma>"
-proof
-  fix x
-  assume doms_disj: "dom \<sigma> \<inter> dom \<sigma>' = {}"
-  consider (dom_\<sigma>) "x \<in> dom \<sigma>" | (dom_\<sigma>') "x \<in> dom \<sigma>'" | (notin_dom) "x \<notin> dom \<sigma> \<and> x \<notin> dom \<sigma>'" by fast
-  then show "(\<sigma> ++` \<sigma>') x = (\<sigma>' ++` \<sigma>) x" proof cases
-    case dom_\<sigma>
-    from dom_\<sigma> obtain y where \<sigma>_x_to_y: "\<sigma> x = Some y" by fast
+  by (rule ext) (auto simp: map_asym_add_def map_add_def restrict_map_def domIff split: option.split)
 
-    hence \<sigma>_\<sigma>'_x_to_y: "(\<sigma> ++` \<sigma>') x = Some y"
-      using map_asym_add_strat_retain by fast
 
-    from dom_\<sigma> doms_disj have "x \<notin> dom \<sigma>'" by fast
-    with \<sigma>_x_to_y have \<sigma>'_\<sigma>_x_to_y: "(\<sigma>' ++` \<sigma>) x = Some y"
-      using map_asym_add_strat_retain_other[of \<sigma> x y \<sigma>'] by simp
-
-    from \<sigma>_\<sigma>'_x_to_y \<sigma>'_\<sigma>_x_to_y show ?thesis by simp
-  next
-    case dom_\<sigma>'
-    from dom_\<sigma>' obtain y where \<sigma>'_x_to_y: "\<sigma>' x = Some y" by fast
-
-    hence \<sigma>'_\<sigma>_x_to_y: "(\<sigma>' ++` \<sigma>) x = Some y"
-      using map_asym_add_strat_retain by fast
-
-    from dom_\<sigma>' doms_disj have "x \<notin> dom \<sigma>" by fast
-    with \<sigma>'_x_to_y have  \<sigma>_\<sigma>'_x_to_y: "(\<sigma> ++` \<sigma>') x = Some y"
-      using map_asym_add_strat_retain_other[of \<sigma>' x y \<sigma>] by simp
-
-    from \<sigma>'_\<sigma>_x_to_y \<sigma>_\<sigma>'_x_to_y show ?thesis by simp
-  next
-    case notin_dom
-    thus ?thesis
-      using map_asym_add_strat_notin_dom[of x \<sigma> \<sigma>']
-      using map_asym_add_strat_notin_dom[of x \<sigma>' \<sigma>]
-      by simp
-  qed
-qed
-
+(** Asymmetrically combining maps with fold *)
 lemma fold_map_asym_add_dom: "dom (fold (++`) xs \<sigma>) = dom \<sigma> \<union> \<Union>(dom ` set xs)"
   by (induction xs arbitrary: \<sigma>; simp add: map_asym_add_dom) fast
 
@@ -113,16 +86,23 @@ lemma fold_map_asym_add_ran_bound:
   using map_asym_add_ran_bound by blast
 
 lemma fold_map_asym_add_None:
-  "(fold (++`) xs \<sigma>) x = None \<Longrightarrow> \<sigma> x = None \<and> (\<forall>\<sigma>'\<in>set xs. \<sigma>' x = None)"
+  "((fold (++`) xs \<sigma>) x = None) = (\<sigma> x = None \<and> (\<forall>\<sigma>'\<in>set xs. \<sigma>' x = None))"
   apply (induction xs arbitrary: \<sigma>)
     subgoal by simp
-    subgoal using map_asym_add_None set_ConsD by (metis fold_simps(2))
+    subgoal using map_asym_add_None set_ConsD
+      by (metis fold_simps(2) list.set_intros(1) list.set_intros(2))
   done
 
 lemma fold_map_asym_add_SomeD:
   "(fold (++`) xs \<sigma>) x = Some y \<Longrightarrow> \<sigma> x = Some y \<or> (\<exists>\<sigma>'\<in>set xs. \<sigma>' x = Some y)"
   apply (induction xs arbitrary: \<sigma>; simp)
   using map_asym_add_SomeD by fast
+
+lemma fold_map_asym_add_map_asym_add: "(fold (++`) xs \<sigma>) ++` \<sigma>' = fold (++`) (\<sigma>#xs) \<sigma>'"
+  by (induction xs arbitrary: \<sigma>; simp)
+
+lemma map_asym_add_fold_map_asym_add: "\<sigma> ++` (fold (++`) xs \<sigma>') = fold (++`) (xs@[\<sigma>]) \<sigma>'"
+  by (induction xs arbitrary: \<sigma>; simp)
 
 definition asym_combine :: "('a, 'b) map list \<Rightarrow> ('a, 'b) map" where
   "asym_combine xs \<equiv> fold (++`) xs Map.empty"
@@ -149,6 +129,149 @@ lemma asym_combine_None: "(asym_combine xs) x = None \<Longrightarrow> \<forall>
 lemma asym_combine_SomeD: "(asym_combine xs) x = Some y \<Longrightarrow> \<exists>\<sigma>\<in>set xs. \<sigma> x = Some y"
   unfolding asym_combine_def
   using fold_map_asym_add_SomeD[of xs Map.empty x y] by blast
+
+lemma asym_combine_map_asym_add: "asym_combine xs ++` \<sigma> = asym_combine (\<sigma>#xs)"
+  unfolding asym_combine_def
+  using fold_map_asym_add_map_asym_add[of xs Map.empty \<sigma>] by simp
+
+lemma map_asym_add_asym_combine: "\<sigma> ++` asym_combine xs = asym_combine (xs@[\<sigma>])"
+  unfolding asym_combine_def
+  using map_asym_add_fold_map_asym_add[of \<sigma> xs Map.empty] by blast
+
+
+(** Asymmetrically combining maps with foldr *)
+lemma foldr_map_asym_add_dom: "dom (foldr (++`) xs \<sigma>) = dom \<sigma> \<union> \<Union>(dom ` set xs)"
+  by (induction xs arbitrary: \<sigma>) (auto simp: inf_sup_aci(7) map_asym_add_dom)
+
+lemma foldr_map_asym_add_ran: "ran (foldr (++`) xs \<sigma>) \<subseteq> ran \<sigma> \<union> \<Union>(ran ` set xs)"
+  apply (induction xs arbitrary: \<sigma>; simp)
+  using map_asym_add_ran by fastforce
+
+lemma foldr_map_asym_add_ran_bound:
+  "\<lbrakk>ran \<sigma> \<subseteq> R; \<forall>\<sigma>'\<in>set xs. ran \<sigma>' \<subseteq> R\<rbrakk> \<Longrightarrow> ran (foldr (++`) xs \<sigma>) \<subseteq> R"
+  by (induction xs arbitrary: \<sigma>) (auto simp: map_asym_add_ran_bound)
+
+lemma foldr_map_asym_add_None:
+  "(foldr (++`) xs \<sigma>) x = None \<Longrightarrow> \<sigma> x = None \<and> (\<forall>\<sigma>'\<in>set xs. \<sigma>' x = None)"
+  apply (induction xs arbitrary: \<sigma>)
+    subgoal by simp
+    subgoal by (metis fold_map_asym_add_None foldr_conv_fold set_rev)
+  done
+
+lemma foldr_map_asym_add_SomeD:
+  "(foldr (++`) xs \<sigma>) x = Some y \<Longrightarrow> \<sigma> x = Some y \<or> (\<exists>\<sigma>'\<in>set xs. \<sigma>' x = Some y)"
+  apply (induction xs arbitrary: \<sigma>; simp)
+  using map_asym_add_SomeD by fast
+
+lemma foldr_map_asym_add_map_asym_add: "(foldr (++`) xs \<sigma>) ++` \<sigma>' = foldr (++`) (xs@[\<sigma>]) \<sigma>'"
+  apply (induction xs arbitrary: \<sigma>; simp)
+  using map_asym_add_assoc by metis
+
+lemma map_asym_add_foldr_map_asym_add: "\<sigma> ++` (foldr (++`) xs \<sigma>') = foldr (++`) (\<sigma>#xs) \<sigma>'"
+  by (induction xs arbitrary: \<sigma>; simp)
+
+definition asym_combiner :: "('a, 'b) map list \<Rightarrow> ('a, 'b) map" where
+  "asym_combiner xs \<equiv> foldr (++`) xs Map.empty"
+
+lemma asym_combiner_empty[simp]: "asym_combiner [] = Map.empty"
+  unfolding asym_combiner_def by simp
+
+lemma asym_combiner_dom: "dom (asym_combiner xs) = \<Union>(dom ` set xs)"
+  unfolding asym_combiner_def
+  using foldr_map_asym_add_dom[of xs Map.empty] by simp
+
+lemma asym_combiner_ran: "ran (asym_combiner xs) \<subseteq> \<Union>(ran ` set xs)"
+  unfolding asym_combiner_def
+  using foldr_map_asym_add_ran[of xs Map.empty] by simp
+
+lemma asym_combiner_ran_bound: "\<forall>\<sigma>\<in>set xs. ran \<sigma> \<subseteq> R \<Longrightarrow> ran (asym_combiner xs) \<subseteq> R"
+  unfolding asym_combiner_def
+  using foldr_map_asym_add_ran_bound[of Map.empty R xs] by simp
+
+lemma asym_combiner_None: "(asym_combiner xs) x = None \<Longrightarrow> \<forall>\<sigma>\<in>set xs. \<sigma> x = None"
+  unfolding asym_combiner_def
+  using foldr_map_asym_add_None[of xs Map.empty x] by fast
+
+lemma asym_combiner_SomeD: "(asym_combiner xs) x = Some y \<Longrightarrow> \<exists>\<sigma>\<in>set xs. \<sigma> x = Some y"
+  unfolding asym_combiner_def
+  using foldr_map_asym_add_SomeD[of xs Map.empty x y] by blast
+
+lemma asym_combiner_map_asym_add: "asym_combiner xs ++` \<sigma> = asym_combiner (xs@[\<sigma>])"
+  unfolding asym_combiner_def
+  using foldr_map_asym_add_map_asym_add[of xs Map.empty \<sigma>] by simp
+
+lemma map_asym_add_asym_combiner: "\<sigma> ++` asym_combiner xs = asym_combiner (\<sigma>#xs)"
+  unfolding asym_combiner_def
+  using map_asym_add_foldr_map_asym_add[of \<sigma> xs Map.empty] by blast
+
+
+(** Asymmetrically combining maps with foldl *)
+lemma foldl_map_asym_add_dom: "dom (foldl (++`) \<sigma> xs) = dom \<sigma> \<union> \<Union>(dom ` set xs)"
+  by (induction xs arbitrary: \<sigma>; simp add: map_asym_add_dom) fast
+
+lemma foldl_map_asym_add_ran: "ran (foldl (++`) \<sigma> xs) \<subseteq> ran \<sigma> \<union> \<Union>(ran ` set xs)"
+  apply (induction xs arbitrary: \<sigma>; simp)
+  using map_asym_add_ran by fastforce
+
+lemma foldl_map_asym_add_ran_bound:
+  "\<lbrakk>ran \<sigma> \<subseteq> R; \<forall>\<sigma>'\<in>set xs. ran \<sigma>' \<subseteq> R\<rbrakk> \<Longrightarrow> ran (foldl (++`) \<sigma> xs) \<subseteq> R"
+  apply (induction xs arbitrary: \<sigma>; simp)
+  using map_asym_add_ran_bound by blast
+
+lemma foldl_map_asym_add_None:
+  "(foldl (++`) \<sigma> xs) x = None \<Longrightarrow> \<sigma> x = None \<and> (\<forall>\<sigma>'\<in>set xs. \<sigma>' x = None)"
+  apply (induction xs arbitrary: \<sigma>)
+    subgoal by simp
+    subgoal using map_asym_add_None set_ConsD by (metis foldl_Cons)
+  done
+
+lemma foldl_map_asym_add_SomeD:
+  "(foldl (++`) \<sigma> xs) x = Some y \<Longrightarrow> \<sigma> x = Some y \<or> (\<exists>\<sigma>'\<in>set xs. \<sigma>' x = Some y)"
+  apply (induction xs arbitrary: \<sigma>; simp)
+  using map_asym_add_SomeD by fast
+
+lemma foldl_map_asym_add_map_asym_add: "(foldl (++`) \<sigma> xs) ++` \<sigma>' = foldl (++`) \<sigma> (xs@[\<sigma>'])"
+  by (induction xs arbitrary: \<sigma>; simp)
+
+lemma map_asym_add_foldl_map_asym_add: "\<sigma> ++` (foldl (++`) \<sigma>' xs) = foldl (++`) \<sigma> (\<sigma>'#xs)"
+  by (induction xs arbitrary: \<sigma> \<sigma>'; simp)
+
+definition asym_combinel :: "('a, 'b) map list \<Rightarrow> ('a, 'b) map" where
+  "asym_combinel xs \<equiv> foldl (++`) Map.empty xs"
+
+lemma asym_combinel_empty[simp]: "asym_combinel [] = Map.empty"
+  unfolding asym_combinel_def by simp
+
+lemma asym_combinel_dom: "dom (asym_combinel xs) = \<Union>(dom ` set xs)"
+  unfolding asym_combinel_def
+  using foldl_map_asym_add_dom[of Map.empty xs] by simp
+
+lemma asym_combinel_ran: "ran (asym_combinel xs) \<subseteq> \<Union>(ran ` set xs)"
+  unfolding asym_combinel_def
+  using foldl_map_asym_add_ran[of Map.empty xs] by simp
+
+lemma asym_combinel_ran_bound: "\<forall>\<sigma>\<in>set xs. ran \<sigma> \<subseteq> R \<Longrightarrow> ran (asym_combinel xs) \<subseteq> R"
+  unfolding asym_combinel_def
+  using foldl_map_asym_add_ran_bound[of Map.empty R xs] by simp
+
+lemma asym_combinel_None: "(asym_combinel xs) x = None \<Longrightarrow> \<forall>\<sigma>\<in>set xs. \<sigma> x = None"
+  unfolding asym_combinel_def
+  using foldl_map_asym_add_None[of Map.empty xs x] by fast
+
+lemma asym_combinel_SomeD: "(asym_combinel xs) x = Some y \<Longrightarrow> \<exists>\<sigma>\<in>set xs. \<sigma> x = Some y"
+  unfolding asym_combinel_def
+  using foldl_map_asym_add_SomeD[of Map.empty xs x y] by blast
+
+lemma asym_combinel_map_asym_add: "asym_combinel xs ++` \<sigma> = asym_combinel (xs@[\<sigma>])"
+  unfolding asym_combinel_def
+  using foldl_map_asym_add_map_asym_add[of Map.empty xs \<sigma>] by simp
+
+lemma map_asym_add_asym_combinel: "\<sigma> ++` asym_combinel xs = asym_combinel (\<sigma>#xs)"
+  unfolding asym_combinel_def
+  using map_asym_add_foldl_map_asym_add[of \<sigma> Map.empty xs] by force
+
+
+
 
 (** Van Dijk defines a tangle as follows:
       A p-tangle is a nonempty set of vertices U \<subseteq> V with p = pr(U),
@@ -605,14 +728,6 @@ proof (rule ballI; rule allI; rule impI)
 qed
 
 sorry xxx
-
-lemma fold_snd_map_asym_add_dom: "dom (fold (\<lambda>a b. snd a ++` b) xs \<sigma>) = dom \<sigma> \<union> \<Union>(dom ` (snd ` set xs))"
-  apply (induction xs arbitrary: \<sigma>; simp)
-  by (simp add: inf_sup_aci(6) inf_sup_aci(7) map_asym_add_dom)
-
-lemma fold_snd_map_asym_add_ran: "ran (fold (\<lambda>a b. snd a ++` b) xs \<sigma>) \<subseteq> ran \<sigma> \<union> \<Union>(ran ` (snd ` set xs))"
-  apply (induction xs arbitrary: \<sigma>; simp)
-  using map_asym_add_ran by fastforce
 
 definition asym_combine' :: "('v set \<times> 'v strat) list \<Rightarrow> 'v strat" where
   "asym_combine' xs \<equiv> fold (\<lambda>a b. snd a ++` b) xs Map.empty"
