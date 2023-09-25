@@ -550,6 +550,10 @@ begin
   lemma E_of_strat_empty_iff_empty_map[simp]: "E_of_strat \<sigma> = {} \<longleftrightarrow> \<sigma> = Map.empty"
     unfolding E_of_strat_def by auto
 
+  (** If a strategy is part of another, its edges are a subset of the other strategy's edges *)
+  lemma strat_le_E_of_strat: "\<sigma> \<subseteq>\<^sub>m \<sigma>' \<Longrightarrow> E_of_strat \<sigma> \<subseteq> E_of_strat \<sigma>'"
+    unfolding map_le_def E_of_strat_def by force
+
   (** If the strategy leads to a w for some v, then (v,w) is an edge in the strategy *)
   lemma edge_in_E_of_strat: "\<sigma> v = Some w \<longleftrightarrow> (v,w) \<in> E_of_strat \<sigma>"
     unfolding E_of_strat_def by simp

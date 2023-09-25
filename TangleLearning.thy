@@ -290,6 +290,7 @@ begin
       have "cycle_node (player_tangle_subgraph t1 \<sigma>) v xs" .
 
       with \<sigma>_winning_t1 v_in_t1 show ?thesis by blast
+
     next
       case v_notin_t1
       with v_in_union have v_in_t2: "v\<in>t2" by fast
@@ -306,6 +307,7 @@ begin
         have "cycle_node (player_tangle_subgraph t2 \<sigma>') v xs" .
 
         with v_in_t2_min_t1 \<sigma>'_winning_t2 show ?thesis by fast
+
       next
         case t1_in_xs
         then obtain w xs' where
@@ -416,8 +418,7 @@ begin
 
     from map_asym_add_tangle_strats
       [OF S_in_V no_escapes_to_a dom_combine_xs ran_combine_xs IH a_in_V \<sigma>_dom \<sigma>_ran \<sigma>_winning_a]
-    show ?case
-      by (simp add: set_list_union asym_combine_prepend)
+    show ?case by (simp add: set_list_union asym_combine_prepend)
   qed
 
   lemma tangle_strats_list:
@@ -538,23 +539,41 @@ begin
     context
       fixes A :: "'v set"
     begin
+      abbreviation player_target_nodes where
+        "player_target_nodes S \<equiv> { x | x y :: 'v. x\<in>V\<^sub>\<alpha> - A \<and> (x,y)\<in>E \<and> y\<in>S }"
+
+      abbreviation opponent_forced_nodes where
+      "opponent_forced_nodes S \<equiv> { x. x\<in>V\<^sub>\<beta> - A \<and> (\<forall>y. (x,y)\<in>E \<longrightarrow> y\<in>S) }"
+
+      abbreviation tangle_escape_nodes where
+        "tangle_escape_nodes S \<equiv> { x | x t. x\<in>t - A  \<and> t\<in>T \<and> opponent_escapes t \<noteq> {} \<and>
+            (\<forall>v. v \<in> opponent_escapes t \<longrightarrow> v\<in>S)} - player_target_nodes S - opponent_forced_nodes S"
+
+      (*fun tangle_nodes_in_rank :: "nat \<Rightarrow> 'v set" where
+        "tangle_nodes_in_rank 0 = A"
+      | "tangle_nodes_in_rank (Suc n) =
+         tangle_nodes_in_rank n
+         \<union> player_target_nodes (tangle_nodes_in_rank n)
+         \<union> opponent_forced_nodes (tangle_nodes_in_rank n)
+         \<union> tangle_escape_nodes (tangle_nodes_in_rank n)"*)
+
       fun tangle_nodes_in_rank :: "nat \<Rightarrow> 'v set" where
         "tangle_nodes_in_rank 0 = A"
       | "tangle_nodes_in_rank (Suc n) =
          tangle_nodes_in_rank n
-         \<union> { x | x y :: 'v. x\<in>V\<^sub>\<alpha> \<and> (x,y)\<in>E \<and> y\<in>tangle_nodes_in_rank n }
-         \<union> { x. x\<in>V\<^sub>\<beta> \<and> (\<forall>y. (x,y)\<in>E \<longrightarrow> y\<in>tangle_nodes_in_rank n) }
+         \<union> { x | x y :: 'v. x\<in>V\<^sub>\<alpha> - A \<and> (x,y)\<in>E \<and> y\<in>tangle_nodes_in_rank n }
+         \<union> { x. x\<in>V\<^sub>\<beta> - A \<and> (\<forall>y. (x,y)\<in>E \<longrightarrow> y\<in>tangle_nodes_in_rank n) }
          \<union> { x | x t. x\<in>t - A  \<and> t\<in>T \<and> opponent_escapes t \<noteq> {} \<and>
             (\<forall>v. v \<in> opponent_escapes t \<longrightarrow> v\<in>tangle_nodes_in_rank n)}"
 
       lemma tangle_nodes_in_rank_Suc_cases:
         assumes "x \<in> tangle_nodes_in_rank (Suc n)"
         obtains (base) "x \<in> tangle_nodes_in_rank n"
-        | (own) "x \<in> V\<^sub>\<alpha> \<and> (\<exists>y. (x,y)\<in>E \<and> y \<in> tangle_nodes_in_rank n)"
-        | (opponent) "x \<in> V\<^sub>\<beta> \<and> (\<forall>y. (x,y)\<in>E \<longrightarrow> y\<in>tangle_nodes_in_rank n)"
+        | (own) "x \<in> V\<^sub>\<alpha> - A \<and> (\<exists>y. (x,y)\<in>E \<and> y \<in> tangle_nodes_in_rank n)"
+        | (opponent) "x \<in> V\<^sub>\<beta> - A \<and> (\<forall>y. (x,y)\<in>E \<longrightarrow> y\<in>tangle_nodes_in_rank n)"
         | (escape) "\<exists>t. x \<in> t - A \<and> t \<in> T \<and> opponent_escapes t \<noteq> {} \<and>
                     (\<forall>v. v \<in> opponent_escapes t \<longrightarrow> v \<in> tangle_nodes_in_rank n)"
-        using assms by force
+        using assms by auto
 
       lemma tangle_nodes_in_rank_mono: "n\<le>m \<Longrightarrow> tangle_nodes_in_rank n \<subseteq> tangle_nodes_in_rank m"
         using le_Suc_eq by (induction m) auto
@@ -570,7 +589,7 @@ begin
             subgoal by fast
             subgoal by (auto intro: player_tangle_attractor.intros)
             subgoal by (auto intro: player_tangle_attractor.intros)
-            subgoal using player_tangle_attractor.escape DiffI subset_iff by metis
+            subgoal using player_tangle_attractor.escape[of x _ A] subset_iff[of _ "player_tangle_attractor A"] by force (*apply (auto simp: subset_iff subset_eq intro: player_tangle_attractor.escape)*)
           done
         done
 
@@ -680,46 +699,148 @@ begin
         and \<sigma>_dom: "dom \<sigma> = V\<^sub>\<alpha> \<inter> (tangle_nodes_in_rank n - A)"
         and \<sigma>_ran: "ran \<sigma> \<subseteq> tangle_nodes_in_rank n"
         and \<sigma>_closed_rank: "\<forall>m. \<forall>x\<in>tangle_nodes_in_rank m - A. \<forall>y\<in>induced_subgraph V\<^sub>\<alpha> \<sigma> `` {x}. y \<in> tangle_nodes_in_rank m"
-        and \<sigma>_forces_A_or_wins: "\<forall>x\<in>tangle_nodes_in_rank n. \<forall>xs ys. lasso_from_node (induced_subgraph V\<^sub>\<alpha> \<sigma>) x xs ys
-             \<longrightarrow> set (xs @ ys) \<inter> tangle_nodes_in_rank (n - 1) \<noteq> {} \<longrightarrow> set (xs @ ys) \<inter> A \<noteq> {} \<and>
-                 set (xs @ ys) \<inter> tangle_nodes_in_rank (n - 1) = {} \<longrightarrow> winning_player ys"
+        and \<sigma>_forces_A_or_wins: "\<forall>x \<in> tangle_nodes_in_rank n. \<forall>xs ys. lasso_from_node (induced_subgraph V\<^sub>\<alpha> \<sigma>) x xs ys
+              \<longrightarrow> (set (xs@ys) \<inter> A \<noteq> {} \<or> winning_player ys)"
           by auto
 
-        let ?all_new_player_nodes = "(tangle_nodes_in_rank (Suc n) - tangle_nodes_in_rank n) \<inter> V\<^sub>\<alpha>"
-        define new_player_nodes_no_tangle where "new_player_nodes_no_tangle = ?all_new_player_nodes - \<Union>T"
-        define new_player_nodes_tangle where "new_player_nodes_tangle = ?all_new_player_nodes \<inter> \<Union>T"
+        let ?new_nodes = "(tangle_nodes_in_rank (Suc n) - tangle_nodes_in_rank n)"
+        let ?new_\<alpha>_nodes = "?new_nodes \<inter> V\<^sub>\<alpha>"
 
-        have new_player_nodes_disjoint: "new_player_nodes_no_tangle \<inter> new_player_nodes_tangle = {}"
-          unfolding new_player_nodes_no_tangle_def new_player_nodes_tangle_def by blast
+        (** NOTE: this may contain tangles whose strategy was already included in the original strategy! *)
+        define new_tangles where "new_tangles = {t. t\<in>T \<and> opponent_escapes t \<noteq> {} \<and>
+          (\<forall>v. v \<in> opponent_escapes t \<longrightarrow> v\<in>tangle_nodes_in_rank n) \<and>
+          t \<subseteq> ?new_nodes}"
 
-        define new_tangles where "new_tangles = {t. t\<in>T \<and> t \<inter> new_player_nodes_tangle \<noteq> {}}"
-        have new_tangles_tangles: "\<forall>t\<in>new_tangles. player_tangle t"
-          unfolding new_tangles_def
+        define new_player_nodes where "new_player_nodes = (?new_nodes - \<Union>new_tangles) \<inter> V\<^sub>\<alpha>"
+        have "x \<in> new_player_nodes \<Longrightarrow> x \<in> tangle_nodes_in_rank (Suc n) \<and> x \<in> V\<^sub>\<alpha> \<and> (\<exists>y. (x,y)\<in>E \<and> y \<in> tangle_nodes_in_rank n)" for x
+        proof -
+          assume assm: "x \<in> new_player_nodes"
+          hence x_in_Suc: "x \<in> tangle_nodes_in_rank (Suc n)" and
+                x_notin_n: "x\<notin>tangle_nodes_in_rank n" and
+                x_in_V\<^sub>\<alpha>: "x\<in>V\<^sub>\<alpha>"
+            unfolding new_player_nodes_def by blast+
+          from x_in_Suc show ?thesis proof (cases rule: tangle_nodes_in_rank_Suc_cases)
+            case base with x_notin_n show ?thesis by simp
+          next
+            case own with x_in_Suc show ?thesis by blast
+          next
+            case opponent with x_in_V\<^sub>\<alpha> show ?thesis by fast
+          next
+            case escape
+            then show ?thesis sorry
+          qed
+        qed
+
+        define target where "target = (\<lambda>x. SOME x'. x'\<in>tangle_nodes_in_rank n \<and> (x,x')\<in>E)"
+        {
+          fix x
+          assume x_new_player_nodes: "x\<in>new_player_nodes"
+          hence "target x\<in>tangle_nodes_in_rank n" "(x,target x)\<in>E"
+          proof -
+            from x_new_player_nodes have x_in_Suc_n: "x\<in>tangle_nodes_in_rank (Suc n)"
+              unfolding new_player_nodes_def by blast
+            from x_new_player_nodes have x_notin_n: "x\<notin>tangle_nodes_in_rank n"
+              unfolding new_player_nodes_def by blast
+            from x_new_player_nodes have "x \<in> V\<^sub>\<alpha>"
+              unfolding new_player_nodes_def by fast
+            from x_new_player_nodes have "x \<notin> \<Union>new_tangles"
+              unfolding new_player_nodes_def by blast
+            show "target x \<in> tangle_nodes_in_rank n"
+              using some_eq_imp[of _ "target x"]
+              unfolding target_def
+          qed
+            unfolding new_player_nodes_def new_tangles_def
+            apply simp_all
+            using some_eq_imp[of _ "target x"]
+            unfolding target_def (**by blast+*)
+            apply (safe; clarsimp)
+            subgoal by blast
+            subgoal sorry
+            subgoal sorry
+            done
+        } note target=this
+
+        have target_eq: "x\<in>new_player_nodes \<longleftrightarrow>
+          (x\<in>tangle_nodes_in_rank (Suc n) \<and> x\<in>V\<^sub>\<alpha> \<and> x\<notin>tangle_nodes_in_rank n \<and>
+           target x\<in>tangle_nodes_in_rank n \<and> (x,target x)\<in>E)" for x
+        proof(rule iffI)
+          assume x_new_player_nodes: "x \<in> new_player_nodes"
+          from x_new_player_nodes have x_in_Suc: "x \<in> tangle_nodes_in_rank (Suc n)"
+            unfolding new_player_nodes_def by fast
+          from x_new_player_nodes have x_in_V\<^sub>\<alpha>: "x\<in>V\<^sub>\<alpha>"
+            unfolding new_player_nodes_def by fast
+          from x_new_player_nodes have x_notin_n: "x\<notin> tangle_nodes_in_rank n"
+            unfolding new_player_nodes_def by fast
+
+          from x_new_player_nodes have "target x \<in> tangle_nodes_in_rank n"
+            using some_eq_imp[of _ "target x"]
+            unfolding new_player_nodes_def target_def
+
+          show "x \<in> tangle_nodes_in_rank (Suc n) \<and> x \<in> V\<^sub>\<alpha> \<and> x \<notin> tangle_nodes_in_rank n \<and> target x \<in> tangle_nodes_in_rank n \<and> (x, target x) \<in> E" sorry
+        next
+          assume "x \<in> tangle_nodes_in_rank (Suc n) \<and> x \<in> V\<^sub>\<alpha> \<and> x \<notin> tangle_nodes_in_rank n \<and> target x \<in> tangle_nodes_in_rank n \<and> (x, target x) \<in> E"
+          show "x \<in> new_player_nodes" sorry
+        qed
+          unfolding new_player_nodes_def new_tangles_def
+          apply (rule iffI; simp)
+          using some_eq_imp[of _ "target x"]
+          unfolding target_def (**by blast+*)
+          apply (safe)
+          subgoal by auto
+          subgoal by auto
+          subgoal by auto
+          subgoal using empty_iff by metis
+          subgoal sorry
+          subgoal sorry
+          subgoal by blast
+          subgoal sorry
+          subgoal by blast
+          subgoal sorry
+          done
+
+        define \<sigma>' where "\<sigma>' = (\<lambda>x. if x \<in> new_player_nodes then Some (target x) else None)"
+        have \<sigma>'_strat: "strategy_of V\<^sub>\<alpha> \<sigma>'"
+          unfolding strategy_of_def E_of_strat_def \<sigma>'_def
+          apply (rule conjI; clarsimp)
+            subgoal for x using target_eq[of x] by fastforce
+            subgoal for x using target_eq[of x] by fastforce
+          done
+
+        have \<sigma>'_dom: "dom \<sigma>' = new_player_nodes"
+          unfolding \<sigma>'_def by (auto split: if_splits)
+
+        have \<sigma>'_ran: "ran \<sigma>' \<subseteq> tangle_nodes_in_rank n"
+          unfolding \<sigma>'_def ran_def by (auto simp: target_eq)
+
+        have new_tangles_in_T: "\<forall>t\<in>new_tangles. t\<in>T"
+          unfolding new_tangles_def by blast
+
+        hence new_tangles_tangles: "\<forall>t\<in>new_tangles. player_tangle t"
           using tangles_T by fast
+
         have finite_new_tangles: "finite new_tangles"
           unfolding new_tangles_def using finite_T by force
 
-        define target where "target = (\<lambda>x. SOME x'. x'\<in>tangle_nodes_in_rank n \<and> (x,x')\<in>E)"
+        have "\<forall>t1\<in>new_tangles. \<forall>t2\<in>new_tangles. \<forall>v\<in>opponent_escapes t1. v\<notin>t2"
+          unfolding new_tangles_def by blast
 
-        {
-          fix x
-          assume "x\<in>new_player_nodes_no_tangle"
-          hence "target x\<in>tangle_nodes_in_rank n" "(x,target x)\<in>E"
-            unfolding new_player_nodes_no_tangle_def
-            apply simp_all
-            using some_eq_imp[of _ "target x"]
-            unfolding target_def by blast+
-        } note target=this
+        from combined_tangle_strat[OF finite_new_tangles new_tangles_tangles this]
+        obtain \<sigma>'' where
+          \<sigma>''_strat: "strategy_of V\<^sub>\<alpha> \<sigma>''" and
+          \<sigma>''_dom: "dom \<sigma>'' = \<Union>new_tangles \<inter> V\<^sub>\<alpha>" and
+          \<sigma>''_ran: "ran \<sigma>'' \<subseteq> \<Union>new_tangles" and
+          \<sigma>''_winning: "\<forall>v\<in>\<Union>new_tangles.
+            \<forall>xs. cycle_node (player_tangle_subgraph (\<Union>new_tangles) \<sigma>'') v xs \<longrightarrow> winning_player xs"
+          by auto
 
-        have target_eq: "x\<in>new_player_nodes_no_tangle \<longleftrightarrow>
-          (x\<in>tangle_nodes_in_rank (Suc n) \<and> x\<in>V\<^sub>\<alpha> - \<Union>T \<and> x\<notin>tangle_nodes_in_rank n \<and>
-           target x\<in>tangle_nodes_in_rank n \<and> (x,target x)\<in>E)" for x
-          unfolding new_player_nodes_no_tangle_def
-          apply (rule iffI; simp)
-          using some_eq_imp[of _ "target x"]
-          unfolding target_def by blast+
+        define \<tau> where "\<tau> = \<sigma> ++ \<sigma>' ++ \<sigma>''"
 
-        show ?case sorry
+        from \<sigma>_strat \<sigma>'_strat \<sigma>''_strat have \<tau>_strat: "strategy_of V\<^sub>\<alpha> \<tau>"
+          unfolding \<tau>_def by auto
+
+        show ?case
+        proof (rule exI[where x="\<tau>"]; intro conjI ballI allI impI)
+        qed
       qed
     end
   end
