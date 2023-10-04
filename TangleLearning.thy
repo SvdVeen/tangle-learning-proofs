@@ -731,8 +731,35 @@ begin
           unfolding new_player_nodes_def new_opponent_nodes_def new_escape_nodes_def
           by simp blast
 
+        have "?new_nodes - new_escape_nodes \<subseteq> new_player_nodes \<union> new_opponent_nodes"
+          unfolding new_escape_nodes_def new_player_nodes_def new_opponent_nodes_def
+          by simp blast
+
+        (** These obviously do not overlap *)
+        have "new_player_nodes \<inter> new_opponent_nodes = {}"
+          unfolding new_player_nodes_def new_opponent_nodes_def by blast
+
+        (** But these might, though they do not have to, so I can't prove either direction.*)
+(**
+        have "new_player_nodes \<inter> new_escape_nodes = {}"
+          unfolding new_player_nodes_def new_escape_nodes_def
+          sorry
+        have "new_player_nodes \<inter> new_escape_nodes \<noteq> {}"
+          unfolding new_player_nodes_def new_escape_nodes_def
+          sorry
+
+        have "new_opponent_nodes \<inter> new_escape_nodes = {}"
+          unfolding new_opponent_nodes_def new_escape_nodes_def
+          sorry
+        have "new_opponent_nodes \<inter> new_escape_nodes \<noteq> {}"
+          unfolding new_opponent_nodes_def new_escape_nodes_def
+          sorry
+*)
         define new_tangles where "new_tangles = {t. t \<subseteq> ?new_nodes \<and> t \<inter> A = {} \<and> t\<in>T \<and>
             opponent_escapes t \<noteq> {} \<and> (\<forall>v. v\<in>opponent_escapes t \<longrightarrow> v\<in>tangle_nodes_in_rank n)}"
+
+        have new_tangles_in_new_escape_nodes: "\<Union>new_tangles \<subseteq> new_escape_nodes"
+          unfolding new_tangles_def new_escape_nodes_def by blast
 
         define target where "target = (\<lambda>x. SOME y. y\<in>tangle_nodes_in_rank n \<and> (x,y)\<in>E)"
         {
@@ -965,7 +992,7 @@ begin
                 apply safe
                 apply simp_all
                   subgoal by blast
-                  subgoal by fast
+                  subgoal by auto
                 done
 
               from leaves no_A obtain v where
