@@ -69,6 +69,21 @@ begin
   lemma path_closed_dest: "\<lbrakk>v\<in>V; E``V\<subseteq>V; path v xs v'\<rbrakk> \<Longrightarrow> v'\<in>V"
     apply (induction xs arbitrary: v) by auto
 
+  (** If a path is in a partially closed region of a graph, and it does not move through the area
+      excluded in closedness, its nodes are entirely in the region minus that area *)
+  lemma path_partially_closed_set: "\<lbrakk>v\<in>V-R; E``(V-R)\<subseteq>V; path v xs v'; set xs \<inter> R = {}\<rbrakk>
+    \<Longrightarrow> set xs \<subseteq> V-R"
+    apply (induction xs arbitrary: v; simp)
+      subgoal for x xs by (cases xs) auto
+      done
+
+  (** If a path is in a partially closed region of a graph, and it does not move through the area
+      excluded in closedness, is destination is within the partially closed region.*)
+  lemma path_partially_closed_dest: "\<lbrakk>v\<in>V-R; E``(V-R)\<subseteq>V; path v xs v'; set xs \<inter> R = {}\<rbrakk> \<Longrightarrow> v'\<in>V"
+    apply (induction xs arbitrary: v; simp)
+      subgoal for x xs by (cases xs) auto
+    done
+
   (** If you have an intermediate node in a path, you can split it into two paths with the
       intermediate node in the middle *)
   lemma path_intermediate_node: "\<lbrakk>path v xs v'; x \<in> set xs\<rbrakk>
@@ -125,9 +140,21 @@ begin
   lemma cycle_node_in_E: "cycle_node x xs \<Longrightarrow> set xs \<subseteq> EV E"
     unfolding cycle_node_def using path_in_E by blast
 
+  (** A cycle can be deconstructed into its first edge and a cycle from that edge's target. *)
+  lemma cycle_node_D: "cycle_node x xs \<Longrightarrow> \<exists>y ys. xs=x#ys \<and> set (ys@[x]) = set xs \<and> (x,y)\<in>E \<and> y\<in>set xs \<and> cycle_node y (ys@[x])"
+    unfolding cycle_node_def
+    using origin_in_path
+    by (induction xs; simp) force
+
   (** If a cycle is in a closed region of a graph, its nodes are all in that region *)
   lemma cycle_node_closed_set: "\<lbrakk>v\<in>V; E``V\<subseteq>V; cycle_node v xs\<rbrakk> \<Longrightarrow> set xs \<subseteq> V"
     unfolding cycle_node_def using path_closed_set by blast
+
+  (** If a cycle is in a partially closed region of a graph, and it does not move through the area
+    excluded in closedness, its nodes are entirely in the region minus that area *)
+  lemma cycle_partially_closed_set: "\<lbrakk>v\<in>V-R; E``(V-R)\<subseteq>V; cycle_node v xs; set xs \<inter> R = {}\<rbrakk>
+      \<Longrightarrow> set xs \<subseteq> V-R"
+    unfolding cycle_node_def using path_partially_closed_set by blast
 
   (** A cycle is a nonempty path looping on itself *)
   lemma cycle_node_iff_loop:  "cycle_node v vs \<longleftrightarrow> path v vs v \<and> vs \<noteq> []"
