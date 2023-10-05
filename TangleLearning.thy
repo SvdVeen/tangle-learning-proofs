@@ -727,13 +727,28 @@ begin
           "new_escape_nodes = {x | x t. x\<in>?new_nodes \<and> x\<in>t \<and> t \<inter> A = {} \<and> t\<in>T \<and>
             opponent_escapes t \<noteq> {} \<and> (\<forall>v. v\<in>opponent_escapes t \<longrightarrow> v\<in>tangle_nodes_in_rank n)}"
 
-        have new_nodes_comp: "?new_nodes = new_player_nodes \<union> new_opponent_nodes \<union> new_escape_nodes"
-          unfolding new_player_nodes_def new_opponent_nodes_def new_escape_nodes_def
-          by simp blast
+        define new_escape_tangles where
+          "new_escape_tangles = {t. t \<inter> A = {} \<and> t\<in>T \<and>
+           opponent_escapes t \<noteq> {} \<and> (\<forall>v. v\<in>opponent_escapes t \<longrightarrow> v\<in>tangle_nodes_in_rank n)}"
 
-        have "?new_nodes - new_escape_nodes \<subseteq> new_player_nodes \<union> new_opponent_nodes"
-          unfolding new_escape_nodes_def new_player_nodes_def new_opponent_nodes_def
-          by simp blast
+        have "new_escape_nodes \<subseteq> \<Union>new_escape_tangles"
+          unfolding new_escape_nodes_def new_escape_tangles_def by blast
+
+        have "new_escape_nodes = \<Union>new_escape_tangles \<longleftrightarrow>
+          \<Union>new_escape_tangles \<inter> tangle_nodes_in_rank n = {}"
+          unfolding new_escape_nodes_def new_escape_tangles_def
+          apply (rule iffI; simp) by blast+
+
+        have "\<forall>t1\<in>new_escape_tangles. \<forall>t2\<in>new_escape_tangles. \<forall>v\<in>opponent_escapes t1. v \<notin> t2"
+          unfolding new_escape_tangles_def opponent_escapes_def
+          apply (intro ballI; clarsimp)
+          subgoal for t1 t2 v u x x' y y' sorry
+
+        have new_nodes_comp: "?new_nodes = new_player_nodes \<union> new_opponent_nodes \<union> new_escape_nodes"
+          unfolding new_player_nodes_def new_opponent_nodes_def new_escape_nodes_def by simp blast
+
+        hence "?new_nodes - new_escape_nodes \<subseteq> new_player_nodes \<union> new_opponent_nodes"
+          by blast
 
         (** These obviously do not overlap *)
         have "new_player_nodes \<inter> new_opponent_nodes = {}"
