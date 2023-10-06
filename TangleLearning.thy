@@ -526,6 +526,175 @@ begin
                 \<forall>v. v \<in> opponent_escapes t \<longrightarrow> v \<in> player_tangle_attractor A\<rbrakk>
                 \<Longrightarrow> x \<in> player_tangle_attractor A"
 
+context
+  fixes A :: "'v set"
+begin
+
+    inductive attractor_step :: "'v set \<Rightarrow> 'v set \<Rightarrow> bool" where
+      own: "\<lbrakk>x \<in> V\<^sub>\<alpha>-S; (x,y) \<in> E; y \<in> S; A \<subseteq> S\<rbrakk> \<Longrightarrow> attractor_step S (insert x S)"
+    | opponent: "\<lbrakk>x \<in> V\<^sub>\<beta>-S; \<forall>y. (x,y) \<in> E \<longrightarrow> y \<in> S; A \<subseteq> S\<rbrakk> \<Longrightarrow> attractor_step S (insert x S)"
+    | escape: "\<lbrakk>t \<in> T; t-S \<noteq> {}; opponent_escapes t \<noteq> {}; opponent_escapes t \<subseteq> S; A \<subseteq> S\<rbrakk>
+                    \<Longrightarrow> attractor_step S (S \<union> t)"
+
+    definition a :: "'v set \<Rightarrow> bool" where "a \<equiv> attractor_step\<^sup>*\<^sup>* A"
+
+    definition player_tangle_attractor_I :: "'v set \<Rightarrow> bool" where
+      "player_tangle_attractor_I S \<equiv> \<exists>\<sigma>.
+          strategy_of V\<^sub>\<alpha> \<sigma> \<and> dom \<sigma> = V\<^sub>\<alpha> \<inter> (S-A) \<and> ran \<sigma> \<subseteq> S
+        \<and> induced_subgraph V\<^sub>\<alpha> \<sigma> `` (S-A) \<subseteq> S
+        \<and> (\<forall>x\<in>S. \<forall>xs ys. lasso_from_node (induced_subgraph V\<^sub>\<alpha> \<sigma>) x xs ys
+            \<longrightarrow> (set (xs@ys) \<inter> A \<noteq> {} \<or> winning_player ys))"
+
+    lemma player_tangle_attractor_I_base[simp]:
+      "player_tangle_attractor_I A"
+      unfolding player_tangle_attractor_I_def
+      apply (rule exI[where x="Map.empty"]; intro conjI; simp)
+      using origin_in_lasso by fastforce
+
+    lemma player_tangle_attractor_I_step:
+      "attractor_step S S' \<Longrightarrow> player_tangle_attractor_I S
+       \<Longrightarrow> player_tangle_attractor_I S'"
+    proof (induction rule: attractor_step.induct)
+      case (own x S y)
+      from own.prems obtain \<sigma> where
+        \<sigma>_strat: "strategy_of V\<^sub>\<alpha> \<sigma>" and
+        \<sigma>_dom: "dom \<sigma> = V\<^sub>\<alpha> \<inter> (S-A)" and
+        \<sigma>_ran: "ran \<sigma> \<subseteq> S" and
+        \<sigma>_closed: "induced_subgraph V\<^sub>\<alpha> \<sigma> `` (S-A) \<subseteq> S" and
+        \<sigma>_forces_A_or_wins: "(\<forall>x\<in>S. \<forall>xs ys. lasso_from_node (induced_subgraph V\<^sub>\<alpha> \<sigma>) x xs ys
+            \<longrightarrow> (set (xs@ys) \<inter> A \<noteq> {} \<or> winning_player ys))"
+        unfolding player_tangle_attractor_I_def
+        by auto
+
+      from own.hyps have new_strat: "strategy_of V\<^sub>\<alpha> (\<sigma> ++ [x\<mapsto>y])"
+        using strategy_of_add_same[OF \<sigma>_strat strategy_of_map_assign] by blast
+
+      from own.hyps \<sigma>_dom have new_dom: "dom (\<sigma> ++ [x\<mapsto>y]) = V\<^sub>\<alpha> \<inter> (insert x S - A)"
+        by auto
+
+      from own.hyps \<sigma>_ran have new_ran: "ran (\<sigma> ++ [x\<mapsto>y]) \<subseteq> (insert x S)"
+        unfolding ran_def by auto
+
+      from \<sigma>_closed \<sigma>_ran own.hyps(1)
+      have new_closed_S: "induced_subgraph V\<^sub>\<alpha> (\<sigma> ++ [x\<mapsto>y]) `` (S-A) \<subseteq> S"
+        unfolding induced_subgraph_def E_of_strat_def
+        by (auto split: if_splits simp: ranI)
+      with own.hyps(1,3) have new_closed:
+        "induced_subgraph V\<^sub>\<alpha> (\<sigma> ++ [x\<mapsto>y]) `` (insert x S - A) \<subseteq> insert x S"
+        using ind_subgraph_to_strategy[of _ _ V\<^sub>\<alpha> "\<sigma> ++ [x\<mapsto>y]"] by fastforce
+
+      have new_forces_A_or_wins:
+        "\<forall>v\<in>insert x S. \<forall>xs ys. lasso_from_node (induced_subgraph V\<^sub>\<alpha> (\<sigma> ++ [x\<mapsto>y])) v xs ys
+          \<longrightarrow> set (xs@ys) \<inter> A \<noteq> {} \<or> winning_player ys"
+      proof (intro ballI allI impI)
+        fix v xs ys
+        assume v_in_S': "v \<in> insert x S" and
+               lasso_v_xs_ys: "lasso_from_node (induced_subgraph V\<^sub>\<alpha> (\<sigma> ++ [x\<mapsto>y])) v xs ys"
+        from lasso_v_xs_ys obtain v' where
+          path_v_xs_v': "path (induced_subgraph V\<^sub>\<alpha> (\<sigma> ++ [x\<mapsto>y])) v xs v'" and
+          cycle_v'_ys: "cycle_node (induced_subgraph V\<^sub>\<alpha> (\<sigma> ++ [x\<mapsto>y])) v' ys"
+          unfolding lasso_from_node_def by blast
+
+        show "set (xs@ys) \<inter> A \<noteq> {} \<or> winning_player ys"
+        proof (cases "set (xs@ys) \<inter> A \<noteq> {}")
+          case True thus ?thesis by simp
+        next
+          case False
+          hence xs_no_A: "set xs \<inter> A = {}" and ys_no_A: "set ys \<inter> A = {}" by auto
+          with v_in_S' have v_in_S'_min_A: "v \<in> insert x S - A"
+            using origin_in_lasso[OF lasso_v_xs_ys] by blast
+
+          from path_partially_closed_dest[OF v_in_S'_min_A new_closed path_v_xs_v' xs_no_A] ys_no_A
+          have v'_in_S'_min_A: "v'\<in>insert x S - A"
+            using origin_in_cycle_node[OF cycle_v'_ys] by force
+          from cycle_partially_closed_set[OF v'_in_S'_min_A new_closed cycle_v'_ys ys_no_A]
+          have ys_in_S_min_A: "set ys \<subseteq> insert x S-A" by auto
+
+          have "lasso_from_node (induced_subgraph V\<^sub>\<alpha> \<sigma>) v' [] ys \<and> v'\<in>S"
+          proof (cases "x \<in> set ys")
+            case True
+            with own.hyps(1,2) obtain ys' where
+              cycle_y_ys': "cycle_node (induced_subgraph V\<^sub>\<alpha> (\<sigma> ++ [x\<mapsto>y])) y ys'" and
+              sets_eq: "set ys' = set ys" and
+              y_in_ys': "y \<in> set ys'"
+              using cycle_node_intermediate_node[OF cycle_v'_ys True]
+              apply clarsimp
+              subgoal for vs'
+                using cycle_node_D[of "induced_subgraph V\<^sub>\<alpha> (\<sigma> ++ [x\<mapsto>y])" x vs']
+                using ind_subgraph_to_strategy by fastforce
+              done
+
+            from own.hyps(3) sets_eq y_in_ys' ys_no_A have "y \<in> S-A" by blast
+            from cycle_partially_closed_set[OF this new_closed_S cycle_y_ys'] sets_eq ys_no_A
+            have "set ys \<subseteq> S - A" by simp
+            with True own.hyps(1) show ?thesis by blast
+          next
+            case False
+            from own.hyps(1) have subset:
+              "induced_subgraph V\<^sub>\<alpha> (\<sigma> ++ [x\<mapsto>y]) \<inter> (S-A)\<times>(S-A) \<subseteq> induced_subgraph V\<^sub>\<alpha> \<sigma>"
+              unfolding induced_subgraph_def E_of_strat_def
+              by (auto split: if_splits)
+
+            from False ys_in_S_min_A have ys_in_S_min_A: "set ys \<subseteq> S-A" by blast
+            from subgraph_cycle[OF subset cycle_restr_V[OF cycle_v'_ys this]]
+            have cycle_\<sigma>_v'_ys: " cycle_node (induced_subgraph V\<^sub>\<alpha> \<sigma>) v' ys " .
+
+            with ys_in_S_min_A have v'_in_S_min_A: "v' \<in> S-A"
+              using origin_in_cycle_node by fast
+
+            with cycle_\<sigma>_v'_ys show ?thesis
+              by (simp add: cycle_node_iff_loop loop_impl_lasso)
+          qed
+          with \<sigma>_forces_A_or_wins ys_no_A show ?thesis by fastforce
+        qed
+      qed
+
+      show ?case
+        unfolding player_tangle_attractor_I_def
+        apply (rule exI[where x="\<sigma> ++ [x\<mapsto>y]"]; intro conjI)
+          subgoal using new_strat .
+          subgoal using new_dom .
+          subgoal using new_ran .
+          subgoal using new_closed .
+          subgoal using new_forces_A_or_wins .
+        done
+
+    next
+      case (opponent x S)
+      from opponent.prems obtain \<sigma> where
+        \<sigma>_strat: "strategy_of V\<^sub>\<alpha> \<sigma>" and
+        \<sigma>_dom: "dom \<sigma> = V\<^sub>\<alpha> \<inter> (S-A)" and
+        \<sigma>_ran: "ran \<sigma> \<subseteq> S" and
+        \<sigma>_closed: "induced_subgraph V\<^sub>\<alpha> \<sigma> `` (S-A) \<subseteq> S" and
+        \<sigma>_forces_A_or_wins: "(\<forall>x\<in>S. \<forall>xs ys. lasso_from_node (induced_subgraph V\<^sub>\<alpha> \<sigma>) x xs ys
+            \<longrightarrow> (set (xs@ys) \<inter> A \<noteq> {} \<or> winning_player ys))"
+        unfolding player_tangle_attractor_I_def
+        by auto
+
+      show ?case
+        unfolding player_tangle_attractor_I_def
+        apply (rule exI[where x="\<sigma>"]; intro conjI)
+          subgoal using \<sigma>_strat .
+          subgoal using \<sigma>_dom opponent.hyps(1) by force
+          subgoal using \<sigma>_ran by auto
+          subgoal using \<sigma>_closed opponent.hyps(2) by auto
+          subgoal sorry
+        done
+
+    next
+      case (escape t S)
+      then show ?case sorry
+    qed
+end
+
+lemma
+  assumes "\<And>A A'. attractor_step A A'\<Longrightarrow> I A \<Longrightarrow> I A'"
+  shows"attractor_step\<^sup>*\<^sup>* A A'\<Longrightarrow> I A \<Longrightarrow> I A'"
+  apply (induction rule: rtranclp_induct) sorry
+  term V
+  thm fin_V
+  term finite_psubset
+
     lemma player_tangle_attractor_subset[simp]: "A \<subseteq> player_tangle_attractor A"
       by (auto intro: player_tangle_attractor.base)
 
@@ -728,16 +897,16 @@ begin
             opponent_escapes t \<noteq> {} \<and> (\<forall>v. v\<in>opponent_escapes t \<longrightarrow> v\<in>tangle_nodes_in_rank n)}"
 
         define new_escape_tangles where
-          "new_escape_tangles = {t. t \<inter> A = {} \<and> t\<in>T \<and>
+          "new_escape_tangles = {t. t \<inter> ?new_nodes \<noteq> {} \<and> t \<inter> A = {} \<and> t\<in>T \<and>
            opponent_escapes t \<noteq> {} \<and> (\<forall>v. v\<in>opponent_escapes t \<longrightarrow> v\<in>tangle_nodes_in_rank n)}"
 
         have "new_escape_nodes \<subseteq> \<Union>new_escape_tangles"
           unfolding new_escape_nodes_def new_escape_tangles_def by blast
 
-        have "new_escape_nodes = \<Union>new_escape_tangles \<longleftrightarrow>
+        have "new_escape_nodes = \<Union>new_escape_tangles \<Longrightarrow>
           \<Union>new_escape_tangles \<inter> tangle_nodes_in_rank n = {}"
           unfolding new_escape_nodes_def new_escape_tangles_def
-          apply (rule iffI; simp) by blast+
+          by blast
 
         have "\<forall>t1\<in>new_escape_tangles. \<forall>t2\<in>new_escape_tangles. \<forall>v\<in>opponent_escapes t1. v \<notin> t2"
           unfolding new_escape_tangles_def opponent_escapes_def
@@ -748,7 +917,7 @@ begin
           unfolding new_player_nodes_def new_opponent_nodes_def new_escape_nodes_def by simp blast
 
         hence "?new_nodes - new_escape_nodes \<subseteq> new_player_nodes \<union> new_opponent_nodes"
-          by blast
+          sorry
 
         (** These obviously do not overlap *)
         have "new_player_nodes \<inter> new_opponent_nodes = {}"
