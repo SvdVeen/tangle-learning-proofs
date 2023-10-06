@@ -162,7 +162,7 @@ begin
 
   (** If you have a cycle and an intermediate node in that cycle, you can get another cycle from
       that intermediate node *)
-  lemma cycle_node_intermadiate_node:
+  lemma cycle_node_intermediate_node:
     "\<lbrakk>cycle_node v vs; x \<in> set vs\<rbrakk> \<Longrightarrow> \<exists>vs'. set vs' = set vs \<and> cycle_node x vs'"
     using cycle_node_iff_loop loop_intermediate_node[of v vs x] by fastforce
 
