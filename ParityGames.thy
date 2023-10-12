@@ -17,10 +17,14 @@ abbreviation EV :: "'v dgraph \<Rightarrow> 'v set" where
 definition strongly_connected :: "'v dgraph \<Rightarrow> bool" where
   "strongly_connected E \<equiv> \<forall>v \<in> EV E. \<forall>v' \<in> EV E. (v,v') \<in> E\<^sup>* \<and> (v',v) \<in> E\<^sup>*"
 
-subsection \<open>Paths and cycles\<close>
 context
   fixes E :: "'v dgraph"
 begin
+
+  definition SCC :: "'v set \<Rightarrow> bool" where
+    "SCC S \<equiv> S\<subseteq>EV E \<and> strongly_connected (E \<inter> S\<times>S)"
+
+  subsubsection \<open>Paths\<close>
   (** A path consisting of the first node of each edge of a graph  *)
   fun path :: "'v \<Rightarrow> 'v list \<Rightarrow> 'v \<Rightarrow> bool" where
      "path v [] v' \<longleftrightarrow> v = v'"
@@ -125,6 +129,7 @@ begin
     ultimately show ?thesis by blast
   qed
 
+  subsubsection \<open>Cycles\<close>
   (** A cycle from a node to itself *)
   definition cycle_node :: "'v \<Rightarrow> 'v list \<Rightarrow> bool" where
     "cycle_node v xs \<equiv> path v xs v \<and> xs \<noteq> []"
@@ -166,6 +171,7 @@ begin
     "\<lbrakk>cycle_node v vs; x \<in> set vs\<rbrakk> \<Longrightarrow> \<exists>vs'. set vs' = set vs \<and> cycle_node x vs'"
     using cycle_node_iff_loop loop_intermediate_node[of v vs x] by fastforce
 
+  subsubsection \<open>Reachable Cycles\<close>
   (** A cycle reachable from a node *)
   definition cycle_from_node :: "'v \<Rightarrow> 'v list \<Rightarrow> bool" where
     "cycle_from_node x ys \<equiv> \<exists>xs y. path x xs y \<and> cycle_node y ys"
@@ -204,6 +210,7 @@ begin
   lemma cycle_node_impl_cycle_from_node: "cycle_node v vs \<Longrightarrow> cycle_from_node v vs"
     unfolding cycle_from_node_def cycle_node_def by blast
 
+  subsubsection \<open>Lassos\<close>
   (** A lasso from a node with a spoke and a loop *)
   definition lasso_from_node :: "'v \<Rightarrow> 'v list \<Rightarrow> 'v list \<Rightarrow> bool" where
     "lasso_from_node x xs ys \<equiv> \<exists>y. path x xs y \<and> cycle_node y ys"
@@ -252,15 +259,15 @@ begin
       path_x_xs_y: "path x xs y" and
       cycle_y_ys: "cycle_node y ys"
       unfolding lasso_from_node_def by blast
-  
+
     from path_partially_closed_set[OF assms(1,2) path_x_xs_y assms(3)]
     have xs_in_V_min_R: "set xs \<subseteq> V-R" .
-  
+
     from path_partially_closed_dest[OF assms(1,2) path_x_xs_y assms(3)] assms(4)
     have "y \<in> V-R" using origin_in_cycle_node[OF cycle_y_ys] by blast
     from cycle_partially_closed_set[OF this assms(2) cycle_y_ys assms(4)]
     have ys_in_V_min_R: "set ys \<subseteq> V-R" .
-  
+
     from xs_in_V_min_R ys_in_V_min_R show ?thesis ..
   qed
 
@@ -366,11 +373,11 @@ begin
   lemma lasso'_extend_any_length: "lasso_from_node' v vs \<Longrightarrow> \<exists>vs'. n < length vs' \<and> set vs = set vs' \<and> lasso_from_node' v vs'"
     apply (induction n)
       subgoal using lasso_from_node'_length by blast
-      subgoal using lasso'_extend_loop Suc_lessI by metis
+      subgoal for n using lasso'_extend_loop Suc_lessI[of n] by metis
     done
 end
 
-subsection \<open>Paths and Cycles in Graphs with a Specific V and no Dead Ends\<close>
+subsection \<open>Graphs with Specified V\<close>
 locale finite_graph_V_Succ =
   fixes E :: "'v dgraph"
   fixes V :: "'v set"
@@ -428,7 +435,7 @@ begin
   lemma cycle_always_exists: "x\<in>V \<Longrightarrow> \<exists>xs. cycle_from_node E x xs"
   proof -
     assume "x\<in>V"
-    then obtain xs x' where xs: "length (xs::'v list) = Suc (card V) \<and> path E x xs x'"
+    then obtain xs x' where xs: "length xs = Suc (card V) \<and> path E x xs x'"
       using path_any_length by blast
     have "\<not>distinct xs" proof -
       from xs have ss: "set xs \<subseteq> V" using path_in_V[OF \<open>x\<in>V\<close>] by fastforce
@@ -452,16 +459,6 @@ begin
 end
 
 subsection \<open>Paths and Cycles in Subgraphs\<close>
-
-lemma simulate_path_aux:
-  assumes "E``(Y-X) \<subseteq> Y"
-  assumes "v\<in>Y"
-  assumes "path E v xs v'"
-  shows "X\<inter>set xs \<noteq> {} \<or> (path (E \<inter> (Y-X)\<times>Y) v xs v')"
-  using assms(2,3)
-  apply (induction xs arbitrary: v)
-  using assms(1)
-  by auto
 
 (** If a path exists in a subgraph, it exists in the whole graph *)
 lemma subgraph_path: "E' \<subseteq> E \<Longrightarrow> path E' v vs v' \<Longrightarrow> path E v vs v'"
