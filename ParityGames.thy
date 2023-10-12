@@ -236,7 +236,33 @@ begin
 
   (** If a lasso is in a closed region of a graph, its nodes are in that region *)
   lemma lasso_from_node_closed_sets: "\<lbrakk>x\<in>V; E``V\<subseteq>V; lasso_from_node x xs ys\<rbrakk> \<Longrightarrow> set xs \<subseteq> V \<and> set ys \<subseteq> V"
-    using lasso_from_node_paths path_closed_dest path_closed_set by meson
+    using lasso_from_node_paths path_closed_dest[of x V xs] path_closed_set[of _ V] by metis
+
+  (** If a lasso is in a partially closed region of a graph, and it does not go through the part of
+      the region where it can exit, it will stay in the region. *)
+  lemma lasso_from_node_partially_closed_sets:
+    assumes "x\<in>V-R"
+    assumes "E``(V-R)\<subseteq>V"
+    assumes "set xs \<inter> R = {}"
+    assumes "set ys \<inter> R = {}"
+    assumes "lasso_from_node x xs ys"
+    shows "set xs \<subseteq> V-R \<and> set ys \<subseteq> V-R"
+  proof -
+    from assms(5) obtain y where
+      path_x_xs_y: "path x xs y" and
+      cycle_y_ys: "cycle_node y ys"
+      unfolding lasso_from_node_def by blast
+  
+    from path_partially_closed_set[OF assms(1,2) path_x_xs_y assms(3)]
+    have xs_in_V_min_R: "set xs \<subseteq> V-R" .
+  
+    from path_partially_closed_dest[OF assms(1,2) path_x_xs_y assms(3)] assms(4)
+    have "y \<in> V-R" using origin_in_cycle_node[OF cycle_y_ys] by blast
+    from cycle_partially_closed_set[OF this assms(2) cycle_y_ys assms(4)]
+    have ys_in_V_min_R: "set ys \<subseteq> V-R" .
+  
+    from xs_in_V_min_R ys_in_V_min_R show ?thesis ..
+  qed
 
   (** If we have a lasso, then there exists a y at the start of the loop, from which there is a lasso
       without a spoke *)
@@ -248,6 +274,10 @@ begin
   (** If there is a looping path from y, there is a lasso from y without a spoke *)
   lemma loop_impl_lasso: "\<lbrakk>path y ys y; ys \<noteq> []\<rbrakk> \<Longrightarrow> lasso_from_node y [] ys"
     unfolding lasso_from_node_def cycle_node_def by simp
+
+  (** A cycle is a lasso without a spoke *)
+  lemma cycle_iff_lasso: "cycle_node y ys \<longleftrightarrow> lasso_from_node y [] ys"
+    unfolding lasso_from_node_def by simp
 
   (** If there is a cycle, it means there is a lasso, and vice versa *)
   lemma cycle_from_iff_lasso: "cycle_from_node x ys \<longleftrightarrow> (\<exists>xs. lasso_from_node x xs ys)"
