@@ -38,7 +38,7 @@ begin
     "is_player_tangle_strat U \<sigma> \<equiv> strategy_of V\<^sub>\<alpha> \<sigma> \<and> dom \<sigma> = U \<inter> V\<^sub>\<alpha> \<and> ran \<sigma> \<subseteq> U \<and>
      (let E' = player_tangle_subgraph U \<sigma> in (
         strongly_connected E' \<and>
-        (\<forall>v \<in> U. \<forall>xs. cycle_node E' v xs \<longrightarrow> winning_player xs)
+        (\<forall>v \<in> U. \<forall>xs. cycle E' v xs \<longrightarrow> winning_player xs)
      ))"
 
   (** We can then say that a tangle for a player is a nonempty set of vertices U in V, where
@@ -67,7 +67,7 @@ begin
         \<sigma>_strat: "strategy_of V\<^sub>\<alpha> \<sigma>"
     and \<sigma>_dom: "dom \<sigma> = U \<inter> V\<^sub>\<alpha>"
     and \<sigma>_ran: "ran \<sigma> \<subseteq> U"
-    and \<sigma>_winning: "\<forall>v\<in>U. \<forall>xs. cycle_node (player_tangle_subgraph U \<sigma>) v xs \<longrightarrow> winning_player xs"
+    and \<sigma>_winning: "\<forall>v\<in>U. \<forall>xs. cycle (player_tangle_subgraph U \<sigma>) v xs \<longrightarrow> winning_player xs"
       unfolding player_tangle_def is_player_tangle_strat_def Let_def by auto
 
     have \<sigma>_winning_subgraph: "\<forall>u\<in>U. \<forall>ys. cycle_from_node (induced_subgraph (dom \<sigma>) \<sigma>) u ys
@@ -82,10 +82,10 @@ begin
       have ys_in_U: "set ys \<subseteq> U" .
 
       from cycle_u_ys ys_in_U obtain y where
-          cycle_y_ys: "cycle_node (induced_subgraph (dom \<sigma>) \<sigma>) y ys"
+          cycle_y_ys: "cycle (induced_subgraph (dom \<sigma>) \<sigma>) y ys"
       and y_in_U: "y \<in> U"
         unfolding cycle_from_node_def
-        using origin_in_cycle_node by fastforce
+        using origin_in_cycle by fastforce
 
       have "induced_subgraph (dom \<sigma>) \<sigma> \<inter> (U\<times>U) \<subseteq> player_tangle_subgraph U \<sigma>"
         using player_tangle_subgraph_is_restricted_ind_subgraph[OF U_in_V \<sigma>_dom \<sigma>_ran] by simp
@@ -117,7 +117,7 @@ context paritygame begin
       \<exists>\<sigma>. strategy_of_player \<alpha> \<sigma> \<and> dom \<sigma> = U \<inter> V_player \<alpha> \<and> ran \<sigma> \<subseteq> U \<and>
       (let E' = E \<inter> (E_of_strat \<sigma> \<union> (U \<inter> V_opponent \<alpha>) \<times> U) in (
         strongly_connected E' \<and>
-        (\<forall>v \<in> U. \<forall>xs. cycle_node E' v xs \<longrightarrow> player_wins_list \<alpha> xs)
+        (\<forall>v \<in> U. \<forall>xs. cycle E' v xs \<longrightarrow> player_wins_list \<alpha> xs)
     ))))"
 
   definition tangle :: "'v set \<Rightarrow> bool" where
@@ -126,7 +126,7 @@ context paritygame begin
       \<exists>\<sigma>. strategy_of_player \<alpha> \<sigma> \<and> dom \<sigma> = U \<inter> V_player \<alpha> \<and> ran \<sigma> \<subseteq> U \<and>
       (let E' = E \<inter> (E_of_strat \<sigma> \<union> (U \<inter> V_opponent \<alpha>) \<times> U) in (
         strongly_connected E' \<and>
-        (\<forall>v \<in> U. \<forall>xs. cycle_node E' v xs \<longrightarrow> player_wins_list \<alpha> xs)
+        (\<forall>v \<in> U. \<forall>xs. cycle E' v xs \<longrightarrow> player_wins_list \<alpha> xs)
     ))))"
 
   lemma tangle_iff_p_tangle: "tangle U \<longleftrightarrow> p_tangle (pr_set U) U"
@@ -168,7 +168,7 @@ context paritygame begin
       strategy_of_player \<alpha> \<sigma> \<and> dom \<sigma> = U \<inter> V_player \<alpha> \<and> ran \<sigma> \<subseteq> U \<and>
         (let E' = E \<inter> (E_of_strat \<sigma> \<union> (U \<inter> V_opponent \<alpha>) \<times> U) in (
           strongly_connected E' \<and>
-          (\<forall>v \<in> U. \<forall>xs. cycle_node E' v xs \<longrightarrow> player_wins_list \<alpha> xs)
+          (\<forall>v \<in> U. \<forall>xs. cycle E' v xs \<longrightarrow> player_wins_list \<alpha> xs)
    ))))"
 
   lemma tangle_iff_tangle_strat:"tangle U \<longleftrightarrow> (\<exists>\<sigma>. tangle_strat U \<sigma>)"
@@ -210,16 +210,16 @@ begin
     assumes t1_no_escapes_t2: "\<forall>v \<in> opponent_escapes t1. v \<notin> t2"
     assumes \<sigma>_dom: "dom \<sigma> = t1 \<inter> V\<^sub>\<alpha>"
     assumes \<sigma>_ran: "ran \<sigma> \<subseteq> t1"
-    assumes \<sigma>_winning_t1: "\<forall>v\<in>t1. \<forall>xs. cycle_node (player_tangle_subgraph t1 \<sigma>) v xs \<longrightarrow> winning_player xs"
+    assumes \<sigma>_winning_t1: "\<forall>v\<in>t1. \<forall>xs. cycle (player_tangle_subgraph t1 \<sigma>) v xs \<longrightarrow> winning_player xs"
     assumes t2_in_V: "t2 \<subseteq> V"
     assumes \<sigma>'_dom: "dom \<sigma>' = t2 \<inter> V\<^sub>\<alpha>"
     assumes \<sigma>'_ran: "ran \<sigma>' \<subseteq> t2"
-    assumes \<sigma>'_winning_t2: "\<forall>v\<in>t2. \<forall>xs. cycle_node (player_tangle_subgraph t2 \<sigma>') v xs \<longrightarrow> winning_player xs"
-    shows "\<forall>v\<in>t1\<union>t2. \<forall>xs. cycle_node (player_tangle_subgraph (t1\<union>t2) (\<sigma>' ++ \<sigma>)) v xs \<longrightarrow> winning_player xs"
+    assumes \<sigma>'_winning_t2: "\<forall>v\<in>t2. \<forall>xs. cycle (player_tangle_subgraph t2 \<sigma>') v xs \<longrightarrow> winning_player xs"
+    shows "\<forall>v\<in>t1\<union>t2. \<forall>xs. cycle (player_tangle_subgraph (t1\<union>t2) (\<sigma>' ++ \<sigma>)) v xs \<longrightarrow> winning_player xs"
   proof (rule ballI; rule allI; rule impI)
     fix v xs
     assume v_in_union: "v\<in>t1\<union>t2"
-       and cycle_v_xs: "cycle_node  (player_tangle_subgraph (t1\<union>t2) (\<sigma>' ++ \<sigma>)) v xs"
+       and cycle_v_xs: "cycle  (player_tangle_subgraph (t1\<union>t2) (\<sigma>' ++ \<sigma>)) v xs"
 
     let ?E' = "player_tangle_subgraph (t1\<union>t2) (\<sigma>' ++ \<sigma>)"
 
@@ -271,19 +271,19 @@ begin
     have E'_closed_union: "?E' `` (t1\<union>t2) \<subseteq> t1\<union>t2"
       using E'_closed_t1 E'_partially_closed_t2 by blast
 
-    from cycle_node_closed_set[OF v_in_union E'_closed_union cycle_v_xs]
+    from cycle_closed_set[OF v_in_union E'_closed_union cycle_v_xs]
     have xs_in_union: "set xs \<subseteq> t1 \<union> t2" .
 
     consider (v_in_t1) "v\<in>t1" | (v_notin_t1) "v\<notin>t1" by blast
     thus "winning_player xs" proof cases
       case v_in_t1
-      from cycle_node_closed_set[OF v_in_t1 E'_closed_t1 cycle_v_xs]
+      from cycle_closed_set[OF v_in_t1 E'_closed_t1 cycle_v_xs]
       have xs_in_t1: "set xs \<subseteq> t1" .
 
       from t1_in_V \<sigma>_dom have "(?E' \<inter> t1\<times>t1) \<subseteq> player_tangle_subgraph t1 \<sigma>"
         unfolding player_tangle_subgraph_def E_of_strat_def by auto
       from subgraph_cycle[OF this cycle_restr_V[OF cycle_v_xs xs_in_t1]]
-      have "cycle_node (player_tangle_subgraph t1 \<sigma>) v xs" .
+      have "cycle (player_tangle_subgraph t1 \<sigma>) v xs" .
 
       with \<sigma>_winning_t1 v_in_t1 show ?thesis by blast
 
@@ -300,7 +300,7 @@ begin
         from t2_in_V \<sigma>_dom \<sigma>'_dom have "(?E' \<inter> (t2-t1)\<times>(t2-t1)) \<subseteq> player_tangle_subgraph t2 \<sigma>'"
           unfolding player_tangle_subgraph_def E_of_strat_def by auto
         from subgraph_cycle[OF this cycle_restr_V[OF cycle_v_xs xs_in_t2_min_t1]]
-        have "cycle_node (player_tangle_subgraph t2 \<sigma>') v xs" .
+        have "cycle (player_tangle_subgraph t2 \<sigma>') v xs" .
 
         with v_in_t2_min_t1 \<sigma>'_winning_t2 show ?thesis by fast
 
@@ -308,12 +308,12 @@ begin
         case t1_in_xs
         then obtain w xs' where
           w_in_xs: "w \<in> set xs" and w_in_t1: "w \<in> t1" and
-          xs'_xs_sets_eq: "set xs' = set xs" and cycle_w_xs': "cycle_node ?E' w xs'"
-          using cycle_node_intermadiate_node[OF cycle_v_xs] by blast
+          xs'_xs_sets_eq: "set xs' = set xs" and cycle_w_xs': "cycle ?E' w xs'"
+          using cycle_intermadiate_node[OF cycle_v_xs] by blast
 
-        from xs'_xs_sets_eq cycle_node_closed_set[OF w_in_t1 E'_closed_t1 cycle_w_xs']
+        from xs'_xs_sets_eq cycle_closed_set[OF w_in_t1 E'_closed_t1 cycle_w_xs']
         have xs_in_t1: "set xs \<subseteq> t1" by fast
-        from cycle_v_xs have v_in_xs: "v \<in> set xs" using origin_in_cycle_node by fast
+        from cycle_v_xs have v_in_xs: "v \<in> set xs" using origin_in_cycle by fast
 
         from xs_in_t1 v_in_xs have v_in_t1: "v \<in> t1" by blast
         with v_notin_t1 show ?thesis by fast
@@ -355,7 +355,7 @@ begin
     assumes "\<forall>s\<in>fst ` set xs. s \<subseteq> V"
     assumes "\<forall>s1\<in>fst ` set xs. \<forall>s2\<in>fst ` set xs. \<forall>v \<in> opponent_escapes s1. v \<notin> s2"
     assumes "\<forall>(s,\<sigma>)\<in>set xs. is_player_tangle_strat s \<sigma>"
-    shows "\<forall>v\<in>\<Union>(fst ` set xs). \<forall>vs. cycle_node (player_tangle_subgraph (\<Union>(fst ` set xs)) (asym_combine xs)) v vs \<longrightarrow> winning_player vs"
+    shows "\<forall>v\<in>\<Union>(fst ` set xs). \<forall>vs. cycle (player_tangle_subgraph (\<Union>(fst ` set xs)) (asym_combine xs)) v vs \<longrightarrow> winning_player vs"
     using assms
   proof (induction xs)
     case Nil thus ?case by simp
@@ -409,7 +409,7 @@ begin
     from Cons.prems(3) have \<sigma>_ran: "ran ?\<sigma> \<subseteq> ?a"
       unfolding is_player_tangle_strat_def by force
     from Cons.prems(3) have \<sigma>_winning_a:
-      "\<forall>v\<in>?a. \<forall>xs. cycle_node (player_tangle_subgraph ?a ?\<sigma>) v xs \<longrightarrow> winning_player xs"
+      "\<forall>v\<in>?a. \<forall>xs. cycle (player_tangle_subgraph ?a ?\<sigma>) v xs \<longrightarrow> winning_player xs"
       unfolding is_player_tangle_strat_def Let_def by force
 
     from map_asym_add_tangle_strats
@@ -465,7 +465,7 @@ begin
     shows "\<exists>\<sigma>. strategy_of V\<^sub>\<alpha> \<sigma> \<and>
                dom \<sigma> = \<Union>S \<inter> V\<^sub>\<alpha> \<and>
                ran \<sigma> \<subseteq> \<Union>S \<and>
-               (\<forall>v\<in>\<Union>S. \<forall>xs. cycle_node (player_tangle_subgraph (\<Union>S) \<sigma>) v xs \<longrightarrow> winning_player xs)"
+               (\<forall>v\<in>\<Union>S. \<forall>xs. cycle (player_tangle_subgraph (\<Union>S) \<sigma>) v xs \<longrightarrow> winning_player xs)"
   proof -
     from tangle_strats_list[OF fin_S tangles_S] obtain xs where
       xs_len: "length xs = card S" and
@@ -504,7 +504,7 @@ begin
     next
       fix v vs
       assume v_in_S: "v\<in>\<Union>S" and
-             cycle_v_xs: "cycle_node (player_tangle_subgraph (\<Union>S) \<sigma>) v vs"
+             cycle_v_xs: "cycle (player_tangle_subgraph (\<Union>S) \<sigma>) v vs"
       with xs_set show "winning_player vs"
         unfolding \<sigma>_def
         using asym_combine_tangle_strats[OF xs_in_V no_escapes_xs xs_tangle_strats] by force
@@ -610,7 +610,7 @@ begin
         assume v_in_S': "v \<in> insert x S" and
                lasso_v_xs_ys: "lasso_from_node (induced_subgraph V\<^sub>\<alpha> (\<sigma> ++ [x\<mapsto>y])) v xs ys"
         from lasso_v_xs_ys obtain v' where
-          cycle_v'_ys: "cycle_node (induced_subgraph V\<^sub>\<alpha> (\<sigma> ++ [x\<mapsto>y])) v' ys"
+          cycle_v'_ys: "cycle (induced_subgraph V\<^sub>\<alpha> (\<sigma> ++ [x\<mapsto>y])) v' ys"
           unfolding lasso_from_node_def by auto
 
         have "set (xs@ys) \<inter> A = {} \<Longrightarrow> winning_player ys"
@@ -623,19 +623,19 @@ begin
           from lasso_from_node_partially_closed_sets[OF this new_closed xs_no_A ys_no_A lasso_v_xs_ys]
           have ys_in_S'_min_A: "set ys \<subseteq> insert x S - A" by simp
           hence y_in_S'_min_A: "v' \<in> insert x S - A"
-            using origin_in_cycle_node[OF cycle_v'_ys] by auto
+            using origin_in_cycle[OF cycle_v'_ys] by auto
 
           consider (ys_has_x) "x \<in> set ys" | (ys_no_x) "x \<notin> set ys" by blast
           hence "lasso_from_node (induced_subgraph V\<^sub>\<alpha> \<sigma>) v' [] ys \<and> v'\<in>S" proof cases
             case ys_has_x
             from own.hyps(1,2) obtain ys' where
-              cycle_y_ys': "cycle_node (induced_subgraph V\<^sub>\<alpha> (\<sigma> ++ [x\<mapsto>y])) y ys'" and
+              cycle_y_ys': "cycle (induced_subgraph V\<^sub>\<alpha> (\<sigma> ++ [x\<mapsto>y])) y ys'" and
               sets_eq: "set ys' = set ys" and
               y_in_ys': "y \<in> set ys'"
-              using cycle_node_intermediate_node[OF cycle_v'_ys ys_has_x]
+              using cycle_intermediate_node[OF cycle_v'_ys ys_has_x]
               apply clarsimp
               subgoal for vs'
-                using cycle_node_D[of "induced_subgraph V\<^sub>\<alpha> (\<sigma> ++ [x\<mapsto>y])" x vs']
+                using cycle_D[of "induced_subgraph V\<^sub>\<alpha> (\<sigma> ++ [x\<mapsto>y])" x vs']
                 using ind_subgraph_to_strategy by fastforce
               done
 
@@ -652,10 +652,10 @@ begin
 
             from ys_no_x ys_in_S'_min_A have ys_in_S_min_A: "set ys \<subseteq> S-A" by blast
             from subgraph_cycle[OF subset cycle_restr_V[OF cycle_v'_ys this]]
-            have cycle_\<sigma>_v'_ys: " cycle_node (induced_subgraph V\<^sub>\<alpha> \<sigma>) v' ys " .
+            have cycle_\<sigma>_v'_ys: " cycle (induced_subgraph V\<^sub>\<alpha> \<sigma>) v' ys " .
 
             with ys_in_S_min_A have v'_in_S_min_A: "v' \<in> S-A"
-              using origin_in_cycle_node by fast
+              using origin_in_cycle by fast
 
             with cycle_\<sigma>_v'_ys show ?thesis by (simp add: cycle_iff_lasso)
           qed
@@ -697,7 +697,7 @@ begin
         assume v_in_S': "v \<in> insert x S" and
                lasso_v_xs_ys: "lasso_from_node (induced_subgraph V\<^sub>\<alpha> \<sigma>) v xs ys"
         from lasso_v_xs_ys obtain v' where
-          cycle_v'_ys: "cycle_node (induced_subgraph V\<^sub>\<alpha> \<sigma>) v' ys"
+          cycle_v'_ys: "cycle (induced_subgraph V\<^sub>\<alpha> \<sigma>) v' ys"
           unfolding lasso_from_node_def by blast
 
         have "set (xs@ys) \<inter> A = {} \<Longrightarrow> winning_player ys"
@@ -710,7 +710,7 @@ begin
           from lasso_from_node_partially_closed_sets[OF this \<sigma>_closed_S' xs_no_A ys_no_A lasso_v_xs_ys]
           have ys_in_S'_min_A: "set ys \<subseteq> insert x S - A" by simp
           hence v'_in_S'_min_A: "v' \<in> insert x S - A"
-            using origin_in_cycle_node[OF cycle_v'_ys] by blast
+            using origin_in_cycle[OF cycle_v'_ys] by blast
 
           consider (ys_has_x) "x \<in> set ys" | (ys_no_x) "x \<notin> set ys" by blast
           hence "lasso_from_node (induced_subgraph V\<^sub>\<alpha> \<sigma>) v' [] ys \<and> v' \<in> S" proof cases
@@ -718,13 +718,13 @@ begin
             from opponent.hyps(1,2) obtain y ys' where
               x_y_edge: "(x,y) \<in> induced_subgraph V\<^sub>\<alpha> \<sigma>" and
               y_in_S: "y \<in> S" and
-              cycle_y_ys': "cycle_node (induced_subgraph V\<^sub>\<alpha> \<sigma>) y ys'" and
+              cycle_y_ys': "cycle (induced_subgraph V\<^sub>\<alpha> \<sigma>) y ys'" and
               sets_eq: "set ys' = set ys" and
               y_in_ys: "y \<in> set ys"
-              using cycle_node_intermediate_node[OF cycle_v'_ys ys_has_x]
+              using cycle_intermediate_node[OF cycle_v'_ys ys_has_x]
               apply clarsimp
               subgoal for vs'
-                using cycle_node_D[of "induced_subgraph V\<^sub>\<alpha> \<sigma>" x vs']
+                using cycle_D[of "induced_subgraph V\<^sub>\<alpha> \<sigma>" x vs']
                 using ind_subgraph_to_strategy by blast
               done
 
@@ -732,13 +732,13 @@ begin
             from cycle_partially_closed_set[OF this \<sigma>_closed_S cycle_y_ys'] sets_eq ys_no_A
             have "set ys \<subseteq> S-A" by auto
             hence "v' \<in> S"
-              using origin_in_cycle_node[OF cycle_v'_ys] by blast
+              using origin_in_cycle[OF cycle_v'_ys] by blast
 
             with cycle_v'_ys show ?thesis by (simp add: cycle_iff_lasso)
           next
             case ys_no_x
             with ys_in_S'_min_A have ys_in_S_min_A: "set ys \<subseteq> S-A" by blast
-            with origin_in_cycle_node[OF cycle_v'_ys] have v'_in_S_min_A: "v' \<in> S-A" by blast
+            with origin_in_cycle[OF cycle_v'_ys] have v'_in_S_min_A: "v' \<in> S-A" by blast
             with cycle_v'_ys show ?thesis by (simp add: cycle_iff_lasso)
           qed
 
@@ -780,7 +780,7 @@ begin
        \<sigma>'_dom: "dom \<sigma>' = t \<inter> V\<^sub>\<alpha>" and
        \<sigma>'_ran: "ran \<sigma>' \<subseteq> t" and
        \<sigma>'_strongly_connected_subgraph: "strongly_connected (player_tangle_subgraph t \<sigma>')" and
-       \<sigma>'_winning: "\<forall>v\<in>t. \<forall>xs. cycle_node (player_tangle_subgraph t \<sigma>') v xs \<longrightarrow> winning_player xs"
+       \<sigma>'_winning: "\<forall>v\<in>t. \<forall>xs. cycle (player_tangle_subgraph t \<sigma>') v xs \<longrightarrow> winning_player xs"
         unfolding player_tangle_def is_player_tangle_strat_def Let_def by auto
 
       define \<tau> where "\<tau> = (\<sigma>' |` (t-A)) ++ \<sigma>"
@@ -870,7 +870,7 @@ begin
         assume v_in_S': "v\<in>S\<union>t" and
                lasso_v_xs_ys: "lasso_from_node (induced_subgraph V\<^sub>\<alpha> \<tau>) v xs ys"
         from lasso_v_xs_ys obtain v' where
-          cycle_v'_ys: "cycle_node (induced_subgraph V\<^sub>\<alpha> \<tau>) v' ys"
+          cycle_v'_ys: "cycle (induced_subgraph V\<^sub>\<alpha> \<tau>) v' ys"
           unfolding lasso_from_node_def by blast
 
         have "set (xs@ys) \<inter> A = {} \<Longrightarrow> winning_player ys"
@@ -883,7 +883,7 @@ begin
           from lasso_from_node_partially_closed_sets[OF this \<tau>_closed_S' xs_no_A ys_no_A lasso_v_xs_ys]
           have ys_in_S'_min_A: "set ys \<subseteq> (S\<union>t)-A" by simp
           hence v'_in_S'_min_A: "v' \<in> (S\<union>t)-A"
-            using origin_in_cycle_node[OF cycle_v'_ys] by blast
+            using origin_in_cycle[OF cycle_v'_ys] by blast
 
           consider (ys_has_S) "set ys \<inter> S \<noteq> {}" | (ys_no_S) "set ys \<inter> S = {}" by blast
           thus ?thesis proof cases
@@ -895,25 +895,25 @@ begin
               y_in_S_min_A: "y \<in> S-A" and
               sets_eq: "set ys' = set ys" and
               ys'_no_A: "set ys' \<inter> A = {}" and
-              cycle_y_ys': "cycle_node (induced_subgraph V\<^sub>\<alpha> \<tau>) y ys'"
-              using cycle_node_intermediate_node[OF cycle_v'_ys] by fastforce
+              cycle_y_ys': "cycle (induced_subgraph V\<^sub>\<alpha> \<tau>) y ys'"
+              using cycle_intermediate_node[OF cycle_v'_ys] by fastforce
 
             from cycle_partially_closed_set[OF y_in_S_min_A \<tau>_closed_S cycle_y_ys' ys'_no_A] sets_eq
             have ys_in_S_min_A: "set ys \<subseteq> S-A" by blast
-            hence v'_in_S: "v' \<in> S" using origin_in_cycle_node[OF cycle_v'_ys] by blast
+            hence v'_in_S: "v' \<in> S" using origin_in_cycle[OF cycle_v'_ys] by blast
 
             from \<sigma>_dom have subset: "induced_subgraph V\<^sub>\<alpha> \<tau> \<inter> (S-A)\<times>(S-A) \<subseteq> induced_subgraph V\<^sub>\<alpha> \<sigma>"
               unfolding \<tau>_def induced_subgraph_def E_of_strat_def by auto
 
             from subgraph_cycle[OF subset cycle_restr_V[OF cycle_v'_ys ys_in_S_min_A]]
             have "lasso_from_node (induced_subgraph V\<^sub>\<alpha> \<sigma>) v' [] ys"
-              by (simp add: cycle_node_iff_loop loop_impl_lasso)
+              by (simp add: cycle_iff_loop loop_impl_lasso)
 
             with \<sigma>_forces_A_or_wins v'_in_S no_A show ?thesis by fastforce
           next
             case ys_no_S
             with ys_in_S'_min_A have ys_in_t_min_S_min_A: "set ys \<subseteq> t-S-A" by blast
-            hence v'_in_t: "v'\<in>t" using origin_in_cycle_node[OF cycle_v'_ys] by blast
+            hence v'_in_t: "v'\<in>t" using origin_in_cycle[OF cycle_v'_ys] by blast
 
             from \<sigma>_ran t_in_V have subset:
               "induced_subgraph V\<^sub>\<alpha> \<tau> \<inter> (t-S-A)\<times>(t-S-A) \<subseteq> player_tangle_subgraph t \<sigma>' \<inter> (t-S-A)\<times>(t-S-A)"
@@ -922,7 +922,7 @@ begin
               by fastforce
 
             from subgraph_cycle[OF subset cycle_restr_V[OF cycle_v'_ys ys_in_t_min_S_min_A]]
-            have "cycle_node (player_tangle_subgraph t \<sigma>') v' ys" using restr_V_cycle by fast
+            have "cycle (player_tangle_subgraph t \<sigma>') v' ys" using restr_V_cycle by fast
 
             with \<sigma>'_winning v'_in_t show ?thesis by blast
           qed
@@ -1262,7 +1262,7 @@ lemma
           \<sigma>''_dom: "dom \<sigma>'' = \<Union>new_tangles \<inter> V\<^sub>\<alpha>" and
           \<sigma>''_ran: "ran \<sigma>'' \<subseteq> \<Union>new_tangles" and
           \<sigma>''_winning: "\<forall>v\<in>\<Union>new_tangles.
-            \<forall>xs. cycle_node (player_tangle_subgraph (\<Union>new_tangles) \<sigma>'') v xs \<longrightarrow> winning_player xs"
+            \<forall>xs. cycle (player_tangle_subgraph (\<Union>new_tangles) \<sigma>'') v xs \<longrightarrow> winning_player xs"
           by auto
 
         from \<sigma>_dom \<sigma>'_dom \<sigma>''_dom have \<tau>_doms_disj:
@@ -1386,10 +1386,10 @@ lemma
                 lasso_x_xs_ys: "lasso_from_node (induced_subgraph V\<^sub>\<alpha> \<tau>) x xs ys"
           then obtain y where
             path_x_xs_y: "path (induced_subgraph V\<^sub>\<alpha> \<tau>) x xs y" and
-            cycle_y_ys: "cycle_node (induced_subgraph V\<^sub>\<alpha> \<tau>) y ys" and
+            cycle_y_ys: "cycle (induced_subgraph V\<^sub>\<alpha> \<tau>) y ys" and
             y_in_ys: "y \<in> set ys"
             unfolding lasso_from_node_def
-            using origin_in_cycle_node by fast
+            using origin_in_cycle by fast
 
           consider (has_A) "set (xs@ys) \<inter> A \<noteq> {}" | (no_A) "set (xs@ys) \<inter> A = {}" by blast
           thus "set (xs@ys) \<inter> A \<noteq> {} \<or> winning_player ys" proof cases
@@ -1407,7 +1407,7 @@ lemma
               case stays_in_Suc
 
               from path_partially_closed_dest[OF x_in_Suc_n_min_A _ path_x_xs_y no_A_xs] \<tau>_closed_rank
-                   origin_in_cycle_node[OF cycle_y_ys] no_A_ys
+                   origin_in_cycle[OF cycle_y_ys] no_A_ys
               have y_in_Suc_n_min_A: "y \<in> tangle_nodes_in_rank (Suc n) - A" by blast
               hence y_in_Suc: "y \<in> tangle_nodes_in_rank (Suc n)" by blast
               thus ?thesis proof (cases rule: tangle_nodes_in_rank_Suc_cases)
@@ -1419,7 +1419,7 @@ lemma
                 show ?thesis sorry, xxx sorry
               next
                 case opponent
-                from cycle_node_D[OF cycle_y_ys] obtain y' where
+                from cycle_D[OF cycle_y_ys] obtain y' where
                   edge_in_subgraph: "(y,y')\<in>induced_subgraph V\<^sub>\<alpha> \<tau>" and y'_in_ys: "y' \<in> set ys"
                   by blast
                 with opponent have y'_in_n: "y' \<in> tangle_nodes_in_rank n" by simp
@@ -1467,7 +1467,7 @@ lemma
 
                 from path_partially_closed_dest[OF v_in_n_min_A _ path_v_xs'_y no_A_xs'] \<tau>_closed_rank no_A_ys
                 have y_in_n_min_A: "y \<in> tangle_nodes_in_rank n - A"
-                  using origin_in_cycle_node[OF cycle_y_ys] by auto
+                  using origin_in_cycle[OF cycle_y_ys] by auto
 
                 from cycle_partially_closed_set[OF y_in_n_min_A _ cycle_y_ys no_A_ys] \<tau>_closed_rank
                 have ys_in_n_min_A: "set ys \<subseteq> tangle_nodes_in_rank n - A" by blast
@@ -1479,21 +1479,21 @@ lemma
                 with v_in_n_min_A \<sigma>_forces_A_or_wins no_A_xs' show ?thesis by fastforce
               next
                 case v_ys
-                from cycle_node_intermadiate_node[OF cycle_y_ys v_ys] no_A_ys
+                from cycle_intermediate_node[OF cycle_y_ys v_ys] no_A_ys
                 obtain ys' where
                   ys'_set_ys[simp]: "set ys' = set ys" and
                   no_A_ys': "set ys' \<inter> A = {}" and
-                  cycle_v_ys': "cycle_node (induced_subgraph V\<^sub>\<alpha> \<tau>) v ys'"
+                  cycle_v_ys': "cycle (induced_subgraph V\<^sub>\<alpha> \<tau>) v ys'"
                   by blast
 
                 from cycle_partially_closed_set[OF v_in_n_min_A _ cycle_v_ys' no_A_ys'] \<tau>_closed_rank
                 have ys_in_n_min_A: "set ys \<subseteq> tangle_nodes_in_rank n - A" by auto
                 with cycle_y_ys have y_in_n_min_A: "y \<in> tangle_nodes_in_rank n - A"
-                  using origin_in_cycle_node by fast
+                  using origin_in_cycle by fast
 
                 from subgraph_cycle[OF subset cycle_restr_V[OF cycle_y_ys ys_in_n_min_A]]
                 have "lasso_from_node (induced_subgraph V\<^sub>\<alpha> \<sigma>) y [] ys"
-                  by (simp add: cycle_node_iff_loop loop_impl_lasso)
+                  by (simp add: cycle_iff_loop loop_impl_lasso)
                 with y_in_n_min_A \<sigma>_forces_A_or_wins no_A_ys show ?thesis by auto
               qed
             qed
