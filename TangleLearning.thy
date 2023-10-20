@@ -309,7 +309,7 @@ begin
         then obtain w xs' where
           w_in_xs: "w \<in> set xs" and w_in_t1: "w \<in> t1" and
           xs'_xs_sets_eq: "set xs' = set xs" and cycle_w_xs': "cycle ?E' w xs'"
-          using cycle_intermadiate_node[OF cycle_v_xs] by blast
+          using cycle_intermediate_node[OF cycle_v_xs] by blast
 
         from xs'_xs_sets_eq cycle_closed_set[OF w_in_t1 E'_closed_t1 cycle_w_xs']
         have xs_in_t1: "set xs \<subseteq> t1" by fast

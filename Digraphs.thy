@@ -51,15 +51,10 @@ lemma path_iff_rtrancl: "(v,v') \<in> E\<^sup>* \<longleftrightarrow> (\<exists>
 
 (** The nodes in a path are in the graph. *)
 lemma path_in_E: "path v xs v' \<Longrightarrow> set xs \<subseteq> EV E"
-proof (induction xs arbitrary: v)
-  case Nil thus ?case by simp
-next
-  case (Cons a xs)
-  hence "v = a" by auto
-  moreover from this Cons have "\<exists>y. (v,y)\<in>E" by auto
-  ultimately have "a \<in> fst ` E" by force
-  with Cons show ?case by auto
-qed
+  apply (induction xs arbitrary: v)
+    subgoal by simp
+    subgoal using subset_fst_snd by simp blast
+  done
 
 (** The origin of a path is included in its set of nodes. *)
 lemma origin_in_path: "\<lbrakk>path v xs v'; xs \<noteq> []\<rbrakk> \<Longrightarrow> v \<in> set xs"
@@ -312,18 +307,8 @@ lemma lasso_from_node'_paths:
 
 (** If a lasso is in a closed region of a graph, its nodes are also in that region. *)
 lemma lasso_from_node'_closed_set: "\<lbrakk>x\<in>V; E``V\<subseteq>V; lasso_from_node' x vs\<rbrakk> \<Longrightarrow> set vs \<subseteq> V"
-proof -
-  assume x_in_V: "x\<in>V" and E_closed_V: "E``V\<subseteq>V" and lasso'_x_vs: "lasso_from_node' x vs"
-  from lasso'_x_vs obtain xs y ys where
-    vs_comp: "vs=xs@ys" and
-    path_x_xs_y: "path x xs y" and
-    path_y_ys_y: "path y ys y"
-    using lasso_from_node'_paths by auto
-  from x_in_V E_closed_V path_x_xs_y have xs_in_V: "set xs \<subseteq> V" using path_closed_set by simp
-  from x_in_V E_closed_V path_x_xs_y have y_in_V: "y\<in>V" using path_closed_dest by blast
-  from y_in_V E_closed_V path_y_ys_y have ys_in_V: "set ys \<subseteq> V" using path_closed_set by simp
-  from vs_comp xs_in_V ys_in_V show ?thesis by simp
-qed
+  using lasso_from_node'_paths[of x vs] path_closed_set path_closed_dest[of x V]
+  by clarsimp blast
 
 (** If there is a lasso, then there is a single path over the spoke and loop, terminating at the
     start of the loop. *)
