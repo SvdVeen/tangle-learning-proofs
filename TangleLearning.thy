@@ -1,5 +1,5 @@
 theory TangleLearning
-imports Main ParityGames
+imports Main ParityGames WinningRegions
 begin
 chapter \<open>Tangle Learning\<close>
 

@@ -1,5 +1,5 @@
 theory PositionalDeterminancy
-  imports Main Attractors
+imports Main Attractors WinningRegions
 begin
 
 (** We use a proof for positional determinancy to check our definitions. *)
@@ -7,7 +7,7 @@ chapter \<open>Positional Determinancy\<close>
 section \<open>Auxiliary Lemmas\<close>
 
 context paritygame begin
-(** We can extend a winning region with a maximal attractor *)
+(** We can extend a winning region with a maximal attractor. *)
 lemma attractor_extends_winning_region:
   assumes "winning_region \<alpha> W"
   shows "winning_region \<alpha> (attractor \<alpha> W)"
@@ -38,27 +38,27 @@ proof -
     apply (cases \<alpha>; simp add: V\<^sub>1_def)
     using ind_subgraph_closed_region[OF winning_region_in_V[OF assms] _ \<sigma>'_ran] by blast+
 
-  (** We combine the two strategies, which forms a winning strategy for the new region *)
+  (** We combine the two strategies, which forms a winning strategy for the new region. *)
   let ?\<tau> = "\<sigma> ++ \<sigma>'"
   let ?\<tau>_subgame = "induced_subgraph (dom ?\<tau>) ?\<tau>"
   from \<sigma>_dom \<sigma>'_dom have \<tau>_doms_disj: "dom \<sigma> \<inter> dom \<sigma>' = {}" by auto
 
-  (** \<tau> is a strategy of the player *)
+  (** \<tau> is a strategy of the player. *)
   from \<sigma>_strat \<sigma>'_strat have \<tau>_strat: "strategy_of_player \<alpha> ?\<tau>"
     unfolding strategy_of_player_def by simp
 
-  (** The domain of \<tau> is all of the player's vertices in X *)
+  (** The domain of \<tau> is all of the player's vertices in X. *)
   from \<sigma>_dom \<sigma>'_dom W_in_X have \<tau>_dom: "dom ?\<tau> = ?V\<^sub>\<alpha> \<inter> X" by auto
 
-  (** The range of \<tau> is in X *)
+  (** The range of \<tau> is in X. *)
   from \<sigma>_ran \<sigma>'_ran W_in_X have \<tau>_ran: "ran ?\<tau> \<subseteq> X"
     using ran_map_add[OF \<tau>_doms_disj] by simp
 
-  (** The subgame of \<tau> is closed in W *)
+  (** The subgame of \<tau> is closed in W. *)
   from \<sigma>'_closed have \<tau>_closed_W: "?\<tau>_subgame `` W \<subseteq> W"
     unfolding induced_subgraph_def E_of_strat_def by auto
 
-  (** The subgame of \<tau> is closed in X *)
+  (** The subgame of \<tau> is closed in X. *)
   have "\<forall>v\<in>X. \<forall>v'. (v,v')\<in>?\<tau>_subgame \<longrightarrow> v'\<in>X"
   proof (rule ballI; rule allI; rule impI)
     fix v v'
@@ -77,7 +77,7 @@ proof -
   qed
   hence \<tau>_closed_X: "?\<tau>_subgame `` X \<subseteq> X" by blast
 
-  (** All cycles reachable from X are won by the player under \<tau> *)
+  (** All cycles reachable from X are won by the player under \<tau>. *)
   have \<tau>_winning: "\<forall>v\<in>X. \<forall>ys. cycle_from_node ?\<tau>_subgame v ys \<longrightarrow> player_wins_list \<alpha> ys"
   proof (rule ballI; rule allI; rule impI)
     fix v ys
@@ -129,7 +129,7 @@ proof -
     show "player_winningP \<alpha> (top_pr ys)" by blast
   qed
 
-  (** X is closed for the opponent, regardless of \<tau> *)
+  (** X is closed for the opponent, regardless of \<tau>. *)
   have X_closed_opp: "E `` (X\<inter>V_opponent \<alpha>) \<subseteq> X"
   proof (rule subsetI)
     fix v'
@@ -142,13 +142,13 @@ proof -
     with v_in_X \<tau>_closed_X show "v'\<in>X" by fast
   qed
 
-  (** Using the prior properties, we can show that B is won by the opponent *)
+  (** Using the prior properties, we can show that B is won by the opponent. *)
   show "winning_region \<alpha> X"
     using winning_region_strat
     using X_in_V \<tau>_strat \<tau>_dom \<tau>_ran \<tau>_winning X_closed_opp by blast
 qed
 
-(** If we remove a maximal attractor from a game, the remainder is a valid parity game *)
+(** If we remove a maximal attractor from a game, the remainder is a valid parity game. *)
 lemma attractor_subgame:
   assumes X: "X = attractor \<alpha> T"
   assumes E': "E' = E \<inter> (V-X)\<times>(V-X)"
@@ -185,7 +185,7 @@ lemma subgame_V_player_subset:
   by fastforce
 
 (** The strategy of a player in a subgame game is also a strategy of that player in the whole
-    game if this game is a subset created by taking out some set from the game *)
+    game if this game is a subset created by taking out some set from the game. *)
 lemma subgame_strategy_of_V_player:
   assumes "paritygame E' V' V\<^sub>0'"
   assumes E'_subset_E: "E' \<subseteq> E"
@@ -204,7 +204,7 @@ proof -
 qed
 
 (** If a subgame was taken by removing an attractor from the whole game, then any winning regions
-    in that subgame are also winning regions in the whole game *)
+    in that subgame are also winning regions in the whole game. *)
 lemma attractor_subgame_winning_region:
   assumes "paritygame E' V' V\<^sub>0'"
   assumes E'_def: "E' = E \<inter> (V-A)\<times>(V-A)"
@@ -323,8 +323,7 @@ proof -
       subgoal using \<sigma>_closed_opp by blast
     done
 qed
-
-end (** End of context paritygame *)
+end (** End of context paritygame. *)
 
 
 section \<open>Maximal Winning Regions\<close>
@@ -354,23 +353,23 @@ proof -
 
       have fin_pr: "finite (pr`V)" by simp
 
-      (** Get the highest priority p in V *)
+      (** Get the highest priority p in V. *)
       define p :: "nat" where "p = (MAX v \<in> V. pr v)"
 
-      (** Get the player who wins p *)
+      (** Get the player who wins p. *)
       then obtain \<alpha> :: player where "\<alpha> = player_wins_pr p" by simp
       hence player_wins_p: "player_winningP \<alpha> p"
         by (cases \<alpha>; simp add: player_wins_pr_def split: if_splits)
-      (** Useful shorthand for later *)
+      (** Useful shorthand for later. *)
       let ?V\<^sub>\<alpha> = "V_player \<alpha>"
       let ?\<beta> = "opponent \<alpha>"
       let ?V\<^sub>\<beta> = "V_player ?\<beta>"
 
-      (** Get any v of the highest priority *)
+      (** Get any v of the highest priority. *)
       obtain v :: "'v" where v_in_V: "v \<in> V" and v_pr: "pr v = p"
         using Max_in[OF fin_pr] V_notempty p_def by fastforce
 
-      (** Any list that contains v will have p as its top priority, and thus it is won by \<alpha> if it is a play *)
+      (** Any list that contains v will have p as its top priority, and thus it is won by \<alpha> if it is a play. *)
       have player_wins_v: "\<forall>vs. set vs \<subseteq> V \<and> v \<in> set vs \<longrightarrow> player_wins_list \<alpha> vs"
       proof (rule allI; rule impI; erule conjE)
         fix vs
@@ -387,15 +386,15 @@ proof -
         with player_wins_p show "player_wins_list \<alpha> vs" by simp
       qed
 
-      (** Attract to that v *)
+      (** Attract to that v. *)
       define A :: "'v set" where "A = attractor \<alpha> {v}"
 
-      (** Take the subgraph with A removed *)
+      (** Take the subgraph with A removed. *)
       define V' :: "'v set" where "V' = V - A"
       define E' :: "'v rel" where "E' = E \<inter> ((V-A) \<times> (V-A))"
       define V\<^sub>0' :: "'v set" where "V\<^sub>0' = V\<^sub>0 - A"
 
-      (** Show that V is the union of V' and A *)
+      (** Show that V is the union of V' and A. *)
       from \<open>v\<in>V\<close> have A_in_V: "A \<subseteq> V" unfolding A_def using attractor_subset_graph by simp
       from Diff_partition[OF this] have V_composed_of: "V = V' \<union> A" unfolding V'_def by blast
 
@@ -403,7 +402,7 @@ proof -
       have edge_E_to_E': "\<forall>v v'. (v,v')\<in>E \<and> v \<notin> A \<and> v' \<notin> A \<longleftrightarrow> (v,v') \<in> E'"
         unfolding E'_def using E_in_V by auto
 
-      (** Show that the subgame is a valid arena *)
+      (** Show that the subgame is a valid arena. *)
       from attractor_subgame[OF A_def E'_def V'_def V\<^sub>0'_def]
       interpret subgame: paritygame E' V' V\<^sub>0' pr .
 
@@ -411,12 +410,12 @@ proof -
       note subgame_propagate_strategy_of_V_player =
         subgame_strategy_of_V_player[OF subgame.paritygame_axioms this V'_def V\<^sub>0'_def]
 
-      (** Show that V' is a strict subset of V; this is needed for applying the induction hypothesis *)
+      (** Show that V' is a strict subset of V; this is needed for applying the induction hypothesis. *)
       have V'_subset: "V' \<subset> V"
         unfolding V'_def A_def
         using v_in_V attractor_subset by blast
 
-      (** Take the winning regions W\<^sub>0 and W\<^sub>1 in the subgame *)
+      (** Take the winning regions W\<^sub>0 and W\<^sub>1 in the subgame. *)
       from psubset.IH[OF V'_subset subgame.paritygame_axioms]
       obtain W\<^sub>0 W\<^sub>1 where
         V'_comp: "V' = W\<^sub>0 \<union> W\<^sub>1" and
@@ -425,7 +424,7 @@ proof -
         W\<^sub>1_winning_ODD_subgame: "subgame.winning_region ODD W\<^sub>1"
         by blast
 
-      (** Take the winning region for the opponent of \<alpha> *)
+      (** Take the winning region for the opponent of \<alpha>. *)
       define W :: "'v set" where
       "W \<equiv> if \<alpha> = EVEN then W\<^sub>1 else W\<^sub>0"
       from W\<^sub>0_winning_EVEN_subgame W\<^sub>1_winning_ODD_subgame
@@ -435,22 +434,23 @@ proof -
         unfolding W_def using V'_comp by simp
       hence W_in_V: "W \<subseteq> V" using V'_subset by auto
 
-      (** Attract for the opponent to their winning region in V' *)
+      (** Attract for the opponent to their winning region in V'. *)
       define B :: "'v set" where "B = attractor ?\<beta> W"
       have B_in_V: "B \<subseteq> V" unfolding B_def using attractor_subset_graph[OF W_in_V] by simp
 
-      (** B is now a winning region for the opponent *)
+      (** B is now a winning region for the opponent. *)
       from A_def W_winning_opponent_subgame have "winning_region ?\<beta> W"
         using attractor_subgame_winning_region[OF subgame.paritygame_axioms E'_def V'_def V\<^sub>0'_def W_in_V']
         by simp
       hence B_winning_opponent: "winning_region ?\<beta> B"
         unfolding B_def using attractor_extends_winning_region by simp
 
-      (** We must consider the possibility that B is empty, because the original W might have been empty *)
+      (** We must consider the possibility that B is empty, because the original W might have been
+          empty. *)
       consider (B_nonempty) "B \<noteq> {}" | (B_empty) "B = {}" by blast
       thus ?thesis proof cases
         case B_nonempty
-        (** take the subgame of G-B *)
+        (** take the subgame of G-B. *)
         define V'' :: "'v set" where "V'' = V - B"
         define E'' :: "'v rel" where "E'' = E \<inter> (V-B)\<times>(V-B)"
         define V\<^sub>0'' :: "'v set" where "V\<^sub>0'' = V\<^sub>0 - B"
@@ -480,14 +480,14 @@ proof -
           X\<^sub>1_winning_ODD_subgame': "subgame'.winning_region ODD X\<^sub>1"
           by blast
 
-        (** We want to know which region is won by \<alpha> *)
+        (** We want to know which region is won by \<alpha>. *)
         define X\<^sub>\<alpha> where "X\<^sub>\<alpha> \<equiv> if \<alpha> = EVEN then X\<^sub>0 else X\<^sub>1"
         from V''_comp have X\<^sub>\<alpha>_in_V'': "X\<^sub>\<alpha>\<subseteq>V''" unfolding X\<^sub>\<alpha>_def by (cases \<alpha>) auto
         from X\<^sub>0_winning_EVEN_subgame' X\<^sub>1_winning_ODD_subgame'
         have X\<^sub>\<alpha>_winning_\<alpha>_subgame': "subgame'.winning_region \<alpha> X\<^sub>\<alpha>"
           unfolding X\<^sub>\<alpha>_def by (cases \<alpha>; simp)
 
-        (** We want to know which region is won by the opponent *)
+        (** We want to know which region is won by the opponent. *)
         define X\<^sub>\<beta> where "X\<^sub>\<beta> \<equiv> if \<alpha> = EVEN then X\<^sub>1 else X\<^sub>0"
         from V''_comp have X\<^sub>\<beta>_in_V'': "X\<^sub>\<beta>\<subseteq>V''" unfolding X\<^sub>\<beta>_def by (cases \<alpha>) auto
         with V''_in_V have X\<^sub>\<beta>_in_V: "X\<^sub>\<beta>\<subseteq>V" by simp
@@ -496,7 +496,7 @@ proof -
           unfolding X\<^sub>\<beta>_def by (cases \<alpha>; simp)
 
         (** Now, the other properties of the winning regions from the induction hypothesis also
-            hold for the specified regions for \<alpha> and their opponent *)
+            hold for the specified regions for \<alpha> and their opponent. *)
         from V''_comp have V''_comp': "V'' = X\<^sub>\<alpha> \<union> X\<^sub>\<beta>"
           unfolding X\<^sub>\<alpha>_def X\<^sub>\<beta>_def by (cases \<alpha>) auto
         from X_disj have X_disj': "X\<^sub>\<alpha> \<inter> X\<^sub>\<beta> = {}"
@@ -559,27 +559,27 @@ proof -
             using V''_comp subgame'.V_player.simps V''_def V\<^sub>0''_def V\<^sub>1_def subgame'.V\<^sub>1_def X\<^sub>\<beta>_def
             by (cases \<alpha>) auto
 
-          (** If we combine the two strategies, we get a winning strategy for B\<union>X\<^sub>\<beta> *)
+          (** If we combine the two strategies, we get a winning strategy for B\<union>X\<^sub>\<beta>. *)
           let ?\<tau> = "\<sigma> ++ \<sigma>'"
           let ?\<tau>_subgame = "induced_subgraph (dom ?\<tau>) ?\<tau>"
           from \<sigma>_dom \<sigma>'_dom V''_B_disj X\<^sub>\<beta>_in_V'' have \<tau>_doms_disj: "dom \<sigma> \<inter> dom \<sigma>' = {}" by auto
 
-          (** \<tau> is a strategy of the opponent *)
+          (** \<tau> is a strategy of the opponent. *)
           from \<sigma>_strat \<sigma>'_strat have \<tau>_strat: "strategy_of_player ?\<beta> ?\<tau>"
             unfolding strategy_of_player_def by simp
 
-          (** The domain of \<tau> is all of the opponent's nodes in B\<union>X\<^sub>\<beta> *)
+          (** The domain of \<tau> is all of the opponent's nodes in B\<union>X\<^sub>\<beta>. *)
           from \<sigma>_dom \<sigma>'_dom have \<tau>_dom: "dom ?\<tau> = ?V\<^sub>\<beta> \<inter> (B\<union>X\<^sub>\<beta>)" by auto
 
-          (** The range of \<tau> is in B\<union>X\<^sub>\<beta> *)
+          (** The range of \<tau> is in B\<union>X\<^sub>\<beta>. *)
           from \<sigma>_ran \<sigma>'_ran have \<tau>_ran: "ran ?\<tau> \<subseteq> B\<union>X\<^sub>\<beta>"
             using ran_map_add[OF \<tau>_doms_disj] by blast
 
-          (** \<tau> is closed in B *)
+          (** \<tau> is closed in B. *)
           from \<sigma>_closed have \<tau>_closed_B: "?\<tau>_subgame `` (B) \<subseteq> B"
             using ind_subgraph_add_disjoint(1)[OF \<tau>_doms_disj] by blast
 
-          (** \<tau> is closed in B\<union>X\<^sub>\<beta> *)
+          (** \<tau> is closed in B\<union>X\<^sub>\<beta>. *)
           have \<tau>_closed: "\<forall>x\<in>B\<union>X\<^sub>\<beta>. \<forall>x'. (x,x') \<in> ?\<tau>_subgame \<longrightarrow> x'\<in>B\<union>X\<^sub>\<beta>"
           proof (rule ballI; rule allI; rule impI)
             fix x x'
@@ -620,7 +620,7 @@ proof -
           qed
           hence \<tau>_closed': "?\<tau>_subgame `` (B\<union>X\<^sub>\<beta>) \<subseteq> B\<union>X\<^sub>\<beta>" by blast
 
-          (** All cycles reachable from B\<union>X\<^sub>\<beta> are won by the opponent *)
+          (** All cycles reachable from B\<union>X\<^sub>\<beta> are won by the opponent. *)
           have \<tau>_winning: "\<forall>x\<in>B\<union>X\<^sub>\<beta>. \<forall>ys. cycle_from_node ?\<tau>_subgame x ys \<longrightarrow> player_wins_list ?\<beta> ys"
           proof (rule ballI; rule allI; rule impI)
             fix x ys
@@ -675,7 +675,7 @@ proof -
             qed
           qed
 
-          (** \<tau> is closed for the player *)
+          (** \<tau> is closed for the player. *)
           have \<tau>_closed_player: "\<forall>x\<in>B \<union> X\<^sub>\<beta>. x \<in> V_opponent ?\<beta> \<longrightarrow> E `` {x} \<subseteq> B \<union> X\<^sub>\<beta>"
           proof (rule ballI; rule impI)
             fix x
@@ -691,7 +691,7 @@ proof -
           qed
 
           (** Due to the aforementioned properties, \<tau> is a winning strategy for B\<union>X\<^sub>\<beta>, making it a
-              winning region  *)
+              winning region. *)
           show ?thesis
             apply (simp add: winning_region_strat B_in_V X\<^sub>\<beta>_in_V)
             apply (rule exI[where x="?\<tau>"]; intro conjI)
@@ -712,18 +712,18 @@ proof -
             region and A must go through A, and thus have a maximum priority that is winning for
             the player \<alpha>. *)
         case B_empty
-        (** W is empty because B is empty*)
+        (** W is empty because B is empty. *)
         hence W_empty: "W = {}"
           unfolding B_def using attractor_subset by blast
-        (** Because W is empty, V' consists only of the winning region of the player *)
+        (** Because W is empty, V' consists only of the winning region of the player. *)
         hence V'_winning_\<alpha>: "subgame.winning_region \<alpha> V'"
           using W_def V'_comp W\<^sub>0_winning_EVEN_subgame W\<^sub>1_winning_ODD_subgame
           by (cases \<alpha>) auto
 
-        (** The entire graph is the winning region for the player *)
+        (** The entire graph is the winning region for the player. *)
         have "winning_region \<alpha> V"
         proof -
-          (** The attractor strategy for A will force all plays in A to v *)
+          (** The attractor strategy for A will force all plays in A to v. *)
           obtain \<sigma> where
             \<sigma>_strat: "strategy_of ?V\<^sub>\<alpha> \<sigma>" and
             \<sigma>_dom: "dom \<sigma> = (A-{v}) \<inter> ?V\<^sub>\<alpha>" and
@@ -732,7 +732,7 @@ proof -
             \<sigma>_forces_v: "\<forall>a\<in>A. \<forall>xs. lasso_from_node' (induced_subgraph ?V\<^sub>\<alpha> \<sigma>) a xs \<longrightarrow> set xs \<inter> {v} \<noteq> {}"
             unfolding A_def using attractor_attracts[of \<alpha> "{v}"] by blast
 
-          (** The winning strategy for V' will ensure wins in all cycles staying in V' *)
+          (** The winning strategy for V' will ensure wins in all cycles staying in V'. *)
           from V'_winning_\<alpha> obtain \<sigma>' where
             \<sigma>'_strat_subgame: "subgame.strategy_of_player \<alpha> \<sigma>'" and
             \<sigma>'_dom_subgame: "dom \<sigma>' = subgame.V_player \<alpha> \<inter> V'" and
@@ -747,11 +747,11 @@ proof -
             using V'_def V\<^sub>0'_def V\<^sub>1_def subgame.V\<^sub>1_def subgame.V_player.simps by (cases \<alpha>) auto
 
           (** Neither strategy has a choice for v, which is necessary if it belongs to the player
-              Therefore, we have to add a choice for v to the strategy, which can be any random successor*)
+              Therefore, we have to add a choice for v to the strategy, which can be any random successor. *)
           define v_target where "v_target \<equiv> SOME v'. v' \<in> E `` {v}"
           from v_in_V have v_succ: "\<exists>v'. v' \<in> E `` {v}" using succ by auto
 
-          (** We need to show that the edge from v to the random successor actually exists *)
+          (** We need to show that the edge from v to the random successor actually exists. *)
           have v_target_edge: "(v,v_target)\<in>E"
             unfolding v_target_def
             using some_in_eq E_in_V v_succ by blast
@@ -759,14 +759,14 @@ proof -
 
           define v_choice where "v_choice \<equiv> if v \<in> ?V\<^sub>\<alpha> then [v \<mapsto> v_target] else Map.empty"
 
-          (** The domain of v_choice depends on the owner of v *)
+          (** The domain of v_choice depends on the owner of v. *)
           have v_choice_dom_player: "v \<in> ?V\<^sub>\<alpha> \<longrightarrow> dom v_choice = ?V\<^sub>\<alpha> \<inter> {v}"
             unfolding v_choice_def by simp
           have v_choice_dom_opp: "v \<notin> ?V\<^sub>\<alpha> \<longrightarrow> dom v_choice = {}"
             unfolding v_choice_def by simp
           note v_choice_dom = v_choice_dom_player v_choice_dom_opp
 
-          (** v_choice is a strategy of the player's nodes *)
+          (** v_choice is a strategy of the player's nodes. *)
           have v_choice_strat: "strategy_of_player \<alpha> v_choice"
             unfolding strategy_of_player_def strategy_of_def
             apply (rule conjI)
@@ -775,15 +775,15 @@ proof -
                       unfolding v_choice_def strategy_of_def by auto
             done
 
-          (** The range of v_choice is in V *)
+          (** The range of v_choice is in V. *)
           from v_target_in_V have v_choice_ran: "ran v_choice \<subseteq> V"
             unfolding v_choice_def by simp
 
-          (** Now we can combine the three to form a winning strategy for V *)
+          (** Now we can combine the three to form a winning strategy for V. *)
           let ?\<tau> = "\<sigma> ++ \<sigma>' ++ v_choice"
           let ?\<tau>_subgame = "induced_subgraph (dom ?\<tau>) ?\<tau>"
 
-          (** The domains of the three strategies are disjoint *)
+          (** The domains of the three strategies are disjoint. *)
           from \<sigma>_dom \<sigma>'_dom have \<sigma>_\<sigma>'_dom_disj: "dom \<sigma> \<inter> dom \<sigma>' = {}"
             unfolding A_def V'_def by force
           from \<sigma>_dom v_choice_dom have \<sigma>_v_choice_dom_disj: "dom \<sigma> \<inter> dom v_choice = {}"
@@ -792,17 +792,17 @@ proof -
             apply (cases "v\<in>?V\<^sub>\<alpha>"; simp add: V'_def A_def)
             using attractor_subset by blast
 
-          (** \<tau> is a strategy of the player *)
+          (** \<tau> is a strategy of the player. *)
           from \<sigma>_strat \<sigma>'_strat v_choice_strat have \<tau>_strat: "strategy_of_player \<alpha> ?\<tau>"
             unfolding strategy_of_player_def by simp
 
-          (** The domain of \<tau> is all of the player's nodes in V *)
+          (** The domain of \<tau> is all of the player's nodes in V. *)
           from \<sigma>_dom \<sigma>'_dom have \<tau>_dom: "dom ?\<tau> = ?V\<^sub>\<alpha> \<inter> V"
             unfolding strategy_of_def
             apply (cases "v\<in>?V\<^sub>\<alpha>"; simp add: v_choice_dom)
             using V_composed_of v_in_V by blast+
 
-          (** The range of \<tau> is in V *)
+          (** The range of \<tau> is in V. *)
           from \<sigma>_ran \<sigma>'_ran v_choice_ran have \<tau>_ran: "ran ?\<tau> \<subseteq> V"
           proof -
             from \<sigma>_ran \<sigma>'_ran have \<sigma>\<sigma>'_ran: "ran (\<sigma> ++ \<sigma>') \<subseteq> V"
@@ -813,7 +813,7 @@ proof -
               using ran_map_add[OF disj] by simp
           qed
 
-          (** \<tau> is closed in A *)
+          (** \<tau> is closed in A. *)
           have \<tau>_closed_A: "\<forall>a\<in>A-{v}. \<forall>a'. (a,a') \<in> ?\<tau>_subgame \<longrightarrow> a' \<in> A"
           proof (rule ballI; rule allI; rule impI)
             fix a a'
@@ -824,7 +824,7 @@ proof -
             with a_in_A_min_v \<sigma>_closed show "a'\<in>A" by blast
           qed
 
-          (** \<tau> forces all plays in A to go to v *)
+          (** \<tau> forces all plays in A to go to v. *)
           have \<tau>_forces_v: "\<forall>a\<in>A. \<forall>vs. lasso_from_node' ?\<tau>_subgame a vs \<longrightarrow> set vs \<inter> {v} \<noteq> {}"
           proof (rule ballI; rule allI; rule impI; rule ccontr)
             fix a vs
@@ -875,7 +875,7 @@ proof -
             with v_notin_vs show "False" by blast
           qed
 
-          (** \<tau> wins all cycles reachable in the graph *)
+          (** \<tau> wins all cycles reachable in the graph. *)
           have \<tau>_winning: "\<forall>x\<in>V. \<forall>ys. cycle_from_node ?\<tau>_subgame x ys \<longrightarrow> player_wins_list \<alpha> ys"
           proof (rule ballI; rule allI; rule impI)
             fix x ys
@@ -920,10 +920,10 @@ proof -
             qed
           qed
 
-          (** Trivially, V is closed *)
+          (** Trivially, V is closed. *)
           have \<tau>_closed_opponent: "E `` (V\<inter>?V\<^sub>\<beta>) \<subseteq> V" using E_in_V by auto
 
-          (** Using the prior properties, we can show that \<tau> is the winning strategy for the game *)
+          (** Using the prior properties, we can show that \<tau> is the winning strategy for the game. *)
           show "winning_region \<alpha> V"
             apply (simp add: winning_region_strat)
             apply (rule exI[where x="?\<tau>"])
@@ -944,34 +944,34 @@ proof -
       qed
     qed
   qed
-qed (** maximal_winning_regions *)
+qed (**End of proof maximal_winning_regions. *)
 
-(** We use the former lemmas in this file to finally show positional determinancy *)
+(** We use the former lemmas in this file to finally show positional determinancy. *)
 section \<open>Positional Determinancy\<close>
 
 context paritygame begin
-(** The nonempty winning regions for EVEN and ODD are disjoint; they cannot be winning for both *)
+(** The nonempty winning regions for EVEN and ODD are disjoint; they cannot be winning for both. *)
 theorem nonempty_winning_regions_disjoint:
   assumes "W \<noteq> {}"
   shows "\<not>(winning_region EVEN W \<and> winning_region ODD W)"
   using nonempty_winning_region_not_winning_for_opponent[OF assms] by fastforce
 
-(** All nodes are won by one of the two players *)
+(** All nodes are won by one of the two players. *)
 lemma all_v_won:
   assumes "v\<in>V"
   shows "won_by EVEN v \<or> won_by ODD v"
   using maximal_winning_regions[OF paritygame_axioms] winning_region_won_by assms
   by blast
 
-(** Nodes are not won by both players *)
+(** Nodes are not won by both players. *)
 lemma v_won_by_one_player: "\<not>(won_by EVEN v \<and> won_by ODD v)"
   using won_by_player_not_won_by_opponent by fastforce
 
-(** Nodes are always won won exclusively by one of the two players *)
+(** Nodes are always won won exclusively by one of the two players. *)
 theorem v_won_by_disjoint:
   assumes "v\<in>V"
   shows "won_by EVEN v \<noteq> won_by ODD v"
   using all_v_won[OF assms] v_won_by_one_player by blast
-end (** End of context paritygame *)
+end (** End of context paritygame. *)
 
 end
