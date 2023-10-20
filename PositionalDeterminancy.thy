@@ -1,5 +1,5 @@
 theory PositionalDeterminancy
-  imports Main ParityGames
+  imports Main Attractors
 begin
 
 (** We use a proof for positional determinancy to check our definitions. *)
