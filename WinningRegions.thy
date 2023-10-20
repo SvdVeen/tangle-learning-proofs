@@ -109,7 +109,7 @@ qed
 end (** End of context player_paritygame. *)
 
 
-section \<open>Attractors for Specific Players\<close>
+section \<open>Winning Regions for Specific Players\<close>
 context paritygame begin
 (** Specifies winning regions for the players *)
 fun winning_region where

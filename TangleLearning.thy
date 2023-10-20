@@ -1302,14 +1302,14 @@ lemma
             with \<tau>_x_y \<tau>_doms_disj have "\<sigma>' x = Some y"
               unfolding \<tau>_def by blast
             from ranI[of \<sigma>', OF this] \<sigma>'_ran show ?thesis
-              using nodes_in_rank_mono by auto
+              using tangle_nodes_in_rank_mono by auto
           next
             case \<sigma>''
             with \<tau>_x_y \<tau>_doms_disj have "\<sigma>'' x = Some y"
               unfolding \<tau>_def by blast
             from ranI[of \<sigma>'', OF this] \<sigma>''_ran show ?thesis
               unfolding new_tangles_def
-              using nodes_in_rank_mono by blast
+              using tangle_nodes_in_rank_mono by blast
           qed
         qed
 
