@@ -15,6 +15,16 @@ begin
   (** Gives the top priority in a set of nodes. *)
   definition pr_set :: "'v set \<Rightarrow> nat" where
     "pr_set S \<equiv> Max (pr ` S)"
+
+  (** The priority of any node in V is less than or equal to the top priority in V. *)
+  lemma pr_le_pr_set_V: "v \<in> V \<Longrightarrow> pr v \<le> pr_set V"
+    unfolding pr_set_def by simp
+
+  (** The top priority in a nonempty list that is a subset of V is less than or equal to the top
+      priority in V. *)
+  lemma top_pr_le_pr_set_V: "\<lbrakk>set xs \<subseteq> V; xs \<noteq> []\<rbrakk> \<Longrightarrow> top_pr xs \<le> pr_set V"
+    unfolding top_pr_def pr_set_def
+    using image_mono Max_mono by auto
 end
 
 

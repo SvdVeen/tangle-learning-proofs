@@ -23,6 +23,22 @@ inductive_set player_tangle_attractor :: "'v set \<Rightarrow> 'v set" for A whe
 lemma A_in_player_tangle_attractor: "A \<subseteq> player_tangle_attractor A"
   using player_tangle_attractor.base by fast
 
+lemma player_tangle_attractor_ss: "player_tangle_attractor A \<subseteq> A \<union> V"
+  using tangles_T in_mono V\<^sub>\<alpha>_subset DiffE
+  unfolding player_tangle_def
+  apply (auto intro: player_tangle_attractor.cases)
+  by (smt (verit) DiffE V\<^sub>\<alpha>_subset in_mono player_tangle_attractor.cases)
+  (** This needs improvement *)
+
+definition player_tangle_attractor_strat :: "'v strat \<Rightarrow> 'v set \<Rightarrow> bool" where
+  "player_tangle_attractor_strat \<sigma> A \<equiv>
+    strategy_of V\<^sub>\<alpha> \<sigma> \<and>
+    dom \<sigma> = V\<^sub>\<alpha> \<inter> (player_tangle_attractor A - A) \<and>
+    ran \<sigma> \<subseteq> player_tangle_attractor A \<and>
+    induced_subgraph V\<^sub>\<alpha> \<sigma> `` (player_tangle_attractor A - A) \<subseteq> player_tangle_attractor A \<and>
+    (\<forall>x\<in>player_tangle_attractor A. \<forall>xs ys. lasso_from_node (induced_subgraph V\<^sub>\<alpha> \<sigma>) x xs ys
+        \<longrightarrow> (set (xs@ys) \<inter> A \<noteq> {} \<or> winning_player ys))"
+
 subsection \<open>Tangle Attractors as an Inductive Predicate\<close>
 context
   fixes A :: "'v set"
@@ -33,8 +49,8 @@ inductive attractor_step :: "'v set \<Rightarrow> 'v set \<Rightarrow> bool" whe
 | escape: "\<lbrakk>t \<in> T; t-S \<noteq> {}; opponent_escapes t \<noteq> {}; opponent_escapes t \<subseteq> S\<rbrakk>
               \<Longrightarrow> attractor_step S (S \<union> t)"
 
-definition player_tangle_attractor_I :: "'v set \<Rightarrow> bool" where
-  "player_tangle_attractor_I S \<equiv> \<exists>\<sigma>.
+definition player_tangle_attractor_strat_I :: "'v set \<Rightarrow> bool" where
+  "player_tangle_attractor_strat_I S \<equiv> \<exists>\<sigma>.
       strategy_of V\<^sub>\<alpha> \<sigma> \<and> dom \<sigma> = V\<^sub>\<alpha> \<inter> (S-A) \<and> ran \<sigma> \<subseteq> S
     \<and> induced_subgraph V\<^sub>\<alpha> \<sigma> `` (S-A) \<subseteq> S
     \<and> (\<forall>x\<in>S. \<forall>xs ys. lasso_from_node (induced_subgraph V\<^sub>\<alpha> \<sigma>) x xs ys
@@ -60,13 +76,14 @@ lemma "attractor_step S S' \<Longrightarrow> S \<subseteq> V \<Longrightarrow> V
   using attractor_step_mono attractor_step_in_V by blast
 
 lemma player_tangle_attractor_I_base:
-  "player_tangle_attractor_I A"
-  unfolding player_tangle_attractor_I_def
+  "player_tangle_attractor_strat_I A"
+  unfolding player_tangle_attractor_strat_I_def
   apply (rule exI[where x="Map.empty"]; intro conjI; simp)
   using origin_in_lasso by fastforce
 
 lemma player_tangle_attractor_I_step:
-  "attractor_step S S' \<Longrightarrow> A\<subseteq>S \<Longrightarrow> player_tangle_attractor_I S \<Longrightarrow> player_tangle_attractor_I S'"
+  "attractor_step S S' \<Longrightarrow> A\<subseteq>S \<Longrightarrow> player_tangle_attractor_strat_I S
+    \<Longrightarrow> player_tangle_attractor_strat_I S'"
 proof (induction rule: attractor_step.induct)
   case (own x S y)
   from own.prems obtain \<sigma> where
@@ -76,7 +93,7 @@ proof (induction rule: attractor_step.induct)
     \<sigma>_closed: "induced_subgraph V\<^sub>\<alpha> \<sigma> `` (S-A) \<subseteq> S" and
     \<sigma>_forces_A_or_wins: "(\<forall>x\<in>S. \<forall>xs ys. lasso_from_node (induced_subgraph V\<^sub>\<alpha> \<sigma>) x xs ys
         \<longrightarrow> (set (xs@ys) \<inter> A \<noteq> {} \<or> winning_player ys))"
-    unfolding player_tangle_attractor_I_def
+    unfolding player_tangle_attractor_strat_I_def
     by auto
 
   from own.hyps(1,2) have new_strat: "strategy_of V\<^sub>\<alpha> (\<sigma> ++ [x\<mapsto>y])"
@@ -159,7 +176,7 @@ proof (induction rule: attractor_step.induct)
   qed
 
   show ?case
-    unfolding player_tangle_attractor_I_def
+    unfolding player_tangle_attractor_strat_I_def
     apply (rule exI[where x="\<sigma> ++ [x\<mapsto>y]"]; intro conjI)
       subgoal using new_strat .
       subgoal using new_dom .
@@ -177,7 +194,7 @@ next
     \<sigma>_closed_S: "induced_subgraph V\<^sub>\<alpha> \<sigma> `` (S-A) \<subseteq> S" and
     \<sigma>_forces_A_or_wins: "(\<forall>x\<in>S. \<forall>xs ys. lasso_from_node (induced_subgraph V\<^sub>\<alpha> \<sigma>) x xs ys
         \<longrightarrow> (set (xs@ys) \<inter> A \<noteq> {} \<or> winning_player ys))"
-    unfolding player_tangle_attractor_I_def
+    unfolding player_tangle_attractor_strat_I_def
     by auto
 
   have \<sigma>_closed_S': "induced_subgraph V\<^sub>\<alpha> \<sigma> `` (insert x S - A) \<subseteq> insert x S"
@@ -242,7 +259,7 @@ next
   qed
 
   show ?case
-    unfolding player_tangle_attractor_I_def
+    unfolding player_tangle_attractor_strat_I_def
     apply (rule exI[where x="\<sigma>"]; intro conjI)
       subgoal using \<sigma>_strat .
       subgoal using \<sigma>_dom opponent.hyps(1) by force
@@ -260,7 +277,7 @@ next
     \<sigma>_closed_S: "induced_subgraph V\<^sub>\<alpha> \<sigma> `` (S - A) \<subseteq> S" and
     \<sigma>_forces_A_or_wins: "\<forall>x\<in>S. \<forall>xs ys. lasso_from_node (induced_subgraph V\<^sub>\<alpha> \<sigma>) x xs ys
       \<longrightarrow> set (xs @ ys) \<inter> A \<noteq> {} \<or> winning_player ys"
-    unfolding player_tangle_attractor_I_def by auto
+    unfolding player_tangle_attractor_strat_I_def by auto
 
   from escape.hyps(1) have t_tangle: "player_tangle t" using tangles_T by simp
 
@@ -275,7 +292,7 @@ next
    \<sigma>'_ran: "ran \<sigma>' \<subseteq> t" and
    \<sigma>'_strongly_connected_subgraph: "strongly_connected (player_tangle_subgraph t \<sigma>')" and
    \<sigma>'_winning: "\<forall>v\<in>t. \<forall>xs. cycle (player_tangle_subgraph t \<sigma>') v xs \<longrightarrow> winning_player xs"
-    unfolding player_tangle_def is_player_tangle_strat_def Let_def by auto
+    unfolding player_tangle_def player_tangle_strat_def Let_def by auto
 
   define \<tau> where "\<tau> = (\<sigma>' |` (t-A)) ++ \<sigma>"
   have \<tau>_strat: "strategy_of V\<^sub>\<alpha> \<tau>"
@@ -425,7 +442,7 @@ next
   qed
 
   show ?case
-    unfolding player_tangle_attractor_I_def
+    unfolding player_tangle_attractor_strat_I_def
     apply (rule exI[where x="\<tau>"]; intro conjI)
       subgoal using \<tau>_strat .
       subgoal using \<tau>_dom .
@@ -443,19 +460,69 @@ lemma attractor_step_rtranclp_subset: "attractor_step\<^sup>*\<^sup>* S S' \<Lon
   using attractor_step_mono by blast+
 
 lemma attractor_step_rtrancl:
-  "attractor_step\<^sup>*\<^sup>* S S' \<Longrightarrow> A \<subseteq> S \<Longrightarrow> player_tangle_attractor_I S \<Longrightarrow> player_tangle_attractor_I S'"
+  "attractor_step\<^sup>*\<^sup>* S S' \<Longrightarrow> A \<subseteq> S \<Longrightarrow> player_tangle_attractor_strat_I S
+    \<Longrightarrow> player_tangle_attractor_strat_I S'"
   apply (induction rule: rtranclp_induct; simp)
   using attractor_step_rtranclp_subset player_tangle_attractor_I_step by fast
 end (** End of context with fixed A *)
 
-lemma "is_player_tangle_attractor A S \<Longrightarrow> player_tangle_attractor_I A S"
+lemma is_player_tangle_attractor_I_holds:
+  "is_player_tangle_attractor A S \<Longrightarrow> player_tangle_attractor_strat_I A S"
   unfolding is_player_tangle_attractor_def
   using player_tangle_attractor_I_base attractor_step_rtrancl by blast
 
-lemma "is_player_tangle_attractor A (player_tangle_attractor A)"
+lemma player_tangle_attractor_is_valid:
+  "is_player_tangle_attractor A (player_tangle_attractor A)"
   unfolding is_player_tangle_attractor_def
   sorry ,xxx sorry (** I do not know how to prove this right now. *)
+
+lemma player_tangle_attractor_strat: "\<exists>\<sigma>. player_tangle_attractor_strat \<sigma> A"
+  using player_tangle_attractor_is_valid is_player_tangle_attractor_I_holds
+  unfolding player_tangle_attractor_strat_I_def player_tangle_attractor_strat_def
+  by simp
+
+
+subsection \<open>\<alpha>-maximal Regions\<close>
+(** A region is \<alpha>-maximal if it equals its tangle attractor. *)
+definition player_\<alpha>_max :: "'v set \<Rightarrow> bool" where
+  "player_\<alpha>_max A \<equiv> A = player_tangle_attractor A"
+
+lemma player_\<alpha>_max_empty_strat: "player_\<alpha>_max A \<Longrightarrow> player_tangle_attractor_strat Map.empty A"
+  unfolding player_\<alpha>_max_def player_tangle_attractor_strat_def
+  using origin_in_lasso by fastforce
+
 end (** End of context with fixed T *)
 end (** End of context player_paritygame *)
+
+section \<open>Tangle Attractors for Specific Players\<close>
+context paritygame begin
+
+fun tangle_attractor :: "player \<Rightarrow> 'v set set  \<Rightarrow> 'v set \<Rightarrow> 'v set" where
+  "tangle_attractor EVEN T = P0.player_tangle_attractor T"
+| "tangle_attractor ODD T = P1.player_tangle_attractor T"
+
+fun tangle_attractor_strat :: "player \<Rightarrow> 'v set set \<Rightarrow> 'v strat \<Rightarrow> 'v set \<Rightarrow> bool" where
+  "tangle_attractor_strat EVEN T = P0.player_tangle_attractor_strat T"
+| "tangle_attractor_strat ODD T = P1.player_tangle_attractor_strat T"
+
+lemma tangle_attractor_strat:
+  assumes "\<forall>t\<in>T. tangle \<alpha> t"
+  assumes "finite T"
+  shows "\<exists>\<sigma>. tangle_attractor_strat \<alpha> T \<sigma> A"
+  using assms P0.player_tangle_attractor_strat P1.player_tangle_attractor_strat
+  by (cases \<alpha>; simp add: V\<^sub>1_def)
+
+fun \<alpha>_max :: "player \<Rightarrow> 'v set set \<Rightarrow> 'v set \<Rightarrow> bool" where
+  "\<alpha>_max EVEN T = P0.player_\<alpha>_max T"
+| "\<alpha>_max ODD T = P1.player_\<alpha>_max T"
+
+lemma \<alpha>_max_empty_strat:
+  assumes "\<forall>t\<in>T. tangle \<alpha> t"
+  assumes "finite T"
+  shows "\<alpha>_max \<alpha> T A \<Longrightarrow> tangle_attractor_strat \<alpha> T Map.empty A"
+  using assms P0.player_\<alpha>_max_empty_strat P1.player_\<alpha>_max_empty_strat
+  by (cases \<alpha>; simp)
+
+end (** End of context paritygame *)
 
 end
