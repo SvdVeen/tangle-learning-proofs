@@ -412,9 +412,39 @@ next
     unfolding attractor_step_strat_I_def by blast
 qed
 
+term attractor_step_strat
+
 (** This does not work, how would I be able to do this instead? *)
-definition is_player_tangle_attractor_strat :: "'v set \<Rightarrow> bool" where
-  "is_player_tangle_attractor_strat \<equiv> attractor_step_strat\<^sup>*\<^sup>* A Map.empty"
+
+definition "attractor_step_strat' \<equiv> \<lambda>(s,\<sigma>) (s',\<sigma>'). attractor_step_strat s \<sigma> s' \<sigma>'"
+
+
+
+definition is_player_tangle_attractor_strat :: "('v set \<times> _) \<Rightarrow> bool" where
+  "is_player_tangle_attractor_strat \<equiv> attractor_step_strat'\<^sup>*\<^sup>* (A,Map.empty)"
+  
+term conversep 
+term "conversep attractor_step_strat'"
+
+term finite_psubset
+term inv_image
+
+term "inv_image (finite_psubset) (\<lambda>(s,\<sigma>). V - s)"
+
+
+lemma "wfP (attractor_step_strat'\<inverse>\<inverse>)"  
+  unfolding wfP_def
+  apply (rule wf_subset[of "inv_image (finite_psubset) (\<lambda>(s,\<sigma>). V - s)"])
+  apply simp
+  apply (clarsimp simp: attractor_step_strat'_def)
+  subgoal for s' \<sigma>' s \<sigma>
+    apply (erule attractor_step_strat.cases)
+    subgoal using V\<^sub>\<alpha>_subset by blast
+    subgoal by auto
+    subgoal using player_tangle_in_V tangles_T by blast
+    done
+  done
+  
   
 definition player_tangle_attractor_strat_I :: "'v set \<Rightarrow> bool" where
   "player_tangle_attractor_strat_I S \<equiv> \<exists>\<sigma>.
