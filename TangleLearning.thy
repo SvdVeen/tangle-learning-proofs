@@ -5,6 +5,9 @@ begin
 context player_paritygame begin
 (** Van Dijk's lemmata. Naming, descriptions will be improved later *)
 
+lemma van_dijk_1_player:
+  "True" sorry
+
 (** Lemma 2:
     all plays bound by the tangle attractor strategy \<sigma> that stay in that tangle attractor
     to a region consisting only of vertices of the highest priority, won by \<alpha>, are won by \<alpha>. *)
@@ -109,7 +112,7 @@ proof (intro ballI allI impI)
       from top_pr_le_pr_set_V[OF ys_in_V ys_notempty]
       show "top_pr ys \<le> pr_set V" .
     next
-      from A_in_ys A_def ys_in_V show "pr_set V \<le> top_pr ys"
+      from A_in_ys A_def show "pr_set V \<le> top_pr ys"
         unfolding top_pr_def
         using Max_ge[OF finite_surj[OF fin_V image_mono[OF ys_in_V, of pr]]]
         by fastforce
@@ -123,11 +126,67 @@ proof (intro ballI allI impI)
   qed
 qed
 
+lemma van_dijk_3_player:
+  assumes tangles_T: "\<forall>t\<in>T. player_tangle t"
+  assumes fin_T: "finite T"
+  assumes A_def: "A = {v. v\<in>V \<and> pr v = pr_set V}"
+  assumes \<sigma>_attr_strat: "player_tangle_attractor_strat T \<sigma> A"
+  shows "\<forall>v\<in>player_tangle_attractor T A. \<exists>v'. pr v' = pr_set V \<and> (\<exists>vs. path (induced_subgraph V\<^sub>\<alpha> \<sigma>) v  vs v')"
+proof (rule ballI)
+  fix v
+  assume "v \<in> player_tangle_attractor T A"
+  hence v_in_Attr: "v \<in> player_tangle_attractor T A" by simp
+  from tangles_T fin_T v_in_Attr show "\<exists>v'. pr v' = pr_set V \<and> (\<exists>vs. path (induced_subgraph V\<^sub>\<alpha> \<sigma>) v  vs v')"
+  proof (induction rule: player_tangle_attractor.induct)
+    (** x is itself a node with priority p, thus this case is true with an empty path. *)
+    case (base x)
+    show ?case
+      apply (rule exI[where x="x"]; rule conjI)
+        subgoal using A_def base by blast
+        subgoal by (rule exI[where x="[]"]) simp
+      done
+  next
+    (** It is not guaranteed that \<sigma>(x) = y, so there is no way to continue the proof here.
+        The induction does not know about \<sigma>, so we need a better induction that relates to \<sigma>. *)
+    case (own x y) thus ?case sorry, xxx sorry
+  next
+    case (opponent x)
+    then obtain y where
+      edge_in_E: "(x,y) \<in> E" and
+      edge_in_subgraph: "(x,y) \<in> induced_subgraph V\<^sub>\<alpha> \<sigma>"
+      using succ ind_subgraph_notin_dom
+      by fastforce
+
+    with opponent.IH obtain x' ys where
+      pr_x': "pr x' = pr_set V" and
+      path_y_ys_x': "path (induced_subgraph V\<^sub>\<alpha> \<sigma>) y ys x'"
+      by blast
+
+    from path_y_ys_x' edge_in_subgraph have "path (induced_subgraph V\<^sub>\<alpha> \<sigma>) x (x#ys) x'" by auto
+    with pr_x' show ?case by blast
+  next
+    case (escape x t)
+    then show ?case sorry
+  qed
+qed
+
+(** lemma van_dijk_4_player: *)
+
+(** lemma van_dijk_5_player: *)
+
+(** lemma van_dijk_6_player: *)
+
 lemma van_dijk_7_player:
   assumes t_tangle: "player_tangle t"
   shows "opponent_escapes t = {} \<longleftrightarrow> player_winning_region t"
   using assms no_escapes_closed_opponent closed_player_tangle_is_winning_region
   by safe (auto simp: player_winning_region_def)
+
+(** lemma van_dijk_8_player: *)
+
+(** lemma van_dijk_9_player: *)
+
+(** lemma van_dijk_10_player: *)
 
 end (** End of context player_paritygame *)
 

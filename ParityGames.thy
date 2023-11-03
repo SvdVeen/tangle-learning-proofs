@@ -172,7 +172,7 @@ lemma v_notin_V_player_in_V_opponent: "v\<in>V \<Longrightarrow> v \<notin> V_pl
 
 (** Checks that a strategy belongs to a specific player. *)
 definition strategy_of_player :: "player \<Rightarrow> 'v strat \<Rightarrow> bool" where
-  "strategy_of_player \<alpha> \<sigma>= strategy_of (V_player \<alpha>) \<sigma>"
+  "strategy_of_player \<alpha> \<sigma> \<equiv> strategy_of (V_player \<alpha>) \<sigma>"
 
 lemma player_strat_dom: "strategy_of_player \<alpha> \<sigma> \<Longrightarrow> dom \<sigma> \<subseteq> V_player \<alpha>"
   unfolding strategy_of_player_def strategy_of_def by simp
