@@ -5,8 +5,10 @@ begin
 context player_paritygame begin
 (** Van Dijk's lemmata. Naming, descriptions will be improved later *)
 
-lemma van_dijk_1_player:
-  "True" sorry
+(** All regions found in the search algorithm are \<alpha>-maximal. This should actually be trivial,
+    because they are tangle-attracted regions, so they should be \<alpha>-maximal by definition.
+    That is to say: this lemma is not too useful anymore now.
+lemma van_dijk_1_player: *)
 
 (** Lemma 2:
     all plays bound by the tangle attractor strategy \<sigma> that stay in that tangle attractor
@@ -72,6 +74,9 @@ proof (intro ballI allI impI)
   qed
 qed
 
+(** We can rephrase the second lemma to ignore the region R and instead use a whole game. This would
+    work in the final proof because R is created either from the whole game, or by subtracting an
+    attractor from the previous region, which means it is always a valid subgame. *)
 lemma van_dijk_2_player':
   assumes tangles_T: "\<forall>t\<in>T. player_tangle t"
   assumes fin_T: "finite T"
@@ -126,6 +131,8 @@ proof (intro ballI allI impI)
   qed
 qed
 
+(** From anywhere in the tangle-attracted region Z to A, the opponent can reach a node of priority
+    p (the top priority in the current region) *)
 lemma van_dijk_3_player:
   assumes tangles_T: "\<forall>t\<in>T. player_tangle t"
   assumes fin_T: "finite T"
@@ -170,29 +177,41 @@ proof (rule ballI)
   qed
 qed
 
-(** lemma van_dijk_4_player: *)
+(** For each new tangle t, all successors of t are in higher \<alpha>-regions.
+    The regions no longer have an assigned \<alpha> in the updated algorithm, so this needs some rephrasing.
+lemma van_dijk_4_player: *)
 
-(** lemma van_dijk_5_player: *)
+(** Every nontrivial bottom SCC B of the reduced region restricted by witness strategy \<sigma> is a unique
+    tangle
+lemma van_dijk_5_player: *)
 
-(** lemma van_dijk_6_player: *)
+(** The lowest region in the decomposition always contains a tangle.
+lemma van_dijk_6_player: *)
 
+(** A tangle t is a dominion (winning region in our nomenclature) if and only if it has no escapes *)
 lemma van_dijk_7_player:
   assumes t_tangle: "player_tangle t"
   shows "opponent_escapes t = {} \<longleftrightarrow> player_winning_region t"
   using assms no_escapes_closed_opponent closed_player_tangle_is_winning_region
   by safe (auto simp: player_winning_region_def)
 
-(** lemma van_dijk_8_player: *)
+(** Every tangle t found in the highest region of player \<alpha> has no escapes.
+lemma van_dijk_8_player: *)
 
-(** lemma van_dijk_9_player: *)
+(** The search algorithm terminates by finding a dominion.
+lemma van_dijk_9_player: *)
 
-(** lemma van_dijk_10_player: *)
+(** The solve algorithm solves parity games.
+    Tom suggested approaching this the same way we "proved" Zielonka's algorithm when we proved
+    positional determinancy earlier; which would mean we prove positional determinancy again, but
+    with a proof that follows the steps of tangle learning.
+lemma van_dijk_10_player: *)
 
 end (** End of context player_paritygame *)
 
 context paritygame begin
 
-(** Future proof still needs to show that this is limited to a region R, which is a subgame. *)
+(** The future proof still needs to show that this is limited to a region R, which is a subgame. *)
 lemma van_dijk_2':
   assumes tangles_T: "\<forall>t\<in>T. tangle \<alpha> t"
   assumes fin_T: "finite T"
