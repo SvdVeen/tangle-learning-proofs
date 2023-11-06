@@ -51,6 +51,9 @@ lemma player_tangle_nonempty[simp]: "\<not>player_tangle {}"
 lemma player_tangle_in_V: "player_tangle U \<Longrightarrow> U \<subseteq> V"
   unfolding player_tangle_def by simp
 
+lemma fin_player_tangle: "player_tangle U \<Longrightarrow> finite U"
+  using finite_subset[OF player_tangle_in_V fin_V] .
+
 lemma player_wins_player_tangle: "player_tangle U \<Longrightarrow> winningP (pr_set U)"
   unfolding player_tangle_def by simp
 
@@ -198,6 +201,9 @@ lemma tangle_notempty[simp]: "\<not>tangle \<alpha> {}"
 
 lemma tangle_in_V: "tangle \<alpha> U \<Longrightarrow> U \<subseteq> V"
   using tangle_iff by simp
+
+lemma fin_tangle: "tangle \<alpha> U \<Longrightarrow> finite U"
+  using finite_subset[OF tangle_in_V fin_V] .
 
 lemma player_wins_tangle: "tangle \<alpha> U \<Longrightarrow> player_winningP \<alpha> (pr_set U)"
   using tangle_iff by simp
