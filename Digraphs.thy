@@ -11,21 +11,9 @@ abbreviation EV :: "'v dgraph \<Rightarrow> 'v set" where
   "EV E \<equiv> fst ` E \<union> snd ` E"
 
 
-section \<open>Strongly Connected Components\<close>
-(** A graph is strongly connected if every pair of vertices v,v' in V, there exists a path from
-    v to v' and vice-versa. We do not need to specify both directions, because this follows from
-    the definition automatically. *)
-definition strongly_connected :: "'v dgraph \<Rightarrow> bool" where
- "strongly_connected E \<equiv> \<forall>v \<in> EV E. \<forall>v' \<in> EV E. (v,v') \<in> E\<^sup>*"
-
 context
   fixes E :: "'v dgraph"
 begin
-(** In a context where a graph is fixed already, we can say a component of it is strongly connected
-    if the graph restricted to that component is strongly connected. *)
-definition SCC :: "'v set \<Rightarrow> bool" where
-  "SCC S \<equiv> S \<subseteq> EV E \<and> strongly_connected (E \<inter> S\<times>S)"
-
 
 section \<open>Paths\<close>
 (** A path as a list of the first node of each edge that path in a graph. *)
@@ -37,7 +25,7 @@ fun path :: "'v \<Rightarrow> 'v list \<Rightarrow> 'v \<Rightarrow> bool" where
 lemma path_append[simp]: "path u (xs\<^sub>1@xs\<^sub>2) v \<longleftrightarrow> (\<exists>u'. path u xs\<^sub>1 u' \<and> path u' xs\<^sub>2 v)"
   by (induction xs\<^sub>1 arbitrary: u) auto
 
-(** The path is equivalent tot eh reflexive transitive closure in the graph. We prove both
+(** The path is equivalent to the reflexive transitive closure in the graph. We prove both
     directions separately before proving the equivalence using those lemmas. *)
 lemma path_is_rtrancl: "path v xs v' \<Longrightarrow> (v,v')\<in>E\<^sup>*"
   by (induction xs arbitrary: v) fastforce+
@@ -105,13 +93,17 @@ definition cycle :: "'v \<Rightarrow> 'v list \<Rightarrow> bool" where
 lemma cycle_not_empty[simp]:"\<not>cycle v []"
   unfolding cycle_def by auto
 
-(** The origin of a cycle is part of the cycle. *)
-lemma origin_in_cycle: "cycle x xs \<Longrightarrow> x \<in> set xs"
-  unfolding cycle_def using origin_in_path by blast
+(** If there exists a self loop, then that node has a cycle to itself. *)
+lemma cycle_self: "(v,v)\<in>E \<Longrightarrow> cycle v [v]"
+  unfolding cycle_def by simp
 
 (** The nodes in a cycle exist in the graph. *)
 lemma cycle_in_E: "cycle x xs \<Longrightarrow> set xs \<subseteq> EV E"
   unfolding cycle_def using path_in_E by blast
+
+(** The origin of a cycle is part of the cycle. *)
+lemma origin_in_cycle: "cycle x xs \<Longrightarrow> x \<in> set xs"
+  unfolding cycle_def using origin_in_path by blast
 
 (** A cycle can be deconstructed into its first edge and a cycle from that edge's target. *)
 lemma cycle_D: "cycle x xs \<Longrightarrow> \<exists>y ys. xs=x#ys \<and> set (ys@[x]) = set xs \<and> (x,y)\<in>E \<and> y\<in>set xs \<and> cycle y (ys@[x])"
@@ -128,6 +120,9 @@ lemma cycle_closed_set: "\<lbrakk>v\<in>V; E``V\<subseteq>V; cycle v xs\<rbrakk>
 lemma cycle_partially_closed_set: "\<lbrakk>v\<in>V-R; E``(V-R)\<subseteq>V; cycle v xs; set xs \<inter> R = {}\<rbrakk>
     \<Longrightarrow> set xs \<subseteq> V-R"
   unfolding cycle_def using path_partially_closed_set by blast
+
+lemma cycle_from_paths: "\<lbrakk>path x xs y; path y ys x; (xs@ys) \<noteq> []\<rbrakk> \<Longrightarrow> cycle x (xs@ys)"
+  unfolding cycle_def by auto
 
 (** If you have a looping path and an intermediate node in that path, you can get another looping
     path from that intermediate node to itself. *)
@@ -358,7 +353,6 @@ lemma lasso'_extend_any_length: "lasso_from_node' v vs
   done
 end (** End of context with fixed E. *)
 
-
 section \<open>Digraphs with Specific V and no Dead Ends\<close>
 locale finite_graph_V_Succ =
   fixes E :: "'v dgraph"
@@ -369,7 +363,7 @@ locale finite_graph_V_Succ =
 begin
 (** E is finite. *)
 lemma fin_E[simp, intro!]: "finite E"
-  using E_in_V by (simp add: finite_subset)
+  using finite_subset[OF E_in_V] by fast
 
 (** E applied to any set ends up in a subset of V. *)
 lemma E_closed_V: "E `` V' \<subseteq> V"

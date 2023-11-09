@@ -248,11 +248,12 @@ next
     t_in_V: "t \<subseteq> V"
     using player_tangle_in_V by auto
 
+  let ?t_subgraph = "player_tangle_subgraph t \<sigma>'"
   from escape.hyps(5) have
     \<sigma>'_strat: "strategy_of V\<^sub>\<alpha> \<sigma>'" and
     \<sigma>'_dom: "dom \<sigma>' = t \<inter> V\<^sub>\<alpha>" and
     \<sigma>'_ran: "ran \<sigma>' \<subseteq> t" and
-    \<sigma>'_strongly_connected_subgraph: "strongly_connected (player_tangle_subgraph t \<sigma>')" and
+    \<sigma>'_strongly_connected_subgraph: "strongly_connected ?t_subgraph (EV ?t_subgraph)" and
     \<sigma>'_winning: "\<forall>v\<in>t. \<forall>xs. cycle (player_tangle_subgraph t \<sigma>') v xs \<longrightarrow> winning_player xs"
     unfolding player_tangle_strat_def Let_def by auto
 

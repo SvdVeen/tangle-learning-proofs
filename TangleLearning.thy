@@ -169,6 +169,31 @@ lemma van_dijk_9_player: *)
     with a proof that follows the steps of tangle learning.
 lemma van_dijk_10_player: *)
 
+lemma
+  assumes dominion_R: "player_winning_region R"
+  assumes U_in_R: "U \<subseteq> R"
+  assumes bottom_SCC_U: "bottom_SCC U"
+  shows "player_tangle U \<and> E `` U \<subseteq> U"
+proof (rule conjI)
+  from bottom_SCC_U have SCC_U: "SCC  U" and U_closed: "E `` U \<subseteq> U"
+    unfolding bottom_SCC_def by simp+
+  thus "E `` U \<subseteq> U" by simp (** This one is trivial *)
+
+  from SCC_U have strong_conn_E_U: "strongly_connected (E\<inter>U\<times>U) (V\<inter>U)"
+    unfolding SCC_def by simp
+  from SCC_U have no_extension: "\<forall>v\<in>V-U. \<not>strongly_connected (E\<inter>((insert v U)\<times>(insert v U))) (V\<inter>insert v U)"
+    unfolding SCC_def Let_def by blast
+
+  show "player_tangle U"
+    unfolding player_tangle_def
+    apply (intro conjI)
+    subgoal using bottom_SCC_U by auto
+    subgoal using bottom_SCC_in_V[OF bottom_SCC_U] .
+    subgoal sorry
+    subgoal unfolding player_tangle_strat_def Let_def sorry
+    done
+qed
+
 end (** End of context player_paritygame *)
 
 context paritygame begin

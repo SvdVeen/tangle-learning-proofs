@@ -1,5 +1,5 @@
 theory Tangles
-imports Main ParityGames WinningRegions
+imports Main ParityGames WinningRegions StrongConnectivity
 begin
 chapter \<open>Tangles\<close>
 (** Van Dijk defines a p-tangle as follows:
@@ -26,7 +26,6 @@ lemma player_tangle_subgraph_is_restricted_ind_subgraph:
   unfolding player_tangle_subgraph_def induced_subgraph_def E_of_strat_def
   using assms by (auto simp: ranI)
 
-
 subsection \<open>Tangle Strategies\<close>
 (** The tangle strategy as defined by Van Dijk:
     Player \<alpha>'s strategy \<sigma>:U\<^sub>\<alpha>\<rightarrow>U such that its tangle subgraph E' is strongly connected and \<alpha> wins
@@ -34,7 +33,7 @@ subsection \<open>Tangle Strategies\<close>
 definition player_tangle_strat :: "'v set \<Rightarrow> 'v strat \<Rightarrow> bool" where
   "player_tangle_strat U \<sigma> \<equiv> strategy_of V\<^sub>\<alpha> \<sigma> \<and> dom \<sigma> = U \<inter> V\<^sub>\<alpha> \<and> ran \<sigma> \<subseteq> U \<and>
    (let E' = player_tangle_subgraph U \<sigma> in (
-      strongly_connected E' \<and>
+      strongly_connected E' (EV E') \<and>
       (\<forall>v \<in> U. \<forall>xs. cycle E' v xs \<longrightarrow> winning_player xs)
    ))"
 
@@ -177,7 +176,7 @@ fun tangle_strat :: "player \<Rightarrow> 'v set \<Rightarrow> 'v strat \<Righta
 lemma tangle_strat_iff:
   "tangle_strat \<alpha> U \<sigma> \<longleftrightarrow> strategy_of (V_player \<alpha>) \<sigma> \<and> dom \<sigma> = U \<inter> V_player \<alpha> \<and> ran \<sigma> \<subseteq> U \<and>
    (let E' = tangle_subgraph \<alpha> U \<sigma> in (
-      strongly_connected E' \<and>
+      strongly_connected E' (EV E') \<and>
       (\<forall>v \<in> U. \<forall>xs. cycle E' v xs \<longrightarrow> player_wins_list \<alpha> xs)
    ))"
   using P0.player_tangle_strat_def P1.player_tangle_strat_def
