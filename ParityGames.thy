@@ -16,9 +16,17 @@ begin
   definition pr_set :: "'v set \<Rightarrow> nat" where
     "pr_set S \<equiv> Max (pr ` S)"
 
+  lemma pr_le_pr_set: "\<lbrakk>finite S; v \<in> S\<rbrakk> \<Longrightarrow> pr v \<le> pr_set S"
+    unfolding pr_set_def by simp
+
   (** The priority of any node in V is less than or equal to the top priority in V. *)
   lemma pr_le_pr_set_V: "v \<in> V \<Longrightarrow> pr v \<le> pr_set V"
-    unfolding pr_set_def by simp
+    using pr_le_pr_set by simp
+
+  (** In a nonempty finite set S, there always exists a v in S with its highest priority. *)
+  lemma pr_set_exists: "\<lbrakk>finite S; S\<noteq>{}\<rbrakk> \<Longrightarrow> \<exists>v\<in>S. pr v = pr_set S"
+    unfolding pr_set_def
+    using Max_in[of "pr ` S"] by fastforce
 
   (** The top priority in a nonempty list that is a subset of V is less than or equal to the top
       priority in V. *)

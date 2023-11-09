@@ -169,27 +169,60 @@ lemma van_dijk_9_player: *)
     with a proof that follows the steps of tangle learning.
 lemma van_dijk_10_player: *)
 
+(** Every bottom SCC in a dominion (what we call a winning region) is a closed tangle. *)
 lemma
   assumes dominion_R: "player_winning_region R"
   assumes U_in_R: "U \<subseteq> R"
   assumes bottom_SCC_U: "bottom_SCC U"
   shows "player_tangle U \<and> E `` U \<subseteq> U"
 proof (rule conjI)
-  from bottom_SCC_U have SCC_U: "SCC  U" and U_closed: "E `` U \<subseteq> U"
-    unfolding bottom_SCC_def by simp+
-  thus "E `` U \<subseteq> U" by simp (** This one is trivial *)
+  from bottom_SCC_closed[OF bottom_SCC_U]
+  show U_closed: "E `` U \<subseteq> U" . (** This one is trivial *)
 
-  from SCC_U have strong_conn_E_U: "strongly_connected (E\<inter>U\<times>U) (V\<inter>U)"
-    unfolding SCC_def by simp
-  from SCC_U have no_extension: "\<forall>v\<in>V-U. \<not>strongly_connected (E\<inter>((insert v U)\<times>(insert v U))) (V\<inter>insert v U)"
-    unfolding SCC_def Let_def by blast
+  from bottom_SCC_U have U_notempty: "U \<noteq> {}" by auto
+  from bottom_SCC_finite[OF bottom_SCC_U] have fin_U[simp]: "finite U" .
+  from bottom_SCC_in_V[OF bottom_SCC_U] have U_in_V: "U\<subseteq>V" .
+
+  from dominion_R obtain \<sigma> where
+    \<sigma>_strat: "strategy_of V\<^sub>\<alpha> \<sigma>" and
+    \<sigma>_dom: "dom \<sigma> = V\<^sub>\<alpha> \<inter> R" and
+    \<sigma>_ran: "ran \<sigma> \<subseteq> R" and
+    \<sigma>_winning: "\<forall>v\<in>R. \<forall>xs. cycle_from_node (induced_subgraph (dom \<sigma>) \<sigma>) v xs
+                \<longrightarrow> winning_player xs" and
+    R_closed_opponent: "E `` (R\<inter>V\<^sub>\<beta>) \<subseteq> R"
+    unfolding player_winning_region_def by fastforce
+
+  have "(induced_subgraph (dom \<sigma>) \<sigma>) \<inter> U\<times>U \<subseteq> E \<inter> U\<times>U"
+    by auto
+
+  have top_pr_winning: "winningP (pr_set U)"
+  proof -
+    (** I will need to show that all the highest priority in U is won by the player.
+        My intuition says this should hold because every cycle is won by the player since it is
+        part of the winning region. Since this is an SCC, the node of the highest priority in U
+        is part of a cycle, and that cycle should be won by \<alpha>. *)
+    obtain y where 
+      y_in_U: "y\<in>U" and
+      y_top_pr: "pr y = pr_set U"
+      using pr_set_exists[OF fin_U U_notempty] ..
+
+    then obtain ys where cycle_y_ys: "cycle (E\<inter>U\<times>U) y ys"
+      using bottom_SCC_cycle[OF bottom_SCC_U] by blast
+    hence path_y_ys_y: "path (E\<inter>U\<times>U) y ys y" and ys_notempty: "ys \<noteq> []"
+      by (simp add: cycle_iff_loop[of "(E\<inter>U\<times>U)" y ys])+
+
+    from dominion_R have "True"
+      unfolding player_winning_region_def sorry
+
+    show ?thesis sorry
+  qed
 
   show "player_tangle U"
     unfolding player_tangle_def
     apply (intro conjI)
-    subgoal using bottom_SCC_U by auto
-    subgoal using bottom_SCC_in_V[OF bottom_SCC_U] .
-    subgoal sorry
+    subgoal using U_notempty .
+    subgoal using U_in_V .
+    subgoal using top_pr_winning .
     subgoal unfolding player_tangle_strat_def Let_def sorry
     done
 qed
