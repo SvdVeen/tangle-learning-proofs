@@ -15,6 +15,17 @@ subsection \<open>Tangle Subgraphs\<close>
 definition player_tangle_subgraph :: "'v set \<Rightarrow> 'v strat \<Rightarrow> 'v dgraph" where
   "player_tangle_subgraph U \<sigma> \<equiv> E \<inter> (E_of_strat \<sigma> \<union> ((U \<inter> V\<^sub>\<beta>) \<times> U))"
 
+(** A tangle subgraph is a subgraph of the whole graph. *)
+lemma player_tangle_subgraph_subgraph:
+  "player_tangle_subgraph U \<sigma> \<subseteq> E"
+  unfolding player_tangle_subgraph_def by blast
+
+(** The nodes in a tangle subgraph exist in the whole graph. *)
+lemma player_tangle_subgraph_nodes_in_V:
+  "EV (player_tangle_subgraph U \<sigma>) \<subseteq> V"
+  unfolding player_tangle_subgraph_def
+  using E_in_V by auto
+
 (** Van Dijk's definition of a tangle's subgraph E' is the same as the induced subgraph of
     the tangle strategy over its domain, restricted to U. This equality makes it easier to use
     tangle definitions with lemmas for general parity games. *)

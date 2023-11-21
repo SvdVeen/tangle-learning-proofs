@@ -10,6 +10,15 @@ context player_paritygame begin
     That is to say: this lemma is not too useful anymore now.
 lemma van_dijk_1_player: *)
 
+lemma
+  assumes tangles_T: "\<forall>t\<in>T. player_tangle t"
+  assumes fin_T: "finite T"
+  assumes winning_top_p: "winningP (pr_set V)"
+  assumes A_def: "A = {v. v\<in>V \<and> pr v = pr_set V}"
+  assumes attr: "player_tangle_attractor T A Z \<sigma>"
+  shows "player_\<alpha>_max T Z"
+  sorry
+
 (** Lemma 2:
     all plays bound by the tangle attractor strategy \<sigma> that stay in that tangle attractor
     to a region consisting only of vertices of the highest priority, won by \<alpha>, are won by \<alpha>.
@@ -74,6 +83,8 @@ qed
 lemma "x \<notin> dom \<sigma> \<Longrightarrow> induced_subgraph V\<^sub>\<alpha> \<sigma> \<subseteq> induced_subgraph V\<^sub>\<alpha> (\<sigma>(x\<mapsto>y))"
   unfolding induced_subgraph_def E_of_strat_def by force
 
+xxx, sorry
+
 (** From anywhere in the tangle-attracted region Z to A, the opponent can reach a node of priority
     p (the top priority in the current region) *)
 lemma van_dijk_3_player:
@@ -82,8 +93,8 @@ lemma van_dijk_3_player:
   assumes A_def: "A = {v. v\<in>V \<and> pr v = pr_set V}"
   assumes attr: "player_tangle_attractor T A Z \<sigma>"
   shows "\<forall>v\<in>Z. \<exists>v'. pr v' = pr_set V \<and> (\<exists>vs. path (induced_subgraph V\<^sub>\<alpha> \<sigma>) v  vs v')"
-  using attr tangles_T fin_T
-proof (induction rule: player_tangle_attractor_induct')
+  using tangles_T fin_T attr
+proof (induction rule: player_tangle_attractor_induct)
   case base thus ?case
     apply (rule ballI)
     subgoal for v
@@ -150,7 +161,7 @@ lemma van_dijk_5_player: *)
 (** The lowest region in the decomposition always contains a tangle.
 lemma van_dijk_6_player: *)
 
-(** A tangle t is a dominion (winning region in our nomenclature) if and only if it has no escapes *)
+(** A tangle t is a dominion (what we call a winning region) if and only if it has no escapes *)
 lemma van_dijk_7_player:
   assumes t_tangle: "player_tangle t"
   shows "opponent_escapes t = {} \<longleftrightarrow> player_winning_region t"
@@ -169,6 +180,7 @@ lemma van_dijk_9_player: *)
     with a proof that follows the steps of tangle learning.
 lemma van_dijk_10_player: *)
 
+xxx, sorry
 (** Every bottom SCC in a dominion (what we call a winning region) is a closed tangle. *)
 lemma
   assumes dominion_R: "player_winning_region R"
@@ -201,7 +213,7 @@ proof (rule conjI)
         My intuition says this should hold because every cycle is won by the player since it is
         part of the winning region. Since this is an SCC, the node of the highest priority in U
         is part of a cycle, and that cycle should be won by \<alpha>. *)
-    obtain y where 
+    obtain y where
       y_in_U: "y\<in>U" and
       y_top_pr: "pr y = pr_set U"
       using pr_set_exists[OF fin_U U_notempty] ..
@@ -230,6 +242,9 @@ qed
 end (** End of context player_paritygame *)
 
 context paritygame begin
+
+inductive search_step :: "'v set \<times> 'v set \<Rightarrow> 'v set \<times> 'v set \<Rightarrow> bool"
+ hlep: ""
 
 (** The future proof still needs to show that this is limited to a region R, which is a subgame. *)
 lemma van_dijk_2:
