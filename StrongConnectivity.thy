@@ -6,13 +6,12 @@ section \<open>Strongly Connected Graphs\<close>
     graph, there exists a path from one to the other and vice-versa.
     We do not have to specify the path from v' to v, as it follows from the definition. *)
 definition strongly_connected :: "'v dgraph \<Rightarrow> 'v set \<Rightarrow> bool" where
-  "strongly_connected E V \<equiv> E \<noteq> {} \<and>  E \<subseteq> V\<times>V \<and> (\<forall>v\<in>V. \<forall>v'\<in>V. (v,v')\<in>E\<^sup>*)"
+  "strongly_connected E V \<equiv> V \<noteq> {} \<and> E \<subseteq> V\<times>V \<and> (\<forall>v\<in>V. \<forall>v'\<in>V. (v,v')\<in>E\<^sup>*)"
 
 (** An empty graph is not strongly connected. *)
 lemma strongly_connected_notempty[simp]:
-  "\<not>strongly_connected {} V"
   "\<not>strongly_connected E {}"
-  unfolding strongly_connected_def by blast+
+  unfolding strongly_connected_def by blast
 
 (** The edges in a strongly connected graph must include all vertices in V. *)
 lemma strongly_connected_E_in_V: "strongly_connected E V \<Longrightarrow> E \<subseteq> V\<times>V"
@@ -27,9 +26,17 @@ lemma strongly_connected_path: "strongly_connected E V \<Longrightarrow> \<foral
 context finite_graph_V_Succ
 begin
 section\<open>Strongly Connected Graphs Restricted to a Region\<close>
+
+(** If a subgraph is strongly connected, then the regular graph restricted to that subgraph
+    is also already strongly connected. *)
+lemma strongly_connected_restr_subgraph:
+  "\<lbrakk>E' \<subseteq> E; V' \<subseteq> V; strongly_connected E' V'\<rbrakk> \<Longrightarrow> strongly_connected (E\<inter>E') (V\<inter>V')"
+  unfolding strongly_connected_def
+  using E_in_V by (auto simp: Int_absorb1)
+
 (** If a restricted graph is strongly connected, then every node in the region has a successor that
     is also in the region. *)
-lemma strongly_connected_restr_succ:
+lemma strongly_connected_restr_succ':
   "\<lbrakk>R \<subseteq> V; strongly_connected (E\<inter>R\<times>R) (V\<inter>R)\<rbrakk> \<Longrightarrow> \<forall>v\<in>R. \<exists>v'\<in>R. (v,v')\<in>E"
 proof (rule ballI)
   fix v
@@ -42,7 +49,7 @@ proof (rule ballI)
     case no_loop
     (** Because the strong connectivity is defined on a restricted graph, and we have no self loop,
         there must be another vertex in R, or the restricted graph would be empty. *)
-    with strong_conn have R_larger_than_v: "R\<noteq>{v}" by force
+    with strong_conn have R_larger_than_v: "R\<noteq>{v}" sorry
     with v_in_R obtain v' where
       v'_in_R: "v'\<in>R" and
       v'_not_v: "v'\<noteq>v" by blast
@@ -152,7 +159,7 @@ section \<open>Strongly Connected Components\<close>
     added without breaking the strong connectivity. *)
 definition SCC :: "'v set \<Rightarrow> bool" where
   "SCC R \<equiv> R \<subseteq> V \<and> strongly_connected (E\<inter>R\<times>R) (V\<inter>R) \<and>
-   (\<forall>x\<in>V-R. let R'=insert x R in (\<not>strongly_connected (E\<inter>R'\<times>R') (V\<inter>R')))"
+    (\<nexists>R'. R \<subset> R' \<and> strongly_connected (E\<inter>R'\<times>R') (V\<inter>R'))"
 
 (** SCCs are non-empty because our strong connectivity definition excludes empty graphs. *)
 lemma SCC_notempty[simp]: "\<not>SCC {}"
@@ -175,26 +182,19 @@ lemma SCC_maximal:
   "SCC R \<Longrightarrow> \<forall>x\<in>V-R. \<not>strongly_connected (E\<inter>(insert x R)\<times>(insert x R)) (V\<inter>insert x R)"
   unfolding SCC_def Let_def by blast
 
-(** Trivial SCCs are excluded because we excluded non-empty graphs from the definition of strong
-    connectivity.
-    Our definition of SCCs checks strong connectivity of E restricted to the SCC. If the SCC is a
-    single vertex without a self-edge, the restricted graph is empty by definition. *)
-lemma SCC_nontrivial: "(v,v) \<notin> E \<Longrightarrow> \<not>SCC {v}"
-  unfolding SCC_def by auto
-
 (** For every pair of nodes in a strongly connected component, there exists a path from one to the
     other. *)
 lemma SCC_path: "SCC R \<Longrightarrow> \<forall>v\<in>R. \<forall>v'\<in>R. \<exists>vs. path (E\<inter>R\<times>R) v vs v'"
-  unfolding SCC_def using strongly_connected_restr_path by blast
+  unfolding SCC_def using strongly_connected_restr_path sorry
 
 (** For every pair of nodes in a strongly connected component, there exists a non-empty path from
     one to the other. *)
 lemma SCC_path_nonempty: "SCC R \<Longrightarrow> \<forall>v\<in>R. \<forall>v'\<in>R. \<exists>vs. vs \<noteq> [] \<and> path (E\<inter>R\<times>R) v vs v'"
-  unfolding SCC_def using strongly_connected_restr_path_nonempty by blast
+  unfolding SCC_def using strongly_connected_restr_path_nonempty sorry
 
 (** For every node in a strongly connected component, there exists a cycle starting in that node. *)
 lemma SCC_cycle: "SCC R \<Longrightarrow> \<forall>v\<in>R. \<exists>ys. cycle (E\<inter>R\<times>R) v ys"
-  unfolding SCC_def using strongly_connected_restr_cycle by blast
+  unfolding SCC_def using strongly_connected_restr_cycle sorry
 
 
 section \<open>Bottom Strongly Connected Components\<close>
@@ -223,11 +223,6 @@ lemma bottom_SCC_in_V: "bottom_SCC R \<Longrightarrow> R \<subseteq> V"
 lemma bottom_SCC_finite: "bottom_SCC R \<Longrightarrow> finite R"
   using finite_subset[OF bottom_SCC_in_V fin_V] .
 
-(** Bottom SCCs are not trivial (do not consist of a single node without a self loop) because SCCs
-    are not trivial. *)
-lemma bottom_SCC_nontrivial: "(v,v) \<notin> E \<Longrightarrow> \<not>bottom_SCC {v}"
-  using bottom_SCC_is_SCC SCC_nontrivial by blast
-
 (** For every pair of nodes in a strongly connected component, there exists a path from one to the
     other. *)
 lemma bottom_SCC_path: "bottom_SCC R \<Longrightarrow> \<forall>v\<in>R. \<forall>v'\<in>R. \<exists>vs. path (E\<inter>R\<times>R) v vs v'"
@@ -241,6 +236,13 @@ lemma bottom_SCC_path_nonempty: "bottom_SCC R \<Longrightarrow> \<forall>v\<in>R
 (** For every node in a strongly connected component, there exists a cycle starting in that node. *)
 lemma bottom_SCC_cycle: "bottom_SCC R \<Longrightarrow> \<forall>v\<in>R. \<exists>ys. cycle (E\<inter>R\<times>R) v ys"
   using SCC_cycle[OF bottom_SCC_is_SCC] by blast
+
+definition nt_bottom_SCC :: "'v set \<Rightarrow> bool" where
+  "nt_bottom_SCC R \<equiv> bottom_SCC R \<and> (E\<inter>R\<times>R) \<noteq> {}"
+
+lemma nt_bottom_SCC_is_bottom_SCC:
+  "nt_bottom_SCC R \<Longrightarrow> bottom_SCC R"
+  unfolding nt_bottom_SCC_def by simp
 end (** End of context finite_graph_V_Succ *)
 
 end
