@@ -34,9 +34,10 @@ lemma strongly_connected_restr_subgraph:
   unfolding strongly_connected_def
   using E_in_V by (auto simp: Int_absorb1)
 
+(**
 (** If a restricted graph is strongly connected, then every node in the region has a successor that
     is also in the region. *)
-lemma strongly_connected_restr_succ':
+lemma strongly_connected_restr_succ:
   "\<lbrakk>R \<subseteq> V; strongly_connected (E\<inter>R\<times>R) (V\<inter>R)\<rbrakk> \<Longrightarrow> \<forall>v\<in>R. \<exists>v'\<in>R. (v,v')\<in>E"
 proof (rule ballI)
   fix v
@@ -82,6 +83,7 @@ proof (rule ballI)
     with w_succ_v show ?thesis by blast
   qed
 qed
+*)
 
 (** If a restricted graph is strongly connected, then there exists a path from every node in the
     region to every other node in the region. *)
@@ -95,6 +97,7 @@ lemma strongly_connected_restr_path:
   "\<lbrakk>R \<subseteq> V; strongly_connected (E\<inter>R\<times>R) (V\<inter>R)\<rbrakk> \<Longrightarrow> \<forall>v\<in>R. \<forall>v'\<in>R. \<exists>vs. path (E\<inter>R\<times>R) v vs v'"
   using strongly_connected_restr_connected[of R] path_iff_rtrancl[of _ _ "(E\<inter>R\<times>R)"] by blast
 
+(**
 (** If a restricted graph is strongly connected, then there always exists a non-empty path between
     each pair of nodes in that region. *)
 lemma strongly_connected_restr_path_nonempty:
@@ -151,6 +154,7 @@ proof (rule ballI)
   with vs1_notempty vs2_notempty show "\<exists>ys. cycle (E\<inter>R\<times>R) v ys"
     unfolding cycle_def by blast
 qed
+*)
 
 
 section \<open>Strongly Connected Components\<close>
@@ -185,8 +189,9 @@ lemma SCC_maximal:
 (** For every pair of nodes in a strongly connected component, there exists a path from one to the
     other. *)
 lemma SCC_path: "SCC R \<Longrightarrow> \<forall>v\<in>R. \<forall>v'\<in>R. \<exists>vs. path (E\<inter>R\<times>R) v vs v'"
-  unfolding SCC_def using strongly_connected_restr_path sorry
+  unfolding SCC_def using strongly_connected_restr_path by simp
 
+(**
 (** For every pair of nodes in a strongly connected component, there exists a non-empty path from
     one to the other. *)
 lemma SCC_path_nonempty: "SCC R \<Longrightarrow> \<forall>v\<in>R. \<forall>v'\<in>R. \<exists>vs. vs \<noteq> [] \<and> path (E\<inter>R\<times>R) v vs v'"
@@ -195,6 +200,7 @@ lemma SCC_path_nonempty: "SCC R \<Longrightarrow> \<forall>v\<in>R. \<forall>v'\
 (** For every node in a strongly connected component, there exists a cycle starting in that node. *)
 lemma SCC_cycle: "SCC R \<Longrightarrow> \<forall>v\<in>R. \<exists>ys. cycle (E\<inter>R\<times>R) v ys"
   unfolding SCC_def using strongly_connected_restr_cycle sorry
+*)
 
 
 section \<open>Bottom Strongly Connected Components\<close>
@@ -228,6 +234,7 @@ lemma bottom_SCC_finite: "bottom_SCC R \<Longrightarrow> finite R"
 lemma bottom_SCC_path: "bottom_SCC R \<Longrightarrow> \<forall>v\<in>R. \<forall>v'\<in>R. \<exists>vs. path (E\<inter>R\<times>R) v vs v'"
   using SCC_path[OF bottom_SCC_is_SCC] by blast
 
+(**
 (** For every pair of nodes in a strongly connected component, there exists a non-empty path from
     one to the other. *)
 lemma bottom_SCC_path_nonempty: "bottom_SCC R \<Longrightarrow> \<forall>v\<in>R. \<forall>v'\<in>R. \<exists>vs. vs \<noteq> [] \<and> path (E\<inter>R\<times>R) v vs v'"
@@ -236,7 +243,9 @@ lemma bottom_SCC_path_nonempty: "bottom_SCC R \<Longrightarrow> \<forall>v\<in>R
 (** For every node in a strongly connected component, there exists a cycle starting in that node. *)
 lemma bottom_SCC_cycle: "bottom_SCC R \<Longrightarrow> \<forall>v\<in>R. \<exists>ys. cycle (E\<inter>R\<times>R) v ys"
   using SCC_cycle[OF bottom_SCC_is_SCC] by blast
+*)
 
+(** Non-trivial bottom SCCs are those that contain at least one edge within them. *)
 definition nt_bottom_SCC :: "'v set \<Rightarrow> bool" where
   "nt_bottom_SCC R \<equiv> bottom_SCC R \<and> (E\<inter>R\<times>R) \<noteq> {}"
 
