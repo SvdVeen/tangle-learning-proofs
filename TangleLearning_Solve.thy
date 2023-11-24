@@ -26,11 +26,11 @@ definition solve_state_T :: "'a solve_state \<Rightarrow> 'a set set" where
 inductive solve_step :: "'v solve_state \<Rightarrow> 'v solve_state \<Rightarrow> bool" where
   step: "\<lbrakk>R\<noteq>{}; R \<subseteq> V; paritygame (Restr E R) (V\<inter>R) (V\<^sub>0\<inter>R);
           search T R Y;
-          T' = T \<union> {U | U \<sigma> \<alpha>. (U,\<sigma>) \<in> Y \<and> strategy_of_player \<alpha> \<sigma> \<and> (E `` (U\<inter>V_opponent \<alpha>)) - U \<noteq> {}};
+          T' = T \<union> {U | U \<sigma> \<alpha>. U \<in> Y \<and> tangle_strat \<alpha> U \<sigma> \<and> (E `` (U\<inter>V_opponent \<alpha>)) - U \<noteq> {}};
           T\<^sub>0' = {t. t\<in>T' \<and> tangle EVEN t}; T\<^sub>1' = {t. t \<in> T' \<and> tangle ODD t};
-          D = {(U,\<sigma>) | U \<sigma> \<alpha>. (U,\<sigma>) \<in> Y \<and> strategy_of_player \<alpha> \<sigma> \<and> (E `` (U\<inter>V_opponent \<alpha>)) \<subseteq> U};
-          D\<^sub>0 = {U | U \<sigma>. (U,\<sigma>) \<in> Y \<and> strategy_of_player EVEN \<sigma>};
-          D\<^sub>1 = {U | U \<sigma>. (U,\<sigma>) \<in> Y \<and> strategy_of_player ODD \<sigma>};
+          D = {(U,\<sigma>) | U \<sigma> \<alpha>. U \<in> Y \<and> tangle_strat \<alpha> U \<sigma> \<and> (E `` (U\<inter>V_opponent \<alpha>)) \<subseteq> U};
+          D\<^sub>0 = {U | U \<sigma>. (U,\<sigma>) \<in> D \<and> strategy_of_player EVEN \<sigma>};
+          D\<^sub>1 = {U | U \<sigma>. (U,\<sigma>) \<in> D \<and> strategy_of_player ODD \<sigma>};
           tangle_attractor EVEN T\<^sub>0' (\<Union>D\<^sub>0) W\<^sub>0'' \<sigma>\<^sub>0'';
           tangle_attractor ODD T\<^sub>1' (\<Union>D\<^sub>1) W\<^sub>1'' \<sigma>\<^sub>1'';
           W\<^sub>0' = (if D\<noteq>{} then W\<^sub>0 \<union> W\<^sub>0'' else W\<^sub>0);
@@ -52,6 +52,30 @@ lemma solve_terminates_on_empty_R: "\<not>Domainp solve_step (W\<^sub>0,W\<^sub>
   using solve_step_R_notempty
   unfolding solve_state_R_def
   by fast
+
+lemma tanglelearning_terminates:
+  "\<exists>W\<^sub>0 W\<^sub>1 \<sigma>\<^sub>0 \<sigma>\<^sub>1. solve W\<^sub>0 W\<^sub>1 \<sigma>\<^sub>0 \<sigma>\<^sub>1"
+  sorry
+
+(** TODO: Redefine winning_region to also take a strategy, so we can say that the two strategies
+    are also winning strategies. *)
+lemma tanglelearning_partially_correct:
+  "solve W\<^sub>0 W\<^sub>1 \<sigma>\<^sub>0 \<sigma>\<^sub>1 \<Longrightarrow>
+    V = W\<^sub>0 \<union> W\<^sub>1 \<and> W\<^sub>0 \<inter> W\<^sub>1 = {} \<and>
+    winning_region EVEN W\<^sub>0 \<and>
+    winning_region ODD W\<^sub>1"
+  sorry
+
+(** Tangle learning is correct: it both terminates and gives two winning regions and corresponding
+    strategies. *)
+theorem tanglelearning_correct:
+  "(\<exists>W\<^sub>0 W\<^sub>1 \<sigma>\<^sub>0 \<sigma>\<^sub>1. solve W\<^sub>0 W\<^sub>1 \<sigma>\<^sub>0 \<sigma>\<^sub>1) \<and>
+   (\<forall>W\<^sub>0 W\<^sub>1 \<sigma>\<^sub>0 \<sigma>\<^sub>1. solve W\<^sub>0 W\<^sub>1 \<sigma>\<^sub>0 \<sigma>\<^sub>1 \<longrightarrow>
+      V = W\<^sub>0 \<union> W\<^sub>1 \<and> W\<^sub>0 \<inter> W\<^sub>1 = {} \<and>
+      winning_region EVEN W\<^sub>0 \<and>
+      winning_region ODD W\<^sub>1)"
+  using tanglelearning_terminates tanglelearning_partially_correct by blast
+  
 end (** End of context paritygame. *)
 
 end

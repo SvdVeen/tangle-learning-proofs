@@ -129,6 +129,36 @@ proof -
     done
 qed
 
+thm player_paritygame.player_tangle_def
+  player_paritygame.axioms(1)
+lemma
+  assumes "player_paritygame E' V' V\<^sub>0' V\<^sub>\<alpha>'"
+  assumes "E' \<subseteq> E"
+  assumes "V' \<subseteq> V"
+  shows "player_paritygame.player_tangle E' V' pr V\<^sub>\<alpha>' winningP U \<Longrightarrow> player_tangle U"
+proof -
+  assume subgame_tangle: "player_paritygame.player_tangle E' V' pr V\<^sub>\<alpha>' winningP U"
+  show ?thesis
+    unfolding player_tangle_def
+  proof (intro conjI)
+    from subgame_tangle show U_notempty: "U \<noteq> {}"
+      unfolding player_paritygame.player_tangle_def[OF assms(1)] by blast
+
+    from subgame_tangle assms(3) show U_in_V: "U \<subseteq> V"
+      unfolding player_paritygame.player_tangle_def[OF assms(1)] by blast
+
+    from subgame_tangle show U_winning_pr: "winningP (pr_set U)"
+      unfolding player_paritygame.player_tangle_def[OF assms(1)] by blast
+
+    from subgame_tangle obtain \<sigma> where
+      "True"
+      unfolding player_paritygame.player_tangle_def[OF assms(1)]
+      unfolding player_paritygame.player_tangle_strat_def[OF assms(1)]
+      unfolding player_paritygame.player_tangle_subgraph_def[OF assms(1)]
+      unfolding Let_def sorry
+    show "\<exists>\<sigma>. player_tangle_strat U \<sigma>" sorry
+  qed
+qed
 
 subsection \<open>Escapes\<close>
 (** The escapes are the set of nodes outside of a tangle that the opponent can move to *)

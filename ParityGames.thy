@@ -178,6 +178,20 @@ lemma V_opponent_player_int: "V' \<subseteq> V \<Longrightarrow> V' \<inter> V_o
 lemma v_notin_V_player_in_V_opponent: "v\<in>V \<Longrightarrow> v \<notin> V_player \<alpha> \<longleftrightarrow> v \<in> V_opponent \<alpha>"
   using V_player_opposite_V_opponent by auto
 
+lemma restr_subgraph_V_player:
+  assumes "paritygame (Restr E R) (V\<inter>R) (V\<^sub>0\<inter>R)"
+  shows "paritygame.V_player (V\<inter>R) (V\<^sub>0\<inter>R) \<alpha> = V_player \<alpha> \<inter> R"
+  using paritygame.V_player.simps[OF assms]
+  apply (cases \<alpha>; simp add: arena.V\<^sub>1_def[OF paritygame.axioms[OF assms]] V\<^sub>1_def)
+  by blast
+
+lemma restr_subgraph_V_opponent:
+  assumes "paritygame (Restr E R) (V\<inter>R) (V\<^sub>0\<inter>R)"
+  shows "paritygame.V_opponent (V\<inter>R) (V\<^sub>0\<inter>R) \<alpha> = V_opponent \<alpha> \<inter> R"
+  using paritygame.V_opponent.simps[OF assms]
+  apply (cases \<alpha>; simp add: arena.V\<^sub>1_def[OF paritygame.axioms[OF assms]] V\<^sub>1_def)
+  by blast
+
 (** Checks that a strategy belongs to a specific player. *)
 definition strategy_of_player :: "player \<Rightarrow> 'v strat \<Rightarrow> bool" where
   "strategy_of_player \<alpha> \<sigma> \<equiv> strategy_of (V_player \<alpha>) \<sigma>"

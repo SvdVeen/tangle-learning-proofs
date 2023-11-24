@@ -253,6 +253,40 @@ lemma ind_subgraph_restr_subarena:
   shows "induced_subgraph V\<^sub>\<alpha> \<sigma> \<inter> E' \<subseteq> arena.induced_subgraph E' V\<^sub>\<alpha>' \<sigma>"
   unfolding induced_subgraph_def arena.induced_subgraph_def[OF assms(1)] E_of_strat_def
   using assms(2) by auto
+
+
+subsubsection \<open>Restricted Subgraphs\<close>
+lemma restr_ind_subgraph:
+  assumes "arena (Restr E R) (V\<inter>R) (V\<^sub>0\<inter>R)"
+  shows "arena.induced_subgraph (Restr E R) V\<^sub>\<alpha> \<sigma> = Restr (induced_subgraph V\<^sub>\<alpha> \<sigma>) R"
+  unfolding arena.induced_subgraph_def[OF assms] induced_subgraph_def
+  by auto
+
+lemma restr_ind_subgraph_V\<^sub>\<alpha>:
+  assumes "arena (Restr E R) (V\<inter>R) (V\<^sub>0\<inter>R)"
+  shows "arena.induced_subgraph (Restr E R) (V\<^sub>\<alpha> \<inter> R) \<sigma> = Restr (induced_subgraph V\<^sub>\<alpha> \<sigma>) R"
+  unfolding arena.induced_subgraph_def[OF assms] induced_subgraph_def
+  by auto
+
+lemma restr_ind_subgraph_V:
+  assumes "arena (Restr E R) (V\<inter>R) (V\<^sub>0\<inter>R)"
+  shows "arena.induced_subgraph_V (Restr E R) V\<^sub>\<alpha> \<sigma> = induced_subgraph_V V\<^sub>\<alpha> \<sigma> \<inter> R"
+  unfolding arena.induced_subgraph_V_def[OF assms] induced_subgraph_V_def
+  unfolding restr_ind_subgraph[OF assms] induced_subgraph_def
+  apply (safe; clarsimp)
+  subgoal
+    by (metis ComplI Int_iff SigmaI Un_Int_eq(1) image_eqI old.prod.inject prod.collapse sup_compl_top_left2)
+  subgoal
+    by (metis Int_iff Un_Int_eq(2) fst_conv image_iff)
+  subgoal
+    by (metis ComplI IntI UNIV_I Un_iff image_eqI mem_Sigma_iff old.prod.inject prod.collapse)
+  subgoal
+    by (metis Int_iff Un_Int_eq(2) image_iff snd_conv)
+  subgoal for v v' sorry
+  subgoal for v v' sorry
+  subgoal for v v' sorry
+  subgoal for v v' sorry
+  done
 end (** End of locale arena *)
 
 end

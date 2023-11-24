@@ -243,9 +243,6 @@ end (** End of context player_paritygame *)
 
 context paritygame begin
 
-inductive search_step :: "'v set \<times> 'v set \<Rightarrow> 'v set \<times> 'v set \<Rightarrow> bool"
- hlep: ""
-
 (** The future proof still needs to show that this is limited to a region R, which is a subgame. *)
 lemma van_dijk_2:
   assumes tangles_T: "\<forall>t\<in>T. tangle \<alpha> t"
@@ -253,7 +250,7 @@ lemma van_dijk_2:
   assumes winning_top_p: "player_winningP \<alpha> (pr_set V)"
   assumes A_def: "A = {v. v\<in>V \<and> pr v = pr_set V}"
   assumes attr: "tangle_attractor \<alpha> T A Z \<sigma>"
-  shows "\<forall>v\<in>Z. \<forall>xs ys. lasso_from_node (induced_subgraph (V_player \<alpha>) \<sigma> \<inter> Z\<times>Z) v xs ys
+  shows "\<forall>v\<in>Z. \<forall>xs ys. lasso_from_node (Restr (induced_subgraph (V_player \<alpha>) \<sigma>) Z) v xs ys
             \<longrightarrow> player_wins_list \<alpha> ys"
   using assms P0.van_dijk_2_player P1.van_dijk_2_player
   by (cases \<alpha>; simp)
