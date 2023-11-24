@@ -2,6 +2,7 @@ theory TangleLearning_Search
 imports Main TangleAttractors TangleLearning
 begin
 
+
 definition test where "test = finite_graph_V_Succ.nt_bottom_SCC"
 
 context paritygame begin
@@ -21,7 +22,7 @@ begin
 (** search_step represents a single iteration of the while-loop in the search algorithm. *)
 inductive search_step ::
   "'v set \<times> 'v set  set \<Rightarrow> 'v set \<times> 'v set set \<Rightarrow> bool" where
-  step: "\<lbrakk>R \<noteq> {}; R \<subseteq> V; paritygame (Restr E R) (V\<inter>R) (V\<^sub>0\<inter>R);
+  step: "\<lbrakk>R \<noteq> {}; \<^cancel>\<open>R \<subseteq> V; paritygame (Restr E R) (V\<inter>R) (V\<^sub>0\<inter>R);\<close>
           p = pr_set R; \<alpha> = player_wins_pr p;
           A = {v. v \<in> R \<and> pr v = p};
           T\<^sub>\<alpha> = {t. t \<in> T \<and> paritygame.tangle (Restr E R) (V\<inter>R) (V\<^sub>0\<inter>R) pr \<alpha> t};
@@ -34,14 +35,98 @@ inductive search_step ::
             Y);
           R' = R-Z\<rbrakk> \<Longrightarrow> search_step (R,Y) (R',Y')"
 
-(** If a step can be applied, both R and R' are subsets of V. *)
+thm search_step.induct
+          
+thm split
+
+lemmas search_step_induct[consumes 1, case_names step] = 
+  search_step.induct[
+    of "(R,Y)" "(R',Y')" for R Y R' Y', 
+    where P="\<lambda>(a,b) (c,d). P a b c d" for P,
+    unfolded split]
+          
+lemma search_step_R_in_V: "search_step (R,Y) (R',Y') \<Longrightarrow> R \<subseteq> V \<Longrightarrow> R'\<subseteq>V"          
+  apply (induction rule: search_step_induct)
+  by blast
+
+lemma search_step_R_finite: "search_step (R,Y) (R',Y') \<Longrightarrow> finite R \<Longrightarrow> finite R'"          
+  apply (induction rule: search_step_induct)
+  by blast
+  
+
+(*(** If a step can be applied, both R and R' are subsets of V. *)
 lemma search_step_R_in_V: "search_step S S' \<Longrightarrow> fst S \<subseteq> V \<and> fst S' \<subseteq> V"
   by (induction rule: search_step.induct) auto
+*)
 
+
+lemma step_result_R_is_paritygame:
+  "search_step (R,Y) (R',Y') \<Longrightarrow> 
+    paritygame (Restr E R) (V\<inter>R) (V\<^sub>0\<inter>R) \<Longrightarrow> paritygame (Restr E R') (V\<inter>R') (V\<^sub>0\<inter>R')"
+proof (induction rule: search_step_induct)
+  case (step R p \<alpha> A T\<^sub>\<alpha> Z \<sigma> V\<^sub>\<alpha> V\<^sub>\<beta> Ov Y' Y R')
+  
+  hence is_tattr: "paritygame.tangle_attractor (Restr E R) (V \<inter> R) (V\<^sub>0 \<inter> R) pr \<alpha> T\<^sub>\<alpha> A Z \<sigma>"
+    by blast
+  
+  (** We know that every tangle t in T\<^sub>\<alpha> is a tangle in the subgame of R, and that T\<^sub>\<alpha> is finite. *)
+  from \<open>T\<^sub>\<alpha>=_\<close> have tangles_T\<^sub>\<alpha>: "\<forall>t\<in>T\<^sub>\<alpha>. paritygame.tangle (Restr E R) (V \<inter> R) (V\<^sub>0 \<inter> R) pr \<alpha> t"
+    by simp
+  from \<open>T\<^sub>\<alpha>=_\<close> have fin_T\<^sub>\<alpha>: "finite T\<^sub>\<alpha>"
+    using finite_subset[OF _ fin_T] by simp
+  (** We can write any instance of R-Z as R'. *)
+  from \<open>R' = R-Z\<close> have "(V \<inter> R-Z) = (V \<inter> R')" by blast
+  moreover from \<open>R' = R-Z\<close> have "(V\<^sub>0 \<inter> R-Z) = (V\<^sub>0 \<inter> R')" by blast
+  (** If we restrict the already restricted graph R to R', we find that it is the same as
+      restricting the whole graph to R'. *)
+  moreover from \<open>R' = R-Z\<close> have "(Restr (Restr E R) (V \<inter> R')) = Restr E R'" using E_in_V by auto
+  (** Now, we can show that removing the tangle-attracted region from the graph yields a valid
+      subgame. *)
+  ultimately show ?case
+    using paritygame.remove_tangle_attractor_subgame[OF step.prems tangles_T\<^sub>\<alpha> fin_T\<^sub>\<alpha> is_tattr] by auto
+qed
+
+(*
+(** If a step is applied from some S, R' in S' is always a valid parity game. *)
+lemma step_result_R_is_paritygame:
+  "search_step S S' \<Longrightarrow> paritygame (Restr E (fst S')) (V\<inter>fst S') (V\<^sub>0\<inter>fst S')"
+proof (induction rule: search_step.induct)
+  case (step R p \<alpha> A T\<^sub>\<alpha> Z \<sigma> V\<^sub>\<alpha> V\<^sub>\<beta> Ov Y' Y R')
+  (** We know that every tangle t in T\<^sub>\<alpha> is a tangle in the subgame of R, and that T\<^sub>\<alpha> is finite. *)
+  from step(7) have tangles_T\<^sub>\<alpha>: "\<forall>t\<in>T\<^sub>\<alpha>. paritygame.tangle (Restr E R) (V \<inter> R) (V\<^sub>0 \<inter> R) pr \<alpha> t"
+    by simp
+  from step(7) have fin_T\<^sub>\<alpha>: "finite T\<^sub>\<alpha>"
+    using finite_subset[OF _ fin_T] by simp
+  (** We can write any instance of R-Z as R'. *)
+  from step(13) have "(V \<inter> R-Z) = (V \<inter> R')" by blast
+  moreover from step(13) have "(V\<^sub>0 \<inter> R-Z) = (V\<^sub>0 \<inter> R')" by blast
+  (** If we restrict the already restricted graph R to R', we find that it is the same as
+      restricting the whole graph to R'. *)
+  moreover from step(13) have "(Restr (Restr E R) (V \<inter> R')) = Restr E R'" using E_in_V by auto
+  (** Now, we can show that removing the tangle-attracted region from the graph yields a valid
+      subgame. *)
+  ultimately show ?case
+    using paritygame.remove_tangle_attractor_subgame[OF step(3) tangles_T\<^sub>\<alpha> fin_T\<^sub>\<alpha> step(8)] by auto
+qed
+*)  
+(*  
 (** If a step can be applied, both R and R' are finite. *)
 lemma search_step_R_finite: "search_step S S' \<Longrightarrow> finite (fst S) \<and> finite (fst S')"
   using search_step_R_in_V finite_subset[OF _ fin_V] by auto
+*)
 
+
+
+
+
+
+thm paritygame.target_in_tangle_attractor
+    
+lemma search_step_R_finite: "search_step (R,Y) (R',Y') \<Longrightarrow> R' \<subset> R"          
+  apply (induction rule: search_step_induct)
+  apply auto
+  oops          
+  
 (** search_step is inversely monotonous on R: R strictly decreases with every step. *)
 lemma search_step_R_anti_mono: "search_step S S' \<Longrightarrow> fst S' \<subset> fst S"
 proof (induction rule: search_step.induct)
@@ -86,27 +171,6 @@ lemma search_step_wellfounded: "wfP (search_step\<inverse>\<inverse>)"
     by simp
   done
 
-(** If a step is applied from some S, R' in S' is always a valid parity game. *)
-lemma step_result_R_is_paritygame:
-  "search_step S S' \<Longrightarrow> paritygame (Restr E (fst S')) (V\<inter>fst S') (V\<^sub>0\<inter>fst S')"
-proof (induction rule: search_step.induct)
-  case (step R p \<alpha> A T\<^sub>\<alpha> Z \<sigma> V\<^sub>\<alpha> V\<^sub>\<beta> Ov Y' Y R')
-  (** We know that every tangle t in T\<^sub>\<alpha> is a tangle in the subgame of R, and that T\<^sub>\<alpha> is finite. *)
-  from step(7) have tangles_T\<^sub>\<alpha>: "\<forall>t\<in>T\<^sub>\<alpha>. paritygame.tangle (Restr E R) (V \<inter> R) (V\<^sub>0 \<inter> R) pr \<alpha> t"
-    by simp
-  from step(7) have fin_T\<^sub>\<alpha>: "finite T\<^sub>\<alpha>"
-    using finite_subset[OF _ fin_T] by simp
-  (** We can write any instance of R-Z as R'. *)
-  from step(13) have "(V \<inter> R-Z) = (V \<inter> R')" by blast
-  moreover from step(13) have "(V\<^sub>0 \<inter> R-Z) = (V\<^sub>0 \<inter> R')" by blast
-  (** If we restrict the already restricted graph R to R', we find that it is the same as
-      restricting the whole graph to R'. *)
-  moreover from step(13) have "(Restr (Restr E R) (V \<inter> R')) = Restr E R'" using E_in_V by auto
-  (** Now, we can show that removing the tangle-attracted region from the graph yields a valid
-      subgame. *)
-  ultimately show ?case
-    using paritygame.remove_tangle_attractor_subgame[OF step(3) tangles_T\<^sub>\<alpha> fin_T\<^sub>\<alpha> step(8)] by auto
-qed
 
 (** If R is a valid non-empty subgame, then search_step can always be applied.
     The specifics of Y are not relevant, as it has no preconditions in the step. *)
@@ -197,8 +261,11 @@ lemma "search_step S S' \<Longrightarrow> snd S \<subseteq> snd S'"
     This should probably be restated to say that everything contained in Y is a tangle with its
     corresponding strategy. *)
 definition search_I ::  "'v set \<times> 'v set set \<Rightarrow> bool" where
-  "search_I S \<equiv> finite (snd S) \<and> (\<forall>U \<in> snd S. \<exists>\<alpha>. tangle \<alpha> U)"
+  "search_I S \<equiv> finite (snd S) \<and> (\<forall>U \<in> snd S. \<exists>\<alpha>. tangle \<alpha> U) \<and> (fst S={} \<longrightarrow> \<dots>)"
 
+lemma "search_I ({},Y) \<Longrightarrow> (\<forall>U\<in>Y. \<exists>\<alpha>. tangle \<alpha> U) \<and> Y\<noteq>{}"  
+  
+  
 lemma search_step_preserves_I:
   "search_step S S' \<Longrightarrow> search_I S \<Longrightarrow> search_I S'"
 proof (induction rule: search_step.induct)
