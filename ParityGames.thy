@@ -201,6 +201,16 @@ lemma player_strat_dom: "strategy_of_player \<alpha> \<sigma> \<Longrightarrow> 
 
 lemma player_strat_in_E: "strategy_of_player \<alpha> \<sigma> \<Longrightarrow> E_of_strat \<sigma> \<subseteq> E"
   unfolding strategy_of_player_def strategy_of_def by simp
+
+lemma restr_subgraph_strategy_of_player:
+  assumes "paritygame (Restr E R) (V\<inter>R) (V\<^sub>0\<inter>R)"
+  shows "paritygame.strategy_of_player (Restr E R) (V \<inter> R) (V\<^sub>0 \<inter> R) \<alpha> \<sigma>
+    \<Longrightarrow> strategy_of (V_player \<alpha>) \<sigma>"
+  unfolding paritygame.strategy_of_player_def[OF assms]
+  unfolding restr_subgraph_V_player[OF assms]
+  unfolding arena.strategy_of_def[OF paritygame.axioms[OF assms]]
+  unfolding strategy_of_def
+  by simp
 end (** End of context paritygame. *)
 
 end

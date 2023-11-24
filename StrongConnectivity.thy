@@ -264,7 +264,7 @@ lemma finite_bottom_SCCs:
   "finite {R. bottom_SCC R}"
   using finite_subset[OF Collect_mono finite_SCCs] bottom_SCC_is_SCC by blast
 
-lemma finite_nt_bottom_SCCs: 
+lemma finite_nt_bottom_SCCs:
   "finite {R. nt_bottom_SCC R}"
   using finite_subset[OF Collect_mono finite_bottom_SCCs] nt_bottom_SCC_is_bottom_SCC by blast
 end (** End of context finite_graph_V *)
