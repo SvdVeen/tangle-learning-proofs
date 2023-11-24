@@ -23,7 +23,7 @@ lemma strongly_connected_path: "strongly_connected E V \<Longrightarrow> \<foral
   using rtrancl_is_path[of _ _ E] by simp
 
 
-context finite_graph_V_Succ
+context finite_graph_V
 begin
 section\<open>Strongly Connected Graphs Restricted to a Region\<close>
 
@@ -249,6 +249,9 @@ lemma bottom_SCC_cycle: "bottom_SCC R \<Longrightarrow> \<forall>v\<in>R. \<exis
 definition nt_bottom_SCC :: "'v set \<Rightarrow> bool" where
   "nt_bottom_SCC R \<equiv> bottom_SCC R \<and> (E\<inter>R\<times>R) \<noteq> {}"
 
+lemma nt_bottom_SCC_notempty[simp]: "\<not>nt_bottom_SCC {}"
+  unfolding nt_bottom_SCC_def by simp
+
 lemma nt_bottom_SCC_is_bottom_SCC:
   "nt_bottom_SCC R \<Longrightarrow> bottom_SCC R"
   unfolding nt_bottom_SCC_def by simp
@@ -264,6 +267,6 @@ lemma finite_bottom_SCCs:
 lemma finite_nt_bottom_SCCs: 
   "finite {R. nt_bottom_SCC R}"
   using finite_subset[OF Collect_mono finite_bottom_SCCs] nt_bottom_SCC_is_bottom_SCC by blast
-end (** End of context finite_graph_V_Succ *)
+end (** End of context finite_graph_V *)
 
 end

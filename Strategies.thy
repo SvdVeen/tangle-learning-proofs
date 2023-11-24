@@ -234,10 +234,18 @@ lemma ind_subgraph_succ: "\<lbrakk>v \<in> induced_subgraph_V (dom \<sigma>) \<s
   apply (cases "v \<in> dom \<sigma>")
     subgoal using edge_in_E_of_strat[of \<sigma>] strategy_to_ind_subgraph by blast
     subgoal using ind_subgraph_notin_dom[of v _ "dom \<sigma>"] succ ind_subgraph_V_in_V by blast
+    done
+
+(** An induced subgraph is still a valid finite graph *)
+lemma ind_subgraph_is_finite_graph[simp]:
+  "finite_graph_V (induced_subgraph V\<^sub>\<alpha> \<sigma>) (induced_subgraph_V V\<^sub>\<alpha> \<sigma>)"
+  apply (unfold_locales)
+    subgoal unfolding induced_subgraph_V_def by force
+    subgoal by simp
   done
 
 (** An induced subgraph is still a valid finite graph without dead ends *)
-lemma ind_subgraph_is_finite_graph: "E_of_strat \<sigma> \<subseteq> E
+lemma ind_subgraph_is_finite_graph_succ: "E_of_strat \<sigma> \<subseteq> E
   \<Longrightarrow> finite_graph_V_Succ (induced_subgraph (dom \<sigma>) \<sigma>) (induced_subgraph_V (dom \<sigma>) \<sigma>)"
   apply (unfold_locales)
     subgoal unfolding induced_subgraph_V_def by force
@@ -267,26 +275,6 @@ lemma restr_ind_subgraph_V\<^sub>\<alpha>:
   shows "arena.induced_subgraph (Restr E R) (V\<^sub>\<alpha> \<inter> R) \<sigma> = Restr (induced_subgraph V\<^sub>\<alpha> \<sigma>) R"
   unfolding arena.induced_subgraph_def[OF assms] induced_subgraph_def
   by auto
-
-lemma restr_ind_subgraph_V:
-  assumes "arena (Restr E R) (V\<inter>R) (V\<^sub>0\<inter>R)"
-  shows "arena.induced_subgraph_V (Restr E R) V\<^sub>\<alpha> \<sigma> = induced_subgraph_V V\<^sub>\<alpha> \<sigma> \<inter> R"
-  unfolding arena.induced_subgraph_V_def[OF assms] induced_subgraph_V_def
-  unfolding restr_ind_subgraph[OF assms] induced_subgraph_def
-  apply (safe; clarsimp)
-  subgoal
-    by (metis ComplI Int_iff SigmaI Un_Int_eq(1) image_eqI old.prod.inject prod.collapse sup_compl_top_left2)
-  subgoal
-    by (metis Int_iff Un_Int_eq(2) fst_conv image_iff)
-  subgoal
-    by (metis ComplI IntI UNIV_I Un_iff image_eqI mem_Sigma_iff old.prod.inject prod.collapse)
-  subgoal
-    by (metis Int_iff Un_Int_eq(2) image_iff snd_conv)
-  subgoal for v v' sorry
-  subgoal for v v' sorry
-  subgoal for v v' sorry
-  subgoal for v v' sorry
-  done
 end (** End of locale arena *)
 
 end

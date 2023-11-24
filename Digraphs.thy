@@ -354,11 +354,14 @@ lemma lasso'_extend_any_length: "lasso_from_node' v vs
 end (** End of context with fixed E. *)
 
 section \<open>Digraphs with Specific V and no Dead Ends\<close>
-locale finite_graph_V_Succ =
+locale finite_graph_V =
   fixes E :: "'v dgraph"
   fixes V :: "'v set"
   assumes E_in_V: "E \<subseteq> V \<times> V"
   assumes fin_V[simp, intro]: "finite V"
+
+locale finite_graph_V_Succ = finite_graph_V E V
+  for E and V :: "'v set" +
   assumes succ: "v\<in>V \<Longrightarrow> E``{v}\<noteq>{}"
 begin
 (** E is finite. *)
