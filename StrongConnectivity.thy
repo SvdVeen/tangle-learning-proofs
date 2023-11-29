@@ -22,7 +22,6 @@ lemma strongly_connected_path: "strongly_connected E V \<Longrightarrow> \<foral
   unfolding strongly_connected_def
   using rtrancl_is_path[of _ _ E] by simp
 
-
 context finite_graph_V
 begin
 section\<open>Strongly Connected Graphs Restricted to a Region\<close>
@@ -171,6 +170,10 @@ lemma nt_bottom_SCC_has_edge: "nt_bottom_SCC R \<Longrightarrow> (Restr E R) \<n
 (** Non-trivial bottom SCCs cannot consist of a single node without a self-loop. *)
 lemma nt_bottom_SCC_nontrivial: "(v,v) \<notin> E \<Longrightarrow> \<not>nt_bottom_SCC {v}"
   unfolding nt_bottom_SCC_def by fast
+
+(** A non-trivial bottom SCC is closed. *)
+lemma nt_bottom_SCC_closed: "nt_bottom_SCC R \<Longrightarrow> E `` R \<subseteq> R"
+  using bottom_SCC_closed[OF nt_bottom_SCC_is_bottom_SCC] .
 
 (** There are a finite number of non-trivial bottom SCCs in the graph. *)
 lemma finite_nt_bottom_SCCs:
