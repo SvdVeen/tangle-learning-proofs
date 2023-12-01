@@ -545,4 +545,14 @@ lemma lasso_from_node'_inter:
   "lasso_from_node' (E \<inter> E') v vs \<Longrightarrow> lasso_from_node' E v vs"
   "lasso_from_node' (E \<inter> E') v vs \<Longrightarrow> lasso_from_node' E' v vs"
   using inf_sup_ord(1,2)[of E E'] subgraph_lasso'[of "E\<inter>E'"] by fast+
+
+lemma simulate_closed_path:
+  assumes "E``(Y-X) \<subseteq> Y"
+  assumes "v\<in>Y"
+  assumes "path E v xs v'"
+  shows "X \<inter> set xs \<noteq> {} \<or> (path (E \<inter> (Y-X) \<times> Y) v xs v')"
+  using assms(2,3)
+  apply (induction xs arbitrary: v)
+  using assms(1)
+  by auto
 end
