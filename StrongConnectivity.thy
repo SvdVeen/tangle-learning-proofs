@@ -48,8 +48,8 @@ lemma strongly_connected_restr_path:
 
 section \<open>Strongly Connected Components\<close>
 (** A component in a graph is strongly connected when the graph restricted to that component is
-    strongly connected and maximal; there is no single vertex outside of that component that can be
-    added without breaking the strong connectivity. *)
+    strongly connected and maximal; there is no larger component that contains it and is also
+    strongly connected. *)
 definition SCC :: "'v set \<Rightarrow> bool" where
   "SCC R \<equiv> R \<subseteq> V \<and> strongly_connected (Restr E R) (V\<inter>R) \<and>
     (\<nexists>R'. R \<subset> R' \<and> strongly_connected (Restr E R') (V\<inter>R'))"

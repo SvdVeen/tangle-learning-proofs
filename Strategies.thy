@@ -106,6 +106,7 @@ definition induced_subgraph :: "'v set \<Rightarrow> 'v strat \<Rightarrow> 'v d
 
 lemma ind_subgraph_empty[simp]: "induced_subgraph V\<^sub>\<alpha> Map.empty = E \<inter> (-V\<^sub>\<alpha>) \<times> UNIV"
   unfolding induced_subgraph_def by simp
+lemma ind_subgraph_empty'[simp]: "induced_subgraph (dom Map.empty) Map.empty = E" by simp
 
 (** The induced subgraph is a subgraph of the whole graph *)
 lemma ind_subgraph[simp]: "induced_subgraph V\<^sub>\<alpha> \<sigma> \<subseteq> E"
@@ -154,9 +155,7 @@ lemma ind_subgraph_edge_dst: "\<lbrakk>(v,w) \<in> induced_subgraph V\<^sub>\<al
     region *)
 lemma ind_subgraph_closed_region:
   "\<lbrakk>R\<subseteq>V; E `` (R \<inter> (V-V\<^sub>\<alpha>)) \<subseteq> R; ran \<sigma> \<subseteq> R\<rbrakk> \<Longrightarrow> induced_subgraph V\<^sub>\<alpha> \<sigma> `` R \<subseteq> R"
-  apply (clarsimp)
-  using DiffI[of _ V V\<^sub>\<alpha>] IntI[of _ V V\<^sub>\<alpha>] ind_subgraph_edge_dst ind_subgraph_edge_in_E in_mono rev_ImageI
-  by blast
+  using ind_subgraph_edge_dst ind_subgraph_edge_in_E by blast
 
 (** If an edge is in an induced subgraph and its source is in the domain, the strategy maps its
     source to its target *)
