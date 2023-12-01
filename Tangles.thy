@@ -129,34 +129,82 @@ proof -
     done
 qed
 
-thm player_paritygame.player_tangle_def
-  player_paritygame.axioms(1)
-lemma
+lemma subgame_player_tangle_is_player_tangle:
   assumes "player_paritygame E' V' V\<^sub>0' V\<^sub>\<alpha>'"
-  assumes "E' \<subseteq> E"
+  assumes "E' = Restr E V'"
   assumes "V' \<subseteq> V"
+  assumes "V\<^sub>\<alpha>' = V\<^sub>\<alpha> \<inter> V'"
   shows "player_paritygame.player_tangle E' V' pr V\<^sub>\<alpha>' winningP U \<Longrightarrow> player_tangle U"
 proof -
   assume subgame_tangle: "player_paritygame.player_tangle E' V' pr V\<^sub>\<alpha>' winningP U"
   show ?thesis
     unfolding player_tangle_def
   proof (intro conjI)
+    from assms(2) have E'_subseteq_E: "E' \<subseteq> E" by simp
+
     from subgame_tangle show U_notempty: "U \<noteq> {}"
       unfolding player_paritygame.player_tangle_def[OF assms(1)] by blast
 
-    from subgame_tangle assms(3) show U_in_V: "U \<subseteq> V"
+    from subgame_tangle have U_in_V': "U \<subseteq> V'"
       unfolding player_paritygame.player_tangle_def[OF assms(1)] by blast
+    with assms(3) show U_in_V: "U \<subseteq> V" by blast
 
     from subgame_tangle show U_winning_pr: "winningP (pr_set U)"
       unfolding player_paritygame.player_tangle_def[OF assms(1)] by blast
 
     from subgame_tangle obtain \<sigma> where
-      "True"
+      \<sigma>_strat_subgame: "arena.strategy_of E' V\<^sub>\<alpha>' \<sigma>" and
+      \<sigma>_dom_subgame: "dom \<sigma> = U \<inter> V\<^sub>\<alpha>'" and
+      \<sigma>_ran: "ran \<sigma> \<subseteq> U " and
+      \<sigma>_tangle_subgraph_connected_subgame:
+        "strongly_connected (player_paritygame.player_tangle_subgraph E' V' V\<^sub>\<alpha>' U \<sigma>)
+            (EV (player_paritygame.player_tangle_subgraph E' V' V\<^sub>\<alpha>' U \<sigma>))" and
+      \<sigma>_won_subgame:
+        "\<forall>v\<in>U. \<forall>xs. cycle (player_paritygame.player_tangle_subgraph E' V' V\<^sub>\<alpha>' U \<sigma>) v xs
+            \<longrightarrow> winning_player xs"
       unfolding player_paritygame.player_tangle_def[OF assms(1)]
-      unfolding player_paritygame.player_tangle_strat_def[OF assms(1)]
-      unfolding player_paritygame.player_tangle_subgraph_def[OF assms(1)]
-      unfolding Let_def sorry
-    show "\<exists>\<sigma>. player_tangle_strat U \<sigma>" sorry
+                player_paritygame.player_tangle_strat_def[OF assms(1)]
+                Let_def by blast
+    have subgame_is_arena: "arena E' V' V\<^sub>0'"
+      using paritygame.axioms[OF player_paritygame.axioms(1)[OF assms(1)]] .
+
+    from \<sigma>_strat_subgame have \<sigma>_strat: "strategy_of V\<^sub>\<alpha> \<sigma>"
+      unfolding strategy_of_def arena.strategy_of_def[OF subgame_is_arena]
+      using assms(2,4) by blast
+
+    from \<sigma>_dom_subgame assms(4) U_in_V' have \<sigma>_dom: "dom \<sigma> = U \<inter> V\<^sub>\<alpha>" by auto
+
+    from assms(2,3) E'_subseteq_E U_in_V' have subgame_tangle_subgraph_is_tangle_subgraph:
+      "player_paritygame.player_tangle_subgraph E' V' V\<^sub>\<alpha>' U \<sigma> = player_tangle_subgraph U \<sigma>"
+      unfolding player_paritygame.player_tangle_subgraph_def[OF assms(1)] player_tangle_subgraph_def
+      unfolding assms(4)
+      apply (safe)
+      subgoal by blast
+      subgoal using \<sigma>_strat_subgame arena.strategy_of_in_E[OF subgame_is_arena] by blast
+      subgoal using \<sigma>_strat_subgame arena.strategy_of_in_E[OF subgame_is_arena] by blast
+      subgoal by fast
+      subgoal by blast
+      subgoal by blast
+      done
+
+    from \<sigma>_tangle_subgraph_connected_subgame have \<sigma>_tangle_subgraph_connected:
+      "strongly_connected (player_tangle_subgraph U \<sigma>) (EV (player_tangle_subgraph U \<sigma>))"
+      unfolding subgame_tangle_subgraph_is_tangle_subgraph by blast
+
+    from \<sigma>_won_subgame have \<sigma>_won:
+      "\<forall>v\<in>U. \<forall>xs. cycle (player_tangle_subgraph U \<sigma>) v xs \<longrightarrow> winning_player xs"
+      unfolding subgame_tangle_subgraph_is_tangle_subgraph by blast
+
+
+    show "\<exists>\<sigma>. player_tangle_strat U \<sigma>"
+      unfolding player_tangle_strat_def Let_def
+      apply (rule exI[where x=\<sigma>]; intro conjI)
+      subgoal using \<sigma>_strat .
+      subgoal using \<sigma>_dom .
+      subgoal using \<sigma>_ran .
+      subgoal using \<sigma>_tangle_subgraph_connected .
+      subgoal using \<sigma>_won .
+      done
   qed
 qed
 
@@ -254,6 +302,62 @@ lemma closed_tangle_is_winning_region:
   shows "winning_region \<alpha> U"
   using P0.closed_player_tangle_is_winning_region P1.closed_player_tangle_is_winning_region
   using assms by (cases \<alpha>; simp add: V\<^sub>1_def V_diff_diff_V\<^sub>0)
+
+(** TODO: cleanup of this proof *)
+lemma subgame_tangle_is_tangle:
+  assumes "paritygame E' V' V\<^sub>0'"
+  assumes "E' = Restr E V'"
+  assumes "V' \<subseteq> V"
+  assumes "V\<^sub>0' = V\<^sub>0 \<inter> V'"
+  shows "paritygame.tangle E' V' V\<^sub>0' pr \<alpha> U \<Longrightarrow> tangle \<alpha> U"
+proof -
+  assume subgame_tangle: "paritygame.tangle E' V' V\<^sub>0' pr \<alpha> U"
+
+  have subgame_is_arena: "arena E' V' V\<^sub>0'"
+    using paritygame.axioms[OF assms(1)] .
+  have subgame_is_finite_graph_V_Succ:  "finite_graph_V_Succ E' V'"
+    using arena.axioms[OF subgame_is_arena] by blast
+  have subgame_is_finite_graph_V: "finite_graph_V E' V'"
+    using finite_graph_V_Succ.axioms[OF subgame_is_finite_graph_V_Succ] by blast
+
+  from subgame_tangle show "tangle \<alpha> U"
+  proof (cases \<alpha>; simp add: paritygame.tangle.simps[OF assms(1)])
+    case EVEN
+    with subgame_tangle paritygame.tangle.simps[OF assms(1)]
+    have player_tangle: "player_paritygame.player_tangle E' V' pr V\<^sub>0' even U" by simp
+
+    have subgame_is_player_paritygame: "player_paritygame E' V' V\<^sub>0' V\<^sub>0'"
+      apply (unfold_locales)
+      subgoal using subgame_is_finite_graph_V by (simp add: finite_graph_V.E_in_V)
+      subgoal using subgame_is_finite_graph_V by (simp add: finite_graph_V.fin_V)
+      subgoal using subgame_is_finite_graph_V_Succ by (simp add: finite_graph_V_Succ.succ)
+      subgoal using subgame_is_arena by (simp add: arena.V\<^sub>0_in_V)
+      subgoal by simp
+      done
+    from P0.subgame_player_tangle_is_player_tangle[OF subgame_is_player_paritygame assms(2,3,4) player_tangle]
+    show "P0.player_tangle U" .
+  next
+    case ODD
+    with subgame_tangle paritygame.tangle.simps[OF assms(1)]
+    have player_tangle: "player_paritygame.player_tangle E' V' pr (arena.V\<^sub>1 V' V\<^sub>0') odd U" by simp
+
+    have subgame_is_player_paritygame: "player_paritygame E' V' V\<^sub>0' (arena.V\<^sub>1 V' V\<^sub>0')"
+      apply (unfold_locales)
+      subgoal using subgame_is_finite_graph_V by (simp add: finite_graph_V.E_in_V)
+      subgoal using subgame_is_finite_graph_V by (simp add: finite_graph_V.fin_V)
+      subgoal using subgame_is_finite_graph_V_Succ by (simp add: finite_graph_V_Succ.succ)
+      subgoal using subgame_is_arena by (simp add: arena.V\<^sub>0_in_V)
+      subgoal unfolding arena.V\<^sub>1_def[OF subgame_is_arena] by simp
+      subgoal by simp
+      done
+    from assms(3,4) have "arena.V\<^sub>1 V' V\<^sub>0' = V\<^sub>1 \<inter> V'"
+      unfolding arena.V\<^sub>1_def[OF subgame_is_arena] V\<^sub>1_def
+      by fastforce
+
+    from P1.subgame_player_tangle_is_player_tangle[OF subgame_is_player_paritygame assms(2,3) this player_tangle]
+    show "P1.player_tangle U" .
+  qed
+qed
 
 
 subsection \<open>Escapes\<close>
