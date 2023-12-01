@@ -18,30 +18,10 @@ abbreviation (input) subgraph_tattr
   :: "'v set \<Rightarrow> player \<Rightarrow> 'v set set \<Rightarrow> 'v set \<Rightarrow> 'v set \<Rightarrow> 'v strat \<Rightarrow> bool" where
   "subgraph_tattr R \<alpha> T A Z \<sigma> \<equiv> paritygame.tangle_attractor (Restr E R) (V\<inter>R) (V\<^sub>0\<inter>R) pr \<alpha> T A Z \<sigma>"
 
-find_theorems "?A\<subseteq>?B" name: induct
-lemma
-  assumes fin_V': "finite V'"
-  assumes connected_E': "strongly_connected E' V'"
-  shows "\<exists>\<sigma> \<alpha>. strategy_of (V_player \<alpha>) \<sigma> \<and> strongly_connected (Restr (induced_subgraph (dom \<sigma>) \<sigma>) V') (induced_subgraph_V (dom \<sigma>) \<sigma> \<inter> V')"
-proof -
-  from connected_E'
-  have V'_notempty: "V' \<noteq> {}" and
-    E'_in_V': "E' \<subseteq> V'\<times>V'" and
-    reachable: "\<forall>v\<in>V'. \<forall>v'\<in>V'. (v, v') \<in> E'\<^sup>*"
-    unfolding strongly_connected_def by auto
-  from fin_V' V'_notempty E'_in_V' reachable
-  show ?thesis
-  proof (induction V' arbitrary: E' rule: finite_psubset_induct)
-    case (psubset A)
-    define B were "B = {v\<in>V'. v \<in> V_player \<alpha>}"
-    thm psubset.IH
-    show ?case sorry
-  qed
-qed
-
 context
   fixes T :: "'v set set"
   assumes tangles_T: "\<forall>t\<in>T. tangle EVEN t \<or> tangle ODD t"
+  assumes open_tangles_T: "\<forall>t\<in>T. tangle \<alpha> t \<longrightarrow> E `` (t \<inter> V_opponent \<alpha>) - U \<noteq> {}"
   assumes fin_T: "finite T"
 begin
 
@@ -221,7 +201,7 @@ definition search_I ::  "'v set \<times> 'v set set \<Rightarrow> bool" where
 *)
 
 definition search_I :: "'v set \<times> 'v set set \<Rightarrow> bool" where
-  "search_I \<equiv> \<lambda>(R,Y). finite R \<and> valid_subgame R \<and> finite Y \<and> (\<forall>U\<in>Y. \<exists>\<alpha>. tangle \<alpha> U)"
+  "search_I \<equiv> \<lambda>(R,Y). finite R \<and> valid_subgame R \<and> finite Y \<and> (\<forall>U \<in> Y. \<exists>\<alpha>. tangle \<alpha> U \<and> U \<notin> T)"
 
 lemma search_step_finite_Y: "search_step (R,Y) (R',Y') \<Longrightarrow> search_I (R,Y) \<Longrightarrow> finite Y'"
   apply (induction rule: search_step_induct)
@@ -230,14 +210,14 @@ lemma search_step_finite_Y: "search_step (R,Y) (R',Y') \<Longrightarrow> search_
   by force
 
 lemma search_step_tangles_Y: "search_step (R,Y) (R',Y') \<Longrightarrow> search_I (R,Y)
-  \<Longrightarrow> \<forall>U\<in>Y'. \<exists>\<alpha>. tangle \<alpha> U"
+  \<Longrightarrow> \<forall>U \<in> Y'. \<exists>\<alpha>. tangle \<alpha> U \<and> U \<notin> T"
 proof (induction rule: search_step_induct)
   case (step R p \<alpha> A Z \<sigma> Ov Y' Y R')
   hence attr: "subgraph_tattr R \<alpha> T A Z \<sigma>" and
     A_def: "A = {v \<in> R. pr v = p}" and
     Ov_def: "Ov = {v \<in> V_player \<alpha> \<inter> A. E `` {v} \<inter> Z \<noteq> {}} \<union> {v \<in> V_opponent \<alpha> \<inter> A. E `` {v} \<inter> R \<subseteq> Z}" and
     Y'_def: "Y' = (if Ov \<noteq> {} then Y \<union> {S. bound_nt_bottom_SCC Z \<sigma> S} else Y)" and
-    tangles_Y: "\<forall>U\<in>Y. \<exists>\<alpha>. tangle \<alpha> U" and
+    tangles_Y: "\<forall>U \<in> Y. \<exists>\<alpha>. tangle \<alpha> U \<and> U \<notin> T" and
     R_in_V: "R \<subseteq> V" and
     R_valid_game: "paritygame (Restr E R) (V\<inter>R) (V\<^sub>0\<inter>R)"
     unfolding search_I_def by auto
@@ -259,102 +239,142 @@ proof (induction rule: search_step_induct)
         \<longrightarrow>set (xs @ ys) \<inter> A \<noteq> {} \<or> player_wins_list \<alpha> ys"
     by (auto simp: Int_absorb1)
 
+  (** This would be a useful lemma. *)
+  from Z_in_R have Restr_R_to_Z_is_Z:
+    "(Restr (Restr (induced_subgraph (V_player \<alpha>) \<sigma>) R) Z) =
+        (Restr (induced_subgraph (V_player \<alpha>) \<sigma>) Z)"
+    unfolding induced_subgraph_def E_of_strat_def by auto
+  from R_in_V step(2,3) have "player_winningP \<alpha> (pr_set (V \<inter> R))"
+    by (cases \<alpha>; simp add: player_wins_pr_def Int_absorb1 split: if_splits)
+  moreover from R_in_V step(2,4) have "A = {v \<in> V \<inter> R. pr v = pr_set (V \<inter> R)}"
+    by (simp add: Int_absorb1)
+  ultimately have all_games_in_region_won: "\<forall>v\<in>Z. \<forall>xs ys.
+    lasso_from_node (Restr (induced_subgraph (V_player \<alpha>) \<sigma>) Z) v xs ys \<longrightarrow> player_wins_list \<alpha> ys"
+    using paritygame.van_dijk_2[OF R_valid_game fin_T _ _ attr]
+          R_in_V R_valid_game paritygame.axioms[OF R_valid_game]
+    by (simp add: restr_subgraph_V_player restr_ind_subgraph_V\<^sub>\<alpha> Restr_R_to_Z_is_Z)
+
   show ?case
   proof (rule ballI)
     fix U assume Y_in_Y': "U \<in> Y'"
     with Y'_def consider (old) "U \<in> Y" | (new) "U \<in> {S. bound_nt_bottom_SCC Z \<sigma> S}"
       by (auto split: if_splits)
-    thus "\<exists>\<alpha>. tangle \<alpha> U" proof cases
+    thus "\<exists>\<alpha>. tangle \<alpha> U \<and> U \<notin> T" proof cases
       case old with tangles_Y show ?thesis by blast
     next
       case new
       from new have U_in_Z: "U \<subseteq> Z" by blast
       with R_in_V Z_in_R have U_in_V: "U \<subseteq> V" by blast
-
-
+      from finite_subset[OF this fin_V] have fin_U: "finite U" .
       from new have U_notempty: "U \<noteq> {}"
         using finite_graph_V.nt_bottom_SCC_notempty by force
 
       let ?\<sigma>_graph = "induced_subgraph (dom \<sigma>) \<sigma>"
       let ?\<sigma>_graph_V = "induced_subgraph_V (dom \<sigma>) \<sigma>"
-      have fin_graph_ind_\<sigma>: "finite_graph_V ?\<sigma>_graph ?\<sigma>_graph_V" by simp
+      have fin_graph_\<sigma>: "finite_graph_V ?\<sigma>_graph ?\<sigma>_graph_V" by simp
 
-      let ?\<sigma>' = "\<sigma> |` U"
-      let ?\<sigma>'_graph = "induced_subgraph (dom ?\<sigma>') ?\<sigma>'"
-      let ?\<sigma>'_graph_V = "induced_subgraph_V (dom ?\<sigma>') ?\<sigma>'"
+      from new have \<sigma>_V_int_U_is_U: "?\<sigma>_graph_V \<inter> U = U"
+        using finite_graph_V.nt_bottom_SCC_in_V[OF fin_graph_\<sigma>] by blast
 
-      from new have conn: "strongly_connected (Restr ?\<sigma>_graph U) (?\<sigma>_graph_V \<inter> U)"
-        using finite_graph_V.nt_bottom_SCC_strongly_connected[OF fin_graph_ind_\<sigma>] by blast
-      from new finite_graph_V.nt_bottom_SCC_succ_in_SCC[OF fin_graph_ind_\<sigma>]
-      have U_succ_in_U: "\<forall>v\<in>U. \<exists>v'\<in>U. (v,v') \<in> ?\<sigma>_graph"
-        unfolding induced_subgraph_def E_of_strat_def restrict_map_def by fastforce
+      from new have \<sigma>_connected: "strongly_connected (Restr ?\<sigma>_graph U) (?\<sigma>_graph_V \<inter> U)"
+        using finite_graph_V.nt_bottom_SCC_strongly_connected[OF fin_graph_\<sigma>] by blast
+      from new have \<sigma>_U_succ_in_U: "\<forall>v\<in>U. \<exists>v'\<in>U. (v,v') \<in> ?\<sigma>_graph"
+        using finite_graph_V.nt_bottom_SCC_succ_in_SCC[OF fin_graph_\<sigma>] by blast
+      from new have \<sigma>_U_closed: "?\<sigma>_graph `` U \<subseteq> U"
+        using finite_graph_V.nt_bottom_SCC_closed[OF fin_graph_\<sigma>] by blast
 
-      from new finite_graph_V.nt_bottom_SCC_closed[OF fin_graph_ind_\<sigma>]
-      have U_closed_\<sigma>: "?\<sigma>_graph `` U \<subseteq> U" by blast
+      define \<sigma>' where "\<sigma>' = \<sigma> |` U"
+      let ?\<sigma>'_graph = "induced_subgraph (dom \<sigma>') \<sigma>'"
+      let ?\<sigma>'_graph_V = "induced_subgraph_V (dom \<sigma>') \<sigma>'"
+      have \<sigma>'_le_\<sigma>: "\<sigma>' \<subseteq>\<^sub>m \<sigma>"
+        by (auto simp: \<sigma>'_def map_le_def)
+
+      have \<sigma>'_V_int_U_is_U: "?\<sigma>'_graph_V \<inter> U = U"
+      proof -
+        have "?\<sigma>_graph_V \<subseteq> ?\<sigma>'_graph_V"
+          unfolding \<sigma>'_def induced_subgraph_V_def induced_subgraph_def E_of_strat_def
+          by auto
+        with \<sigma>_V_int_U_is_U show ?thesis by blast
+      qed
+
+      have \<sigma>_graph_eq_\<sigma>'_graph_in_U:
+        "Restr ?\<sigma>_graph U = Restr ?\<sigma>'_graph U"
+        unfolding \<sigma>'_def induced_subgraph_def E_of_strat_def by auto
+
+      from \<sigma>_V_int_U_is_U \<sigma>'_V_int_U_is_U
+      have \<sigma>_graph_V_eq_\<sigma>'_graph_V_in_U: "?\<sigma>_graph_V \<inter> U = ?\<sigma>'_graph_V \<inter> U"
+        by simp
 
       from restr_subgraph_strategy_of_player[OF R_valid_game \<sigma>_strat]
-      have restr_\<sigma>_strat: "strategy_of (V_player \<alpha>) (\<sigma> |` U)"
-        unfolding strategy_of_def
-        using strat_le_E_of_strat[of ?\<sigma>' \<sigma>]
-        by (auto simp: map_le_def)
-
-      from \<sigma>_dom U_in_Z have restr_\<sigma>_dom: "dom ?\<sigma>' = (U-A) \<inter> V_player \<alpha>"
+      have \<sigma>'_strat: "strategy_of (V_player \<alpha>) \<sigma>'"
+        using strat_le_E_of_strat[OF \<sigma>'_le_\<sigma>]
+        unfolding strategy_of_def \<sigma>'_def
         by auto
 
-      from U_succ_in_U have restr_\<sigma>_ran: "ran ?\<sigma>' \<subseteq> U"
+      from \<sigma>_dom U_in_Z have \<sigma>'_dom: "dom \<sigma>' = (U-A) \<inter> V_player \<alpha>"
+        unfolding \<sigma>'_def by auto
+
+      from \<sigma>_U_succ_in_U have \<sigma>'_ran: "ran \<sigma>' \<subseteq> U"
+        unfolding \<sigma>'_def
         using ran_restrictD[of _ \<sigma> U] ind_subgraph_to_strategy
         by fastforce
 
-      from \<sigma>_dom U_in_Z have "?\<sigma>' \<subseteq>\<^sub>m \<sigma>"
-        by (auto simp: map_le_def)
-
-      have \<sigma>_graph_V_subseteq_\<sigma>'_graph_V:
-        "?\<sigma>_graph_V \<subseteq> ?\<sigma>'_graph_V"
-        unfolding induced_subgraph_V_def induced_subgraph_def E_of_strat_def
-        by auto
-
-      have \<sigma>_eq_\<sigma>'_in_U: "(Restr ?\<sigma>_graph U) = (Restr ?\<sigma>'_graph U)"
-        unfolding induced_subgraph_def E_of_strat_def
-        by auto
-
-      from new have U_in_\<sigma>_V: "?\<sigma>_graph_V \<inter> U = U"
-        using finite_graph_V.nt_bottom_SCC_in_V[OF fin_graph_ind_\<sigma>] by blast
-
-      hence U_in_\<sigma>'_V: "?\<sigma>'_graph_V \<inter> U = U"
-        using \<sigma>_graph_V_subseteq_\<sigma>'_graph_V by blast
-
-      from U_in_\<sigma>_V U_in_\<sigma>'_V have \<sigma>_graph_eq_\<sigma>'_graph_in_U:
-        "?\<sigma>_graph_V \<inter> U = ?\<sigma>'_graph_V \<inter> U" by simp
-
-      from conn have restr_\<sigma>_conn:
+      from \<sigma>_connected have \<sigma>'_connected:
         "strongly_connected (Restr ?\<sigma>'_graph U) (?\<sigma>'_graph_V \<inter> U)"
-        by (simp add: \<sigma>_eq_\<sigma>'_in_U \<sigma>_graph_eq_\<sigma>'_graph_in_U)
+        by (simp add: \<sigma>_graph_eq_\<sigma>'_graph_in_U \<sigma>_graph_V_eq_\<sigma>'_graph_V_in_U)
 
+      from \<sigma>_U_succ_in_U \<sigma>'_le_\<sigma> have \<sigma>'_U_succ_in_U:
+        "\<forall>v\<in>U. \<exists>v'\<in>U. (v,v') \<in> induced_subgraph (dom \<sigma>') \<sigma>'"
+        using ind_subgraph_to_strategy
+              ind_subgraph_notin_dom[OF ind_subgraph_edge_in_E, of _ _ "dom \<sigma>" \<sigma> "dom \<sigma>'"]
+              strategy_to_ind_subgraph[OF _ ind_subgraph_edge_in_E, of \<sigma>']
+              dom_restrict
+        unfolding \<sigma>'_def by fastforce
+
+      (** We still face the problem that \<sigma>' does not have moves for all \<alpha>-nodes in A.
+          I think there should be a strategy that does preserve connectivity, but proving it is tricky.
+          If a move breaks a loop that was important for strong connectivity, we have a problem.
+          We might require a separate proof to show that this strategy exists. *)
+
+      from \<sigma>'_connected have "\<forall>v\<in>U. \<forall>v'\<in>U. (v,v') \<in> (Restr ?\<sigma>'_graph U)\<^sup>*"
+        unfolding strongly_connected_def
+        by (simp add: \<sigma>'_V_int_U_is_U)
+      from fin_U have
+        "\<exists>\<tau>. dom \<tau> = (U \<inter> A \<inter> V_player \<alpha>) \<and> ran \<tau> \<subseteq> U \<and>
+          (\<forall>v\<in>U. \<forall>v'\<in>U. (v,v') \<in> (induced_subgraph (dom (\<sigma> ++ \<tau>)) (\<sigma> ++ \<tau>))\<^sup>*)"
+      proof (induction rule: finite_psubset_induct)
+        case (psubset B)
+        then show ?case sorry, xxx sorry
+      qed
+
+      (** I do not think this works, because picking some random successor might break connectivity.
+          We either need to pick successors carefully, or prove in some other way that we can amend
+          \<sigma> to cover the whole of V\<^sub>\<alpha> in U. *)
       define succ_U where "succ_U \<equiv> (\<lambda>v. SOME v'. v' \<in> U \<and> (v,v') \<in> E)"
       {
         fix v assume "v \<in> U \<inter> A"
-        with U_succ_in_U have "\<exists>v' \<in> U. (v,v') \<in> E \<and> v' \<in> U" by force
+        with \<sigma>_U_succ_in_U have "\<exists>v' \<in> U. (v,v') \<in> E \<and> v' \<in> U" by force
         hence "succ_U v \<in> U \<and> (v,succ_U v) \<in> E"
           using some_eq_imp[of _ "succ_U v"]
           unfolding succ_U_def
           by blast
       } note succ_U = this
+      define \<tau> where "\<tau> = (\<lambda>v. if v \<in> U \<inter> A \<inter> V_player \<alpha> then Some (succ_U v) else \<sigma>' v)"
 
-      define \<tau> where "\<tau> = (\<lambda>v. if v \<in> U \<inter> A \<inter> V_player \<alpha> then Some (succ_U v) else (\<sigma> |` U) v)"
       have \<tau>_strat: "strategy_of (V_player \<alpha>) \<tau>"
         unfolding \<tau>_def strategy_of_def E_of_strat_def
         apply (safe; simp split: if_splits)
-        subgoal using domI[of "\<sigma> |` U"] restr_\<sigma>_dom by blast
+        subgoal using domI[of \<sigma>'] \<sigma>'_dom by blast
         subgoal using succ_U by fast
-        subgoal using edge_in_E_of_strat strategy_of_in_E[OF restr_\<sigma>_strat] by fast
+        subgoal using edge_in_E_of_strat strategy_of_in_E[OF \<sigma>'_strat] by fast
         done
 
       have \<tau>_dom: "dom \<tau> = U \<inter> V_player \<alpha>"
         unfolding \<tau>_def
         apply (safe; simp split: if_splits)
-        subgoal using domI[of "\<sigma> |` U"] restr_\<sigma>_dom by blast
-        subgoal using domI[of "\<sigma> |` U"] restr_\<sigma>_dom by blast
-        subgoal using restr_\<sigma>_dom by auto
+        subgoal using domI[of \<sigma>'] \<sigma>'_dom by blast
+        subgoal using domI[of \<sigma>' ]\<sigma>'_dom by blast
+        subgoal using \<sigma>'_dom by auto
         done
 
       have \<tau>_ran: "ran \<tau> \<subseteq> U"
@@ -367,25 +387,23 @@ proof (induction rule: search_step_induct)
           unfolding \<tau>_def
           apply (cases "v \<in> A"; simp)
           subgoal using succ_U[of v] by simp
-          subgoal using restr_\<sigma>_ran ranI[of "\<sigma> |` U" v v'] restrict_in[of v U \<sigma>] by auto
+          subgoal using \<sigma>'_ran ranI[of \<sigma>'] by auto
           done
       qed
 
-      have "(Restr ?\<sigma>_graph U) \<noteq> {}"
-        using U_notempty U_succ_in_U by fastforce
-
-      have U_succ_in_U_\<tau>: "\<forall>v\<in>U. \<exists>v'\<in>U. (v,v') \<in> induced_subgraph (dom \<tau>) \<tau>"
-        using U_succ_in_U
-        unfolding \<tau>_def induced_subgraph_def E_of_strat_def
+      from \<sigma>_U_succ_in_U have \<tau>_U_succ_in_U:
+        "\<forall>v\<in>U. \<exists>v'\<in>U. (v,v') \<in> induced_subgraph (dom \<tau>) \<tau>"
+        unfolding \<tau>_def \<sigma>'_def induced_subgraph_def E_of_strat_def
         apply (clarsimp; safe)
         subgoal using succ_U by auto
-        subgoal for v using domD[of v] domI[of \<sigma> v] restrict_in[of v U \<sigma>] by force
-        subgoal for v using domD[of v] domI[of \<sigma> v] restrict_in[of v U \<sigma>] by force
+        subgoal by force
+        subgoal by force
         done
-      have restr_\<tau>_notempty: "(Restr (induced_subgraph (dom \<tau>) \<tau>) U) \<noteq> {}"
-        using U_notempty U_succ_in_U_\<tau> by blast
-find_theorems "?A \<subset> ?B" name: induct
-      have \<tau>_conn:
+
+      from U_notempty \<tau>_U_succ_in_U have restr_\<tau>_notempty:
+        "(Restr (induced_subgraph (dom \<tau>) \<tau>) U) \<noteq> {}" by blast
+
+      have \<tau>_connected:
         "strongly_connected (tangle_subgraph \<alpha> U \<tau>) (EV (tangle_subgraph \<alpha> U \<tau>))"
         unfolding tangle_subgraph_is_restricted_ind_subgraph[OF U_in_V \<tau>_dom \<tau>_ran]
         unfolding strongly_connected_def
@@ -403,22 +421,21 @@ find_theorems "?A \<subset> ?B" name: induct
           assume v_in_EV: "v \<in> EV (Restr (induced_subgraph (dom \<tau>) \<tau>) U)" and
                  v'_in_EV: "v' \<in> EV (Restr (induced_subgraph (dom \<tau>) \<tau>) U)"
           have f: "finite U" using finite_subset[OF U_in_V fin_V] .
-          from f U_in_Z have "(v, v') \<in> (Restr (induced_subgraph (dom \<tau>) \<tau>) U)\<^sup>*"
+          from f U_in_Z show "(v, v') \<in> (Restr (induced_subgraph (dom \<tau>) \<tau>) U)\<^sup>*"
           proof (induction rule: finite_psubset_induct)
             case (psubset B)
             then show ?case sorry
           qed
-
         qed
       qed
 
-      have \<sigma>'_tangle_strat: "tangle_strat \<alpha> U \<tau>"
+      have \<tau>_tangle_strat: "tangle_strat \<alpha> U \<tau>"
         unfolding tangle_strat_iff Let_def
         apply (intro conjI)
         subgoal using \<tau>_strat .
         subgoal using \<tau>_dom .
         subgoal using \<tau>_ran .
-        subgoal using \<tau>_conn .
+        subgoal using \<tau>_connected .
         subgoal sorry
         done
 
@@ -428,7 +445,7 @@ find_theorems "?A \<subset> ?B" name: induct
         subgoal using U_notempty .
         subgoal using U_in_V .
         subgoal sorry
-        subgoal using \<sigma>'_tangle_strat by blast
+        subgoal using \<tau>_tangle_strat by blast
         done
     qed
   qed
@@ -436,12 +453,14 @@ qed
 
 lemma search_step_I:
   "search_step (R,Y) (R',Y') \<Longrightarrow> search_I (R,Y) \<Longrightarrow> search_I (R',Y')"
-  using search_step_R_finite search_step_valid_subgame search_step_finite_Y search_step_tangles_Y
+  using search_step_R_finite[of R Y R' Y']
+        search_step_valid_subgame search_step_finite_Y[of R Y R' Y']
+        search_step_tangles_Y[of R Y R' Y']
   unfolding search_I_def
-  apply clarify
-  by metis
+  by blast
 
-lemma "search_I ({},Y) \<Longrightarrow> finite Y \<and> Y \<noteq> {} \<and> (\<forall>U \<in> Y. \<exists>\<alpha>. tangle \<alpha> U)"
+(** There are no identical tangles yet *)
+lemma "search_I ({},Y) \<Longrightarrow> finite Y \<and> Y \<noteq> {} \<and> (\<forall>U \<in> Y. \<exists>\<alpha>. tangle \<alpha> U \<and> U \<notin> T)"
   unfolding search_I_def
   apply simp
   sorry
@@ -465,13 +484,20 @@ lemma search_has_result:
   unfolding search_def
   using search_step_terminates_with_Y by simp
 *)
+
+lemma "valid_subgame R \<Longrightarrow> search_I (R,{})"
+  unfolding search_I_def
+  using finite_subset[OF _ fin_V] by blast
+
 lemma search_preserves_I:
   "search R Y \<Longrightarrow> search_I (R,{}) \<Longrightarrow> search_I ({},Y)"
   unfolding search_def
   apply (induction rule: rtranclp_induct)
-  subgoal unfolding search_I_def by blast
+  subgoal by blast
   subgoal using search_step_rtranclp_I by blast
   done
+
+lemma "valid_subgame R \<Longrightarrow> search R Y \<Longrightarrow> finite Y \<and> Y \<noteq> {} \<and> (\<forall>U \<in> Y. \<exists>\<alpha>. tangle \<alpha> U \<and> U \<notin> T)"
 end (** End of context with fixed T. *)
 
 end (** End of context paritygame *)
