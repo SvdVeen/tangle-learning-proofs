@@ -793,16 +793,37 @@ subsection \<open>\<alpha>-maximal Regions\<close>
 (** A region is \<alpha>-maximal if it equals its tangle attractor, i.e. TAttr(A) = A.
     This definition is now clearly wrong - it needs changing! *)
 definition player_\<alpha>_max :: "'v set \<Rightarrow> bool" where
-  "player_\<alpha>_max A \<equiv> \<forall>\<sigma>. \<nexists>S'. tangle_attractor_step A (A,\<sigma>) S'" (** player_tangle_attractor A A Map.empty" *)
+  "player_\<alpha>_max A \<equiv> \<forall>\<sigma>. \<nexists>S'. tangle_attractor_step A (A,\<sigma>) S'"
 
-(** Tangle attracted regions cannot be extended further with the tangle attractor. *)
-lemma attractor_no_extension:
-  "player_tangle_attractor A X \<sigma> \<Longrightarrow> \<nexists>S'. tangle_attractor_step A (X,\<sigma>) S'"
-  unfolding player_tangle_attractor_def sorry
-
+(** A tangle_attracted region cannot be extended further, meaning it is \<alpha>-maximal. *)
+lemma player_tangle_attractor_is_\<alpha>_max:
+  "player_tangle_attractor A X \<sigma> \<Longrightarrow> player_\<alpha>_max X"
+proof -
+  (** We cannot take any further steps from the attracted region. *)
+  assume attr: "player_tangle_attractor A X \<sigma>"
+  then obtain \<sigma>' where "\<not> Domainp (tangle_attractor_step A) (X, \<sigma>')"
+    unfolding player_tangle_attractor_def by blast
+  (** That means there are no player-owned nodes that can play to it, no opponent nodes that must
+      play to it, and no tangles that escape to it. *)
+  hence "(\<nexists>x y. x \<in> V\<^sub>\<alpha>-X \<and> (x,y) \<in> E \<and> y \<in> X) \<and>
+     (\<nexists>x. x \<in> V\<^sub>\<beta>-X \<and> (\<forall>y. (x,y) \<in> E \<longrightarrow> y \<in> X)) \<and>
+     (\<nexists>t \<tau>. t \<in> T \<and> t-X \<noteq> {} \<and> opponent_escapes t \<noteq> {} \<and> opponent_escapes t \<subseteq> X \<and>
+      player_tangle_strat t \<tau>)"
+    apply (safe)
+    subgoal for x y using own[of x X y] by blast
+    subgoal for x using opponent[of x X] by blast
+    subgoal for t \<tau> using escape[of t X \<tau>] by blast
+    done
+  (** This means there are no extensions possible for X using such nodes, therefore X is \<alpha>-maximal. *)
+  thus ?thesis
+    unfolding player_\<alpha>_max_def
+    apply clarsimp
+    subgoal for \<tau> X' \<tau>' using tangle_attractor_step.simps[of X "(X,\<tau>)" "(X',\<tau>')"] by blast
+    done
+qed
 end (** End of context with fixed T *)
-
 end (** End of context player_paritygame *)
+
 
 section \<open>Tangle Attractors for Specific Players\<close>
 context paritygame begin
@@ -821,24 +842,24 @@ lemma notin_tangle_attractor_succ:
   assumes fin_T: "finite T"
   shows "\<lbrakk>tangle_attractor \<alpha> T A X \<sigma>; v \<in> V; v \<notin> X\<rbrakk> \<Longrightarrow> E `` {v}-X \<noteq> {}"
   using assms
-  using P0.notin_player_tangle_attractor_succ[of "{t\<in>T. tangle EVEN t}"]
-  using P1.notin_player_tangle_attractor_succ[of "{t\<in>T. tangle ODD t}"]
+  using P0.notin_player_tangle_attractor_succ[of "{t\<in>T. tangle EVEN t}" A X \<sigma>]
+  using P1.notin_player_tangle_attractor_succ[of "{t\<in>T. tangle ODD t}" A X \<sigma>]
   by (cases \<alpha>; simp)
 
 lemma target_in_tangle_attractor:
   assumes fin_T: "finite T"
   shows "tangle_attractor \<alpha> T A X \<sigma> \<Longrightarrow> A \<subseteq> X"
   using assms
-  using P0.target_in_player_tangle_attractor[of "{t\<in>T. tangle EVEN t}"]
-  using P1.target_in_player_tangle_attractor[of "{t\<in>T. tangle ODD t}"]
+  using P0.target_in_player_tangle_attractor[of "{t\<in>T. tangle EVEN t}" A X \<sigma>]
+  using P1.target_in_player_tangle_attractor[of "{t\<in>T. tangle ODD t}" A X \<sigma>]
   by (cases \<alpha>; simp)
 
 lemma tangle_attractor_ss:
   assumes fin_T: "finite T"
   shows "tangle_attractor \<alpha> T A X \<sigma> \<Longrightarrow> X \<subseteq> A \<union> V"
   using assms
-  using P0.player_tangle_attractor_ss[of "{t\<in>T. tangle EVEN t}"]
-  using P1.player_tangle_attractor_ss[of "{t\<in>T. tangle ODD t}"]
+  using P0.player_tangle_attractor_ss[of "{t\<in>T. tangle EVEN t}" A X \<sigma>]
+  using P1.player_tangle_attractor_ss[of "{t\<in>T. tangle ODD t}" A X \<sigma>]
   by (cases \<alpha>; simp)
 
 lemma tangle_attractor_strat:
@@ -906,8 +927,16 @@ qed
 
 subsection \<open>\<alpha>-maximal regions\<close>
 fun \<alpha>_max :: "player \<Rightarrow> 'v set set \<Rightarrow> 'v set \<Rightarrow> bool" where
-  "\<alpha>_max EVEN = P0.player_\<alpha>_max"
-| "\<alpha>_max ODD = P1.player_\<alpha>_max"
+  "\<alpha>_max EVEN T = P0.player_\<alpha>_max {t\<in>T. tangle EVEN t}"
+| "\<alpha>_max ODD T = P1.player_\<alpha>_max {t\<in>T. tangle ODD t}"
+
+lemma tangle_attractor_is_\<alpha>_max:
+  assumes "finite T"
+  shows "tangle_attractor \<alpha> T A X \<sigma> \<Longrightarrow> \<alpha>_max \<alpha> T X"
+  using assms
+  using P0.player_tangle_attractor_is_\<alpha>_max[of "{t\<in>T. tangle EVEN t}" A X \<sigma>]
+  using P1.player_tangle_attractor_is_\<alpha>_max[of "{t\<in>T. tangle ODD t}" A X \<sigma>]
+  by (cases \<alpha>; simp)
 end (** End of context paritygame *)
 
 end
