@@ -62,6 +62,7 @@ lemma tangle_attractor_step_ss: "tangle_attractor_step S S' \<Longrightarrow> fs
 lemma fin_tangle_attractor_step: "tangle_attractor_step S S' \<Longrightarrow> finite (fst S) \<Longrightarrow> finite (fst S')"
   using finite_subset[OF tangle_attractor_step_ss] by blast
 
+(** We define an invariant for the properties of the constructed strategy in tangle_attractor_step. *)
 definition tangle_attractor_strat_I :: "'v set \<times> 'v strat \<Rightarrow> bool" where
   "tangle_attractor_strat_I \<equiv> \<lambda>(S,\<sigma>).
    strategy_of V\<^sub>\<alpha> \<sigma> \<and> dom \<sigma> = V\<^sub>\<alpha> \<inter> (S-A) \<and> ran \<sigma> \<subseteq> S \<and>
@@ -69,9 +70,11 @@ definition tangle_attractor_strat_I :: "'v set \<times> 'v strat \<Rightarrow> b
    (\<forall>x\<in>S. \<forall>xs ys. lasso_from_node (induced_subgraph V\<^sub>\<alpha> \<sigma>) x xs ys
       \<longrightarrow> (set (xs@ys) \<inter> A \<noteq> {} \<or> winning_player ys))"
 
+(** The invariant is true for the initial state of the tangle attractor. *)
 lemma tangle_attractor_strat_I_base: "tangle_attractor_strat_I (A,Map.empty)"
   unfolding tangle_attractor_strat_I_def using origin_in_lasso by fastforce
 
+(** The step preserves the invariant, so long as A was part of state S. *)
 lemma tangle_attractor_strat_I_step:
   "tangle_attractor_step S S' \<Longrightarrow> A \<subseteq> fst S \<Longrightarrow> tangle_attractor_strat_I S
    \<Longrightarrow> tangle_attractor_strat_I S'"
@@ -452,30 +455,30 @@ lemma tangle_attractor_step_rtranclp_preserves_I:
   by fast
 
 subsection \<open>Tangle Attractors\<close>
+(** Van Dijk's definition for the construction of witness strategies of tangle attractors includes
+    assigning a successor in X to each player_owned nodes in A. We define this as a lambda that
+    uses the hilbert choice operator to pick some valid successor if it exists. *)
 definition A_target :: "'v set \<Rightarrow> 'v \<Rightarrow> 'v option" where
   "A_target X \<equiv> \<lambda>x.
     if x \<in> V\<^sub>\<alpha> \<inter> A \<and> (\<exists>y. y \<in> X \<and> (x,y) \<in> E)
-    then 
+    then
       Some (SOME y. y \<in> X \<and> (x,y) \<in> E)
     else
       None"
 
+(** A_target produces a strategy for the player. *)
 lemma A_target_strat: "strategy_of V\<^sub>\<alpha> (A_target X)"
   unfolding A_target_def strategy_of_def E_of_strat_def
   apply (safe; clarsimp split: if_splits)
   subgoal for x using someI2[of "(\<lambda>y. y \<in> X \<and> (x,y) \<in> E)"] by fast
   done
 
+(** The domain of A_target is some subset of the player's node in A. *)
 lemma A_target_dom: "dom (A_target X) \<subseteq> V\<^sub>\<alpha> \<inter> A"
   unfolding A_target_def
   by (auto split: if_splits)
 
-lemma A_target_dom_closed: "\<lbrakk>E `` X \<subseteq> X; A \<subseteq> X\<rbrakk> \<Longrightarrow> dom (A_target X) = V\<^sub>\<alpha> \<inter> A"
-  unfolding A_target_def
-  apply (safe; clarsimp split: if_splits)
-  subgoal for x using succ V\<^sub>\<alpha>_subset by fast
-  done
-
+(** The range of A_target is in X. *)
 lemma A_target_ran: "ran (A_target X) \<subseteq> X"
 proof
   fix y assume y_in_range: "y \<in> ran (A_target X)"
@@ -483,9 +486,16 @@ proof
     by (auto simp: ran_def)
   thus "y \<in> X"
     unfolding A_target_def
-    using some_eq_imp some_eq_imp[of "(\<lambda>v'. v' \<in> X \<and> (x,v') \<in> E)" y]
+    using some_eq_imp[of "(\<lambda>v'. v' \<in> X \<and> (x,v') \<in> E)" y]
     by (simp split: if_splits)
 qed
+
+(** Every x in A belonging to the player with at least one successor in X is in the domain of
+    A_target X *)
+lemma A_target_in_dom: "\<lbrakk>x \<in> V\<^sub>\<alpha> \<inter> A; E `` {x} \<inter> X \<noteq> {}\<rbrakk> \<Longrightarrow> x \<in> dom (A_target X)"
+  unfolding A_target_def
+  apply (simp split!: if_splits)
+  using someI[of "(\<lambda>v'. v' \<in> X \<and> (x,v') \<in> E)"] by force
 
 (** We finally get the definition for the attractor as a whole by taking the reflexive transitive
     closure of the steps starting from the target set with an empty strategy. We also limit it to
@@ -498,103 +508,177 @@ definition player_tangle_attractor :: "'v set \<Rightarrow> 'v strat \<Rightarro
     (\<sigma> |` (X-A)) = \<sigma>' \<and>
     (\<forall>v\<in>A. E `` {v} \<inter> X \<noteq> {} \<longrightarrow> \<sigma> v \<in> Some ` (E `` {v} \<inter> X))" *)
 
+(** The whole attractor is obtained by taking the reflexive transitive closure of the steps starting
+    from the target set with an empty strategy. We limit it to only include final results by saying
+    it should not be in the domain of the relation; it cannot be followed by another step. We also
+    have to assign a target for all nodes in A that have a successor in X, as per Van Dijk's
+    definition of the construction of the witness strategy. *)
 definition player_tangle_attractor :: "'v set \<Rightarrow> 'v strat \<Rightarrow> bool" where
   "player_tangle_attractor X \<sigma> \<equiv> \<exists>\<sigma>'. tangle_attractor_step\<^sup>*\<^sup>* (A,Map.empty) (X,\<sigma>') \<and>
     \<not>Domainp tangle_attractor_step (X,\<sigma>') \<and> \<sigma> = \<sigma>' ++ A_target X"
 
-lemma player_tangle_attractor_strat_preserves_I_\<sigma>': 
-  "player_tangle_attractor X \<sigma> \<Longrightarrow> \<exists>\<sigma>'. tangle_attractor_strat_I \<sigma>'"
+(** The attracted region always contais A due to the monotonicity of the steps. *)
+lemma player_tangle_attractor_contains_A:
+  "player_tangle_attractor X \<sigma> \<Longrightarrow> A \<subseteq> X"
+  unfolding player_tangle_attractor_def
+  using tangle_attractor_step_rtranclp_mono
+  by fastforce
+
+(** This auxiliary lemma is used to show that the invariant has been preserved for \<sigma>, and that
+    \<sigma> is constructed from \<sigma>' and A_target. *)
+lemma player_tangle_attractor_I_aux:
+  "player_tangle_attractor X \<sigma> \<Longrightarrow> \<exists>\<sigma>'. tangle_attractor_strat_I (X,\<sigma>') \<and> \<sigma> = \<sigma>' ++ A_target X"
   unfolding player_tangle_attractor_def
   using tangle_attractor_step_rtranclp_preserves_I[OF _ _ tangle_attractor_strat_I_base]
   by auto
 
-(** The tangle attractor strategy belongs to the player, goes from V\<^sub>\<alpha>-A to X, is closed in X, and
-    forces all plays starting within it to either move to A, or be won by the player. *)
-lemma player_tangle_attractor_strat: "player_tangle_attractor X \<sigma> \<Longrightarrow>
-  strategy_of V\<^sub>\<alpha> \<sigma> \<and> dom \<sigma> \<subseteq> V\<^sub>\<alpha> \<inter> X \<and> ran \<sigma> \<subseteq> X \<and>
-  induced_subgraph V\<^sub>\<alpha> \<sigma> `` (X-A) \<subseteq> X \<and>
-  (\<forall>x\<in>X. \<forall>xs ys. lasso_from_node (induced_subgraph V\<^sub>\<alpha> \<sigma>) x xs ys
-    \<longrightarrow> set (xs @ ys) \<inter> A \<noteq> {} \<or> winning_player ys)"
-proof -
-  assume "player_tangle_attractor X \<sigma>"
-  then obtain \<sigma>' where
-  step_rtranclp_\<sigma>': "tangle_attractor_step\<^sup>*\<^sup>* (A,Map.empty) (X,\<sigma>')" and
-  \<sigma>_def: "\<sigma> = \<sigma>' ++ A_target X"
-    unfolding player_tangle_attractor_def by blast
+(** If we have a tangle-attracted region X and witness strategy \<sigma>, then that is a strategy for the
+    player. *)
+lemma player_tangle_attractor_strat_of_V\<^sub>\<alpha>:
+  "player_tangle_attractor X \<sigma> \<Longrightarrow> strategy_of V\<^sub>\<alpha> \<sigma>"
+  using player_tangle_attractor_I_aux[of X \<sigma>] A_target_strat[of X]
+  unfolding tangle_attractor_strat_I_def
+  by fastforce
 
-  from tangle_attractor_step_rtranclp_mono[OF step_rtranclp_\<sigma>']
-  have A_in_X: "A \<subseteq> X" by simp
+(** If we have a tangle-attracted region X and witness strategy \<sigma>, then the domain of \<sigma> is some
+    subset of all player-owned nodes in X. *)
+lemma player_tangle_attractor_strat_dom:
+  "player_tangle_attractor X \<sigma> \<Longrightarrow> dom \<sigma> \<subseteq> V\<^sub>\<alpha> \<inter> X"
+  using player_tangle_attractor_I_aux[of X \<sigma>] player_tangle_attractor_contains_A[of X \<sigma>]
+        A_target_dom[of X]
+  unfolding tangle_attractor_strat_I_def
+  by auto
 
-  from tangle_attractor_step_rtranclp_preserves_I[OF step_rtranclp_\<sigma>' _ tangle_attractor_strat_I_base]
-  have \<sigma>'_strat: "strategy_of V\<^sub>\<alpha> \<sigma>'" and
+(** If we have a tangle-attracted region X and a witness strategy \<sigma>, then the range of \<sigma> is in X.*)
+lemma player_tangle_attractor_strat_ran:
+  "player_tangle_attractor X \<sigma> \<Longrightarrow> ran \<sigma> \<subseteq> X"
+  using player_tangle_attractor_I_aux[of X \<sigma>] A_target_ran[of X]
+  unfolding tangle_attractor_strat_I_def
+  by (auto simp: ran_def)
+
+(** If we have a tangle-attracted region X and a witness strategy \<sigma>, then the induced subgraph of \<sigma>
+    is partially closed in X, excluding A. *)
+lemma player_tangle_attractor_strat_partially_closed:
+  "player_tangle_attractor X \<sigma> \<Longrightarrow> induced_subgraph V\<^sub>\<alpha> \<sigma> `` (X-A) \<subseteq> X"
+  using player_tangle_attractor_I_aux[of X \<sigma>]
+  unfolding tangle_attractor_strat_I_def A_target_def induced_subgraph_def E_of_strat_def
+  by auto
+
+(** If we have a tangle-attracted region X and a witness strategy \<sigma>, and X is a closed region, then
+    the induced subgraph of \<sigma> is also closed in X. This is a somewhat trivial property, but nice to
+    have. *)
+lemma closed_player_tangle_attractor_strat_closed:
+  "\<lbrakk>player_tangle_attractor X \<sigma>; E `` X \<subseteq> X\<rbrakk> \<Longrightarrow> induced_subgraph V\<^sub>\<alpha> \<sigma> `` X \<subseteq> X"
+  using player_tangle_attractor_I_aux[of X \<sigma>] ind_subgraph[of V\<^sub>\<alpha> \<sigma>]
+  unfolding tangle_attractor_strat_I_def
+  by fast
+
+(** If we have a tangle-attracted region X and a witness strategy \<sigma>, then all plays in X restricted
+    by \<sigma> either lead to A or are won by the player. *)
+lemma player_tangle_attractor_strat_forces_A_or_wins:
+  "player_tangle_attractor X \<sigma> \<Longrightarrow> \<forall>x\<in>X. \<forall>xs ys. lasso_from_node (induced_subgraph V\<^sub>\<alpha> \<sigma>) x xs ys
+    \<longrightarrow> set (xs@ys) \<inter> A \<noteq> {} \<or> winning_player ys"
+proof (intro ballI allI impI)
+  fix x xs ys
+  assume attr: "player_tangle_attractor X \<sigma>" and
+    x_in_X: "x \<in> X" and lasso: "lasso_from_node (induced_subgraph V\<^sub>\<alpha> \<sigma>) x xs ys"
+  (** We need the domain of \<sigma>', the fact that \<sigma>' forces all plays to go to A or be won by the player,
+      and the composition of \<sigma>. *)
+  from player_tangle_attractor_I_aux[OF attr] obtain \<sigma>' :: "'v strat" where
     \<sigma>'_dom: "dom \<sigma>' = V\<^sub>\<alpha> \<inter> (X-A)" and
-    \<sigma>'_ran: "ran \<sigma>' \<subseteq> X" and
-    \<sigma>'_closed: "induced_subgraph V\<^sub>\<alpha> \<sigma>' `` (X-A) \<subseteq> X" and
-    \<sigma>'_forces_A_or_wins: "(\<forall>x\<in>X. \<forall>xs ys. lasso_from_node (induced_subgraph V\<^sub>\<alpha> \<sigma>') x xs ys 
-      \<longrightarrow> set (xs@ys) \<inter> A \<noteq> {} \<or> winning_player ys)"
-    unfolding tangle_attractor_strat_I_def by auto
-
-  from \<sigma>'_strat \<sigma>_def have \<sigma>_strat: "strategy_of V\<^sub>\<alpha> \<sigma>"
-    using A_target_strat by simp
-
-  from \<sigma>'_dom \<sigma>_def A_in_X have \<sigma>_dom: "dom \<sigma> \<subseteq> V\<^sub>\<alpha> \<inter> X"
-    using A_target_dom by blast
-
-  from \<sigma>'_ran \<sigma>_def have \<sigma>_ran: "ran \<sigma> \<subseteq> X"
-    using A_target_ran[of X]
-    unfolding ran_def by blast
-
-  from \<sigma>'_dom have \<sigma>_extends_\<sigma>': "\<sigma> |` (X-A) = \<sigma>'"
-    unfolding \<sigma>_def restrict_map_def
-    using A_target_dom map_add_dom_app_simps(3)[of _ "A_target X" \<sigma>']
+    \<sigma>'_forces_A_or_wins: "\<forall>x\<in>X. \<forall>xs ys. lasso_from_node (induced_subgraph V\<^sub>\<alpha> \<sigma>') x xs ys
+      \<longrightarrow> set (xs@ys) \<inter> A \<noteq> {} \<or> winning_player ys" and
+    \<sigma>_comp: "\<sigma> = \<sigma>' ++ A_target X"
+    unfolding tangle_attractor_strat_I_def
+    by blast
+  (** From the domain of \<sigma>', and the way \<sigma> is composed, we can say that \<sigma> restricted to X minus A
+      is equal to \<sigma>'. *)
+  from \<sigma>'_dom \<sigma>_comp have \<sigma>_extends_\<sigma>': "\<sigma> |` (X-A) = \<sigma>'"
+    using A_target_dom[of X]
+    apply (simp add: restrict_map_def)
+    using map_add_dom_app_simps(3)[of _ "A_target X" \<sigma>']
     by fastforce
-
-  with \<sigma>'_closed have \<sigma>_closed: "induced_subgraph V\<^sub>\<alpha> \<sigma> `` (X-A) \<subseteq> X"
-    unfolding induced_subgraph_def E_of_strat_def by fastforce
-
-  have \<sigma>_forces_A_or_wins:
-    "\<forall>x\<in>X. \<forall>xs ys. lasso_from_node (induced_subgraph V\<^sub>\<alpha> \<sigma>) x xs ys 
-      \<longrightarrow> set (xs @ ys) \<inter> A \<noteq> {} \<or> winning_player ys"
-  proof (intro ballI allI impI)
-    fix x xs ys
-    assume x_in_X: "x \<in> X" and lasso: "lasso_from_node (induced_subgraph V\<^sub>\<alpha> \<sigma>) x xs ys"
-    hence ys_notempty: "ys \<noteq> []" by auto
-
-    from \<sigma>_extends_\<sigma>' have restricted_graphs_equal:
-      "(induced_subgraph V\<^sub>\<alpha> \<sigma>) \<inter> (X-A) \<times> X = (induced_subgraph V\<^sub>\<alpha> \<sigma>') \<inter> (X-A) \<times> X"
-      unfolding induced_subgraph_def E_of_strat_def by auto
-  
-    from lasso_from_node_paths[of _ x xs ys] lasso obtain y where
-      path_x_xs_y: "path (induced_subgraph V\<^sub>\<alpha> \<sigma>) x xs y" and
-      path_y_ys_y: "path (induced_subgraph V\<^sub>\<alpha> \<sigma>) y ys y"
-      by blast
-    with ys_notempty have y_in_ys: "\<exists>ys'. ys = (y#ys')" using path_D[of _ y ys y] by blast
-    define zs where "zs = xs@ys"
-    with path_x_xs_y path_y_ys_y have path_x_zs_y: "path (induced_subgraph V\<^sub>\<alpha> \<sigma>) x zs y"
-      by auto
-    
-    have A_in_zs_or_path: "A \<inter> set zs \<noteq> {} \<or> path (induced_subgraph V\<^sub>\<alpha> \<sigma> \<inter> (X-A) \<times> X) x zs y"
-      using simulate_closed_path[OF \<sigma>_closed x_in_X path_x_zs_y] by blast
-    have "A \<inter> set (xs@ys) = {} \<Longrightarrow> winning_player ys"
-    proof -
-      assume A_notin_xs_ys: "A \<inter> set (xs@ys) = {}"
-      with A_in_zs_or_path have "path (induced_subgraph V\<^sub>\<alpha> \<sigma> \<inter> (X-A) \<times> X) x zs y"
-        unfolding zs_def by blast
-      with restricted_graphs_equal have "path (induced_subgraph V\<^sub>\<alpha> \<sigma>') x zs y"
-        using path_inter(1) by fastforce
-      with y_in_ys have path'_x_xs_y: "path (induced_subgraph V\<^sub>\<alpha> \<sigma>') x xs y" and
-        path'_y_ys_y: "path (induced_subgraph V\<^sub>\<alpha> \<sigma>') y ys y"
-        unfolding zs_def by auto
-      with ys_notempty have "lasso_from_node (induced_subgraph V\<^sub>\<alpha> \<sigma>') x xs ys"
-        using lasso_from_node_paths by fast
-      with x_in_X \<sigma>'_forces_A_or_wins A_notin_xs_ys show ?thesis by blast
-    qed
-    thus "set (xs@ys) \<inter> A \<noteq> {} \<or> winning_player ys" by blast
+  (** Therefore, the induced subgraphs of \<sigma> and \<sigma>' are equal in the graph restricted to X minus A. *)
+  hence restricted_graphs_equal:
+    "(induced_subgraph V\<^sub>\<alpha> \<sigma>) \<inter> (X-A) \<times> X = (induced_subgraph V\<^sub>\<alpha> \<sigma>') \<inter> (X-A) \<times> X"
+    unfolding induced_subgraph_def E_of_strat_def by auto
+  (** ys is not empty, and we have a path from x to y and a path from y to y. We can also say that
+      y is included at the start of ys'. *)
+  from lasso have ys_notempty: "ys \<noteq> []" by auto
+  from lasso obtain y where
+    path_x_xs_y: "path (induced_subgraph V\<^sub>\<alpha> \<sigma>) x xs y" and
+    path_y_ys_y: "path (induced_subgraph V\<^sub>\<alpha> \<sigma>) y ys y"
+    using lasso_from_node_paths[of "induced_subgraph V\<^sub>\<alpha> \<sigma>"] by auto
+  with ys_notempty have y_in_ys: "\<exists>ys'. ys = (y#ys')"
+    using path_D[of _ y ys y] by blast
+  (** Now we attach these paths to form a single path. *)
+  define zs where "zs=xs@ys"
+  with path_x_xs_y path_y_ys_y have path_x_zs_y: "path (induced_subgraph V\<^sub>\<alpha> \<sigma>) x zs y"
+    by auto
+  (** Using this lemma, we know that this path either needs to intersect with A, or it exists
+      withing the area without A. *)
+  from player_tangle_attractor_strat_partially_closed[OF attr]
+  have \<sigma>_closed: "induced_subgraph V\<^sub>\<alpha> \<sigma> `` (X - A) \<subseteq> X" .
+  have A_in_zs_or_path: "A \<inter> set zs \<noteq> {} \<or> path (induced_subgraph V\<^sub>\<alpha> \<sigma> \<inter> (X-A) \<times> X) x zs y"
+    using simulate_closed_path[OF \<sigma>_closed x_in_X path_x_zs_y] by blast
+  (** If we assume that there is no A in zs we should have a winning path. *)
+  have "A \<inter> set zs = {} \<Longrightarrow> winning_player ys"
+  proof -
+    assume no_A_in_zs: "A \<inter> set zs = {}"
+    (** Because A is not in ZS, we have a path that stays in the region minus A. *)
+    with A_in_zs_or_path have "path (induced_subgraph V\<^sub>\<alpha> \<sigma> \<inter> (X-A) \<times> X) x zs y" by simp
+    (** This path also exists in the graph of \<sigma>'. *)
+    with restricted_graphs_equal have "path (induced_subgraph V\<^sub>\<alpha> \<sigma>' \<inter> (X-A) \<times> X) x zs y" by simp
+    hence "path (induced_subgraph V\<^sub>\<alpha> \<sigma>') x zs y" using path_inter(1) by fastforce
+    (** Now, we can say that the original lasso existed in the graph of \<sigma>' too.*)
+    with y_in_ys ys_notempty have "lasso_from_node (induced_subgraph V\<^sub>\<alpha> \<sigma>') x xs ys"
+      using lasso_from_node_paths
+      unfolding zs_def by fastforce
+    (** Because this lasso does not intersect with A, the loop is won by the player by the
+        property of \<sigma>' we obtained from the invariant. *)
+    with \<sigma>'_forces_A_or_wins x_in_X no_A_in_zs show ?thesis
+      unfolding zs_def by blast
   qed
-
-  from \<sigma>_strat \<sigma>_dom \<sigma>_ran \<sigma>_closed \<sigma>_forces_A_or_wins
-  show ?thesis by blast
+  (** Since not intersecting with A means the loop is won by the player, we have proven our lemma. *)
+  thus "set (xs@ys) \<inter> A \<noteq> {} \<or> winning_player ys"
+    unfolding zs_def by fast
 qed
+
+(** If we have a tangle-attracted region X and a witness strategy \<sigma>, then \<sigma> is a strategy for the
+    player, its domain is a subset of all player-owned nodes in X, its range is in X, the induced
+    subgraph of \<sigma> is partially closed in X (excluding A), and all plays starting in X restricted by
+    \<sigma> either go to A or are won by the player. *)
+lemma player_tangle_attractor_strat:
+  "player_tangle_attractor X \<sigma> \<Longrightarrow>
+   strategy_of V\<^sub>\<alpha> \<sigma> \<and>
+   dom \<sigma> \<subseteq> V\<^sub>\<alpha> \<inter> X \<and>
+   ran \<sigma> \<subseteq> X \<and>
+   induced_subgraph V\<^sub>\<alpha> \<sigma> `` (X-A) \<subseteq> X \<and>
+   (\<forall>x\<in>X. \<forall>xs ys. lasso_from_node (induced_subgraph V\<^sub>\<alpha> \<sigma>) x xs ys
+      \<longrightarrow> set (xs@ys) \<inter> A \<noteq> {} \<or> winning_player ys)"
+  using player_tangle_attractor_strat_of_V\<^sub>\<alpha>[of X \<sigma>]
+    player_tangle_attractor_strat_dom[of X \<sigma>]
+    player_tangle_attractor_strat_ran[of X \<sigma>]
+    player_tangle_attractor_strat_partially_closed[of X \<sigma>]
+    player_tangle_attractor_strat_forces_A_or_wins[of X \<sigma>]
+  by fast
+
+(** If we have an attracted region X and a witness strategy \<sigma>, and a player-owned node in A that has
+    at least one successor in X, then that x is in the domain of \<sigma>. This is because it was given one
+    by A_target X.*)
+lemma player_tangle_attractor_strat_in_dom_A:
+  "\<lbrakk>player_tangle_attractor X \<sigma>; x\<in>V\<^sub>\<alpha> \<inter> A; E `` {x} \<inter> X \<noteq> {}\<rbrakk> \<Longrightarrow> x \<in> dom \<sigma>"
+  using player_tangle_attractor_I_aux[of X \<sigma>] A_target_in_dom[of x X]
+  unfolding tangle_attractor_strat_I_def
+  by auto
+
+(** If we have an attracted region X and a witness strategy \<sigma>, and a player-owned node in X minus A,
+    then that x is in the domain of \<sigma>. This is due to the invariant on \<sigma>'. *)
+lemma player_tangle_attractor_strat_in_dom_not_A:
+  "\<lbrakk>player_tangle_attractor X \<sigma>; x \<in> V\<^sub>\<alpha> \<inter> (X-A)\<rbrakk> \<Longrightarrow> x \<in> dom \<sigma>"
+  using player_tangle_attractor_I_aux[of X \<sigma>]
+  unfolding tangle_attractor_strat_I_def
+  by (clarsimp simp: domD)
 
 (** The (inverse) reflexive transitive closure of the tangle attractor step is a well-founded
     relation. *)
@@ -716,19 +800,7 @@ lemma attractor_no_extension:
   "player_tangle_attractor A X \<sigma> \<Longrightarrow> \<nexists>S'. tangle_attractor_step A (X,\<sigma>) S'"
   unfolding player_tangle_attractor_def sorry
 
-lemma attractor_no_extension':
-  "player_tangle_attractor A X \<sigma> \<Longrightarrow> \<nexists>S'. tangle_attractor_step X (X,Map.empty) S'"
-  unfolding player_tangle_attractor_def
-  apply (erule conjE)
-  apply (induction rule: rtranclp_induct)
-  sorry
-
 end (** End of context with fixed T *)
-
-(** We need this version of the induction lemma so we can supply the properties of T without losing
-    our case names. *)
-lemmas player_tangle_attractor_induct[consumes 3, case_names base own opponent escape] =
-  player_tangle_attractor_induct_internal
 
 end (** End of context player_paritygame *)
 
@@ -770,24 +842,42 @@ lemma tangle_attractor_ss:
   by (cases \<alpha>; simp)
 
 lemma tangle_attractor_strat:
-  assumes fin_T: "finite T"
+  assumes "finite T"
   shows "tangle_attractor \<alpha> T A X \<sigma> \<Longrightarrow>
-         strategy_of_player \<alpha> \<sigma> \<and> dom \<sigma> = V_player \<alpha> \<inter> (X-A) \<and> ran \<sigma> \<subseteq> X \<and>
-         induced_subgraph (V_player \<alpha>) \<sigma> `` (X-A) \<subseteq> X \<and>
-         (\<forall>x\<in>X. \<forall>xs ys. lasso_from_node (induced_subgraph (V_player \<alpha>) \<sigma>) x xs ys
-            \<longrightarrow> set (xs @ ys) \<inter> A \<noteq> {} \<or> player_wins_list \<alpha> ys)"
+    strategy_of_player \<alpha> \<sigma> \<and>
+    dom \<sigma> \<subseteq> V_player \<alpha> \<inter> X \<and>
+    ran \<sigma> \<subseteq> X \<and>
+    induced_subgraph (V_player \<alpha>) \<sigma> `` (X-A) \<subseteq> X \<and>
+    (\<forall>x\<in>X. \<forall>xs ys. lasso_from_node (induced_subgraph (V_player \<alpha>) \<sigma>) x xs ys
+      \<longrightarrow> set (xs@ys) \<inter> A \<noteq> {} \<or> player_wins_list \<alpha> ys)"
   unfolding strategy_of_player_def
   using assms
-  using P0.player_tangle_attractor_strat[of "{t\<in>T. tangle EVEN t}"]
-  using P1.player_tangle_attractor_strat[of "{t\<in>T. tangle ODD t}"]
+  using P0.player_tangle_attractor_strat[of "{t\<in>T. tangle EVEN t}" A X \<sigma>]
+  using P1.player_tangle_attractor_strat[of "{t\<in>T. tangle ODD t}" A X \<sigma>]
   by (cases \<alpha>; simp add: V\<^sub>1_def)
+
+lemma tangle_attractor_strat_in_dom_A:
+  assumes "finite T"
+  shows "\<lbrakk>tangle_attractor \<alpha> T A X \<sigma>; x \<in> V_player \<alpha> \<inter> A; E `` {x} \<inter> X \<noteq> {}\<rbrakk> \<Longrightarrow> x \<in> dom \<sigma>"
+  using assms
+  using P0.player_tangle_attractor_strat_in_dom_A[of "{t\<in>T. tangle EVEN t}" A X \<sigma>]
+  using P1.player_tangle_attractor_strat_in_dom_A[of "{t\<in>T. tangle ODD t}" A X \<sigma>]
+  by (cases \<alpha>; simp)
+
+lemma tangle_attractor_strat_in_dom_not_A:
+  assumes "finite T"
+  shows "\<lbrakk>tangle_attractor \<alpha> T A X \<sigma>; x \<in> V_player \<alpha> \<inter> (X-A)\<rbrakk> \<Longrightarrow> x \<in> dom \<sigma>"
+  using assms
+  using P0.player_tangle_attractor_strat_in_dom_not_A[of "{t\<in>T. tangle EVEN t}" A X \<sigma>]
+  using P1.player_tangle_attractor_strat_in_dom_not_A[of "{t\<in>T. tangle ODD t}" A X \<sigma>]
+  by (cases \<alpha>; simp)
 
 lemma tangle_attractor_finite:
   assumes fin_T: "finite T"
   shows "tangle_attractor \<alpha> T A X \<sigma> \<Longrightarrow> finite A \<Longrightarrow> finite X"
   using assms
-  using P0.player_tangle_attractor_finite[of "{t\<in>T. tangle EVEN t}"]
-  using P1.player_tangle_attractor_finite[of "{t\<in>T. tangle ODD t}"]
+  using P0.player_tangle_attractor_finite[of "{t\<in>T. tangle EVEN t}" A X \<sigma>]
+  using P1.player_tangle_attractor_finite[of "{t\<in>T. tangle ODD t}" A X \<sigma>]
   by (cases \<alpha>; simp)
 
 (** If you remove a tangle attractor from the game, the resulting graph is a valid subgame. *)
