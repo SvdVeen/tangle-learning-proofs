@@ -42,12 +42,15 @@ lemmas search_step_induct[consumes 1, case_names step] =
     where P="\<lambda>(a,b) (c,d). P a b c d" for P,
     unfolded split]
 
-lemma search_step_R_finite: "search_step (R,Y) (R',Y') \<Longrightarrow> finite R \<Longrightarrow> finite R'"
+(** If the initial R is finite, then R' is finite after a step. *)
+lemma search_step_R_finite:
+  "\<lbrakk>search_step (R,Y) (R',Y'); finite R\<rbrakk> \<Longrightarrow> finite R'"
   apply (induction rule: search_step_induct)
   by blast
 
+(** If the initial R is a valid subgame, then R' is a valid subgame after a step. *)
 lemma search_step_valid_subgame:
-  "search_step (R,Y) (R',Y') \<Longrightarrow> valid_subgame R \<Longrightarrow> valid_subgame R'"
+  "\<lbrakk>search_step (R,Y) (R',Y'); valid_subgame R\<rbrakk> \<Longrightarrow> valid_subgame R'"
 proof (induction rule: search_step_induct)
   case (step R p \<alpha> A Z \<sigma> Ov Y' Y R')
   hence tattr: "subgraph_tattr R \<alpha> T A Z \<sigma>" and
@@ -203,14 +206,26 @@ definition search_I ::  "'v set \<times> 'v set set \<Rightarrow> bool" where
 definition search_I :: "'v set \<times> 'v set set \<Rightarrow> bool" where
   "search_I \<equiv> \<lambda>(R,Y). finite R \<and> valid_subgame R \<and> finite Y \<and> (\<forall>U \<in> Y. \<exists>\<alpha>. tangle \<alpha> U \<and> U \<notin> T)"
 
-lemma search_step_finite_Y: "search_step (R,Y) (R',Y') \<Longrightarrow> search_I (R,Y) \<Longrightarrow> finite Y'"
+(** If we end with an empty region, then we have a finite, non-empty Y containing new tangles that
+    were not included in T before. *)
+lemma search_I_correct:
+  "search_I ({},Y) \<Longrightarrow> finite Y \<and> Y \<noteq> {} \<and> (\<forall>U \<in> Y. \<exists>\<alpha>. tangle \<alpha> U \<and> U \<notin> T)"
+  unfolding search_I_def
+  apply simp
+  sorry
+
+(** If our invariant holds for a state, a step of the search algorithm gives us a finite Y'. *)
+lemma search_step_finite_Y:
+  "\<lbrakk>search_step (R,Y) (R',Y'); search_I (R,Y)\<rbrakk> \<Longrightarrow> finite Y'"
   apply (induction rule: search_step_induct)
   using paritygame.tangle_attractor_finite[OF _ fin_T]
   unfolding search_I_def
   by force
 
-lemma search_step_tangles_Y: "search_step (R,Y) (R',Y') \<Longrightarrow> search_I (R,Y)
-  \<Longrightarrow> \<forall>U \<in> Y'. \<exists>\<alpha>. tangle \<alpha> U \<and> U \<notin> T"
+(** If our invariant holds for a state, a step of the search algorithm gives us a Y' with new tangles
+    that were not included in T before. *)
+lemma search_step_tangles_Y:
+  "\<lbrakk>search_step (R,Y) (R',Y'); search_I (R,Y)\<rbrakk> \<Longrightarrow> \<forall>U \<in> Y'. \<exists>\<alpha>. tangle \<alpha> U \<and> U \<notin> T"
 proof (induction rule: search_step_induct)
   case (step R p \<alpha> A Z \<sigma> Ov Y' Y R')
   hence attr: "subgraph_tattr R \<alpha> T A Z \<sigma>" and
@@ -387,21 +402,19 @@ proof (induction rule: search_step_induct)
   qed
 qed
 
+(** One step of the search algorithm preserves our invariant. *)
 lemma search_step_I:
-  "search_step (R,Y) (R',Y') \<Longrightarrow> search_I (R,Y) \<Longrightarrow> search_I (R',Y')"
+  "\<lbrakk>search_step (R,Y) (R',Y'); search_I (R,Y)\<rbrakk> \<Longrightarrow> search_I (R',Y')"
   using search_step_R_finite[of R Y R' Y']
         search_step_valid_subgame search_step_finite_Y[of R Y R' Y']
         search_step_tangles_Y[of R Y R' Y']
   unfolding search_I_def
   by blast
 
-(** There are no identical tangles yet *)
-lemma "search_I ({},Y) \<Longrightarrow> finite Y \<and> Y \<noteq> {} \<and> (\<forall>U \<in> Y. \<exists>\<alpha>. tangle \<alpha> U \<and> U \<notin> T)"
-  unfolding search_I_def
-  apply simp
-  sorry
-
-lemma search_step_rtranclp_I: "search_step\<^sup>*\<^sup>* S S' \<Longrightarrow> search_I S \<Longrightarrow> search_I S'"
+(** If two states are in the reflexive transitive closure of steps, then our invariant is preserved
+    between them. *)
+lemma search_step_rtranclp_I:
+  "\<lbrakk>search_step\<^sup>*\<^sup>* S S'; search_I S\<rbrakk> \<Longrightarrow> search_I S'"
   apply (induction rule: rtranclp_induct)
   subgoal by simp
   subgoal for y z using search_step_I[of "fst y" "snd y" "fst z" "snd z"] by simp
@@ -421,19 +434,25 @@ lemma search_has_result:
   using search_step_terminates_with_Y by simp
 *)
 
-lemma "valid_subgame R \<Longrightarrow> search_I (R,{})"
+(** If we have a valid subgame R, then the invariant holds for it and an empty set. *)
+lemma I_base_valid_subgame: "valid_subgame R \<Longrightarrow> search_I (R,{})"
   unfolding search_I_def
   using finite_subset[OF _ fin_V] by blast
 
+(** Search preserves our invariant. *)
 lemma search_preserves_I:
-  "search R Y \<Longrightarrow> search_I (R,{}) \<Longrightarrow> search_I ({},Y)"
+  "\<lbrakk>search R Y; search_I (R,{})\<rbrakk> \<Longrightarrow> search_I ({},Y)"
   unfolding search_def
   apply (induction rule: rtranclp_induct)
   subgoal by blast
   subgoal using search_step_rtranclp_I by blast
   done
 
-lemma "valid_subgame R \<Longrightarrow> search R Y \<Longrightarrow> finite Y \<and> Y \<noteq> {} \<and> (\<forall>U \<in> Y. \<exists>\<alpha>. tangle \<alpha> U \<and> U \<notin> T)"
+(** If the initial R is a valid subgame, then search gives us a finite, non-empty Y that contains
+    new tangles that were not included in T before. *)
+lemma valid_subgame_search_correct:
+  "\<lbrakk>valid_subgame R; search R Y\<rbrakk> \<Longrightarrow> finite Y \<and> Y \<noteq> {} \<and> (\<forall>U \<in> Y. \<exists>\<alpha>. tangle \<alpha> U \<and> U \<notin> T)"
+  using search_I_correct[OF search_preserves_I[OF _ I_base_valid_subgame]] by simp
 end (** End of context with fixed T. *)
 
 end (** End of context paritygame *)
