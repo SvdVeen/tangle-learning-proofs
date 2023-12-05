@@ -274,6 +274,26 @@ lemma restr_ind_subgraph_V\<^sub>\<alpha>:
   shows "arena.induced_subgraph (Restr E R) (V\<^sub>\<alpha> \<inter> R) \<sigma> = Restr (induced_subgraph V\<^sub>\<alpha> \<sigma>) R"
   unfolding arena.induced_subgraph_def[OF assms] induced_subgraph_def
   by auto
+
+subsubsection \<open>Restricted Strategies\<close>
+lemma restricted_strat_subgraph_same_in_region:
+  assumes "\<sigma>' = \<sigma> |` R"
+  shows "Restr (induced_subgraph (dom \<sigma>) \<sigma>) R = Restr (induced_subgraph (dom \<sigma>') \<sigma>') R"
+  unfolding assms induced_subgraph_def E_of_strat_def by auto
+
+lemma restricted_strat_and_dom_subgraph_same_in_region:
+  assumes "\<sigma>' = \<sigma> |` R"
+  shows "Restr (induced_subgraph (R\<inter>V\<^sub>\<alpha>) \<sigma>') R = Restr (induced_subgraph V\<^sub>\<alpha> \<sigma>) R"
+  unfolding assms(1) induced_subgraph_def E_of_strat_def by auto
+
+lemma restricted_strat_subgraph_V_same_in_region:
+  assumes "\<sigma>' = \<sigma> |` R"
+  assumes "R \<subseteq> induced_subgraph_V (dom \<sigma>) \<sigma>"
+  shows "induced_subgraph_V (dom \<sigma>) \<sigma> \<inter> R = induced_subgraph_V (dom \<sigma>') \<sigma>' \<inter> R"
+  using assms(2)
+  unfolding assms(1) induced_subgraph_V_def induced_subgraph_def E_of_strat_def
+  by auto
+
 end (** End of locale arena *)
 
 end
