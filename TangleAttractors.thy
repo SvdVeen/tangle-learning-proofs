@@ -64,15 +64,23 @@ lemma fin_tangle_attractor_step:
 
 (** We define an invariant for the properties of the constructed strategy in tangle_attractor_step. *)
 definition tangle_attractor_step_I :: "'v set \<times> 'v strat \<Rightarrow> bool" where
-  "tangle_attractor_step_I \<equiv> \<lambda>(X,\<sigma>). A \<subseteq> X \<and>
-   strategy_of V\<^sub>\<alpha> \<sigma> \<and> dom \<sigma> = V\<^sub>\<alpha> \<inter> (X-A) \<and> ran \<sigma> \<subseteq> X \<and>
+  "tangle_attractor_step_I \<equiv> \<lambda>(X,\<sigma>).
+   A \<subseteq> X \<and>
+   strategy_of V\<^sub>\<alpha> \<sigma> \<and>
+   dom \<sigma> = V\<^sub>\<alpha> \<inter> (X-A) \<and>
+   ran \<sigma> \<subseteq> X \<and>
    induced_subgraph V\<^sub>\<alpha> \<sigma> `` (X-A) \<subseteq> X \<and>
    (\<forall>x\<in>X. \<forall>xs ys. lasso_from_node (induced_subgraph V\<^sub>\<alpha> \<sigma>) x xs ys
-      \<longrightarrow> (set (xs@ys) \<inter> A \<noteq> {} \<or> winning_player ys))"
+      \<longrightarrow> (set (xs@ys) \<inter> A \<noteq> {} \<or> winning_player ys)) \<and>
+   (\<forall>x\<in>X. \<exists>x'\<in>A. \<exists>xs. path (induced_subgraph V\<^sub>\<alpha> \<sigma>) x xs x')"
 
-(** The invariant is true for the initial state of the tangle attractor. *)
+(** The invariant holds for the initial state of the tangle attractor. *)
 lemma tangle_attractor_step_I_base: "tangle_attractor_step_I (A,Map.empty)"
-  unfolding tangle_attractor_step_I_def split using origin_in_lasso by fastforce
+  unfolding tangle_attractor_step_I_def split
+  apply (clarsimp; intro conjI ballI)
+  subgoal for x using origin_in_lasso[of _ x] by blast
+  subgoal for x using path.simps(1)[of _ x x] by blast
+  done
 
 lemma tangle_attractor_step_strat_of_V\<^sub>\<alpha>:
   "\<lbrakk>tangle_attractor_step (X,\<sigma>) (X',\<sigma>'); tangle_attractor_step_I (X,\<sigma>)\<rbrakk>
@@ -102,334 +110,288 @@ lemma tangle_attractor_step_ran:
   subgoal for t using ran_restrictD[of _ _ "t-A"] unfolding player_tangle_strat_def ran_def by fast
   done
 
-lemma tangle_attractor_step_closed:
+lemma tangle_attractor_step_closed_X:
   "\<lbrakk>tangle_attractor_step (X,\<sigma>) (X',\<sigma>'); tangle_attractor_step_I (X,\<sigma>)\<rbrakk>
-    \<Longrightarrow> induced_subgraph V\<^sub>\<alpha> \<sigma>' `` (X'-A) \<subseteq> X'"
+    \<Longrightarrow> induced_subgraph V\<^sub>\<alpha> \<sigma>' `` (X-A) \<subseteq> X"
   unfolding tangle_attractor_step_I_def split
-proof (induction rule: tangle_attractor_step_induct)
-  case (own x X y \<sigma>) thus ?case
-    unfolding induced_subgraph_def E_of_strat_def
-    by (auto split: if_splits simp: in_mono ranI)
-next
-  case (opponent x X \<sigma>) thus ?case by auto
-next
-  case (escape t X \<sigma>' \<sigma>)
-  hence dom: "dom (\<sigma>' |` (t - A) ++ \<sigma>) = V\<^sub>\<alpha> \<inter> (t \<union> X - A)" and
-  \<sigma>_ran: "ran \<sigma> \<subseteq> X" and \<sigma>'_ran: "ran \<sigma>' \<subseteq> t" and
-  \<sigma>_closed: "induced_subgraph V\<^sub>\<alpha> \<sigma> `` (X - A) \<subseteq> X"
-    unfolding player_tangle_strat_def by auto
-  from \<sigma>_ran \<sigma>'_ran have ran: "ran (\<sigma>' |` (t - A) ++ \<sigma>) \<subseteq> (t \<union> X)"
-    using ran_restrictD
-    unfolding ran_def by fast
-  show ?case proof (rule subsetI)
-    fix y assume y_in_succs: "y \<in> induced_subgraph V\<^sub>\<alpha> (\<sigma>' |` (t - A) ++ \<sigma>) `` (X \<union> t - A)"
-    then obtain x where
-      edge: "(x,y) \<in> induced_subgraph V\<^sub>\<alpha> (\<sigma>' |` (t - A) ++ \<sigma>)" and
-      x_in_X_t_min_A: "x \<in> X \<union> t -A" by blast
-    consider (in_dom) "x \<in> dom (\<sigma>' |` (t - A) ++ \<sigma>)" | (notin_dom) "x \<notin> dom (\<sigma>' |` (t - A) ++ \<sigma>)" by fast
-    thus "y \<in> X \<union> t" proof cases
-      case in_dom
-      with dom have "x \<in> V\<^sub>\<alpha>" by simp
-      with ran show ?thesis using edge ind_subgraph_edge_dst by fastforce
-    next
-      case notin_dom
-      with edge dom x_in_X_t_min_A have edge_\<sigma>: "(x,y)\<in>induced_subgraph V\<^sub>\<alpha> \<sigma>"
-        using ind_subgraph_notin_dom by auto
-      consider (in_X_min_A) "x \<in> X-A" | (notin_X_min_A) "x \<notin> X-A" by blast
-      thus ?thesis proof cases
-        case in_X_min_A with edge_\<sigma> \<sigma>_closed show ?thesis by blast
-      next
-        case notin_X_min_A
-      with x_in_X_t_min_A have "x \<in> t-A" by blast
-      thus ?thesis
-        apply (cases "y \<in> opponent_escapes t")
-        subgoal using \<open>opponent_escapes t \<subseteq> X\<close> by blast
-        subgoal unfolding opponent_escapes_def
-          using notin_dom dom ind_subgraph_edge_in_E[OF edge] E_in_V
-          by clarsimp blast
-        done
-      qed
-    qed
-  qed
-qed
+  apply (induction rule: tangle_attractor_step_induct)
+  subgoal unfolding induced_subgraph_def E_of_strat_def by (auto split: if_splits simp: ranI)
+  subgoal by auto
+  subgoal unfolding induced_subgraph_def E_of_strat_def
+    using ind_subgraph_notin_dom by blast
+  done
 
-(** This reuses proofs from the previous lemmas. Either I merge them again, or rephrase my lemmas
-    so they can reuse one another somehow. *)
+lemma tangle_attractor_step_closed_X':
+    "\<lbrakk>tangle_attractor_step (X,\<sigma>) (X',\<sigma>'); tangle_attractor_step_I (X,\<sigma>)\<rbrakk>
+    \<Longrightarrow> induced_subgraph V\<^sub>\<alpha> \<sigma>' `` (X'-A) \<subseteq> X'"
+  using tangle_attractor_step_closed_X[of X \<sigma> X' \<sigma>'] tangle_attractor_step_ran[of X \<sigma> X' \<sigma>']
+  apply simp
+  unfolding tangle_attractor_step_I_def split
+  apply (induction rule: tangle_attractor_step_induct)
+  subgoal unfolding induced_subgraph_def E_of_strat_def by (auto split: if_splits simp: ranI)
+  subgoal by auto
+  subgoal for t X \<sigma> \<sigma>' apply (rule subsetI; clarify)
+    subgoal for y x using player_tangle_escapes[of t] player_tangle_in_V[of t]
+      apply (cases "x \<in> X"; simp add: tangles_T)
+      subgoal by blast
+      subgoal apply (cases "x \<in> V\<^sub>\<alpha>")
+        subgoal using ind_subgraph_edge_dst[of x y V\<^sub>\<alpha> "\<sigma> |` (t - A) ++ \<sigma>'"] by blast
+        subgoal using ind_subgraph_edge_in_E DiffI Int_iff[of x] Int_iff[of y] Int_absorb2 by metis
+      done
+    done
+  done
+  done
+
 lemma tangle_attractor_step_forces_A_or_wins:
   "\<lbrakk>tangle_attractor_step (X,\<sigma>) (X',\<sigma>'); tangle_attractor_step_I (X,\<sigma>)\<rbrakk>
     \<Longrightarrow> (\<forall>x\<in>X'. \<forall>xs ys. lasso_from_node (induced_subgraph V\<^sub>\<alpha> \<sigma>') x xs ys
         \<longrightarrow> (set (xs@ys) \<inter> A \<noteq> {} \<or> winning_player ys))"
-  unfolding tangle_attractor_step_I_def split
-proof (induction rule: tangle_attractor_step_induct)
-  case (own x X y \<sigma>)
-  let ?X' = "insert x X"
-  let ?\<sigma>' = "\<sigma>(x\<mapsto>y)"
-  from own have \<sigma>_forces_A_or_wins:
-    "\<forall>x\<in>X. \<forall>xs ys. lasso_from_node (induced_subgraph V\<^sub>\<alpha> \<sigma>) x xs ys
-      \<longrightarrow> set (xs @ ys) \<inter> A \<noteq> {} \<or> winning_player ys" by blast
-  from own have \<sigma>'_closed_X: "induced_subgraph V\<^sub>\<alpha> ?\<sigma>' `` (X-A) \<subseteq> X"
-    unfolding induced_subgraph_def E_of_strat_def
-    by (auto split: if_splits simp: ranI)
-  with own.hyps(1,3) have \<sigma>'_closed: "induced_subgraph V\<^sub>\<alpha> ?\<sigma>' `` (?X'-A) \<subseteq> ?X'"
-    using ind_subgraph_to_strategy by fastforce
-  show ?case proof (intro ballI allI impI)
-    fix v xs ys
-    assume v_in_X': "v \<in> ?X'" and lasso: "lasso_from_node (induced_subgraph V\<^sub>\<alpha> ?\<sigma>') v xs ys"
-    from lasso obtain v' where
-      cycle: "cycle (induced_subgraph V\<^sub>\<alpha> ?\<sigma>') v' ys"
-      unfolding lasso_from_node_def by auto
+proof -
+  assume step: "tangle_attractor_step (X,\<sigma>) (X',\<sigma>')" and invar: "tangle_attractor_step_I (X,\<sigma>)"
+  hence "dom \<sigma>' = V\<^sub>\<alpha> \<inter> (X'-A)" "ran \<sigma>' \<subseteq> X'"
+    "induced_subgraph V\<^sub>\<alpha> \<sigma>' `` (X-A) \<subseteq> X" "induced_subgraph V\<^sub>\<alpha> \<sigma>' `` (X'-A) \<subseteq> X'"
+  using tangle_attractor_step_dom tangle_attractor_step_ran
+  using tangle_attractor_step_closed_X tangle_attractor_step_closed_X' by auto
+  from step invar this show ?thesis
+    unfolding tangle_attractor_step_I_def split
+  proof (induction rule: tangle_attractor_step_induct)
+    case (own x X y \<sigma>)
+    let ?X' = "insert x X"
+    let ?\<sigma>' = "\<sigma>(x\<mapsto>y)"
+    from own have \<sigma>_forces_A_or_wins:
+      "\<forall>x\<in>X. \<forall>xs ys. lasso_from_node (induced_subgraph V\<^sub>\<alpha> \<sigma>) x xs ys
+        \<longrightarrow> set (xs @ ys) \<inter> A \<noteq> {} \<or> winning_player ys" by blast
+    from own have \<sigma>'_closed_X: "induced_subgraph V\<^sub>\<alpha> ?\<sigma>' `` (X-A) \<subseteq> X" by blast
+    from own have \<sigma>'_closed_X': "induced_subgraph V\<^sub>\<alpha> ?\<sigma>' `` (?X'-A) \<subseteq> ?X'" by blast
 
-    have "set (xs@ys) \<inter> A = {} \<Longrightarrow> winning_player ys"
-    proof -
-      assume no_A: "set (xs@ys) \<inter> A = {}"
-      hence xs_no_A: "set xs \<inter> A = {}" and ys_no_A: "set ys \<inter> A = {}" by auto
-      with v_in_X' have v_in_X'_min_A: "v \<in> ?X' - A"
-        using origin_in_lasso[OF lasso] by blast
+    show ?case proof (intro ballI allI impI)
+      fix v xs ys
+      assume v_in_X': "v \<in> ?X'" and lasso: "lasso_from_node (induced_subgraph V\<^sub>\<alpha> ?\<sigma>') v xs ys"
+      from lasso obtain v' where
+        cycle: "cycle (induced_subgraph V\<^sub>\<alpha> ?\<sigma>') v' ys"
+        unfolding lasso_from_node_def by auto
 
-      from lasso_from_node_partially_closed_sets[OF this \<sigma>'_closed xs_no_A ys_no_A lasso]
-      have ys_in_X'_min_A: "set ys \<subseteq> ?X' - A" by simp
-      hence y_in_X'_min_A: "v' \<in> ?X' - A"
-        using origin_in_cycle[OF cycle] by auto
+      have "set (xs@ys) \<inter> A = {} \<Longrightarrow> winning_player ys"
+      proof -
+        assume no_A: "set (xs@ys) \<inter> A = {}"
+        hence xs_no_A: "set xs \<inter> A = {}" and ys_no_A: "set ys \<inter> A = {}" by auto
+        with v_in_X' have v_in_X'_min_A: "v \<in> ?X' - A"
+          using origin_in_lasso[OF lasso] by blast
 
-      consider (ys_has_x) "x \<in> set ys" | (ys_no_x) "x \<notin> set ys" by blast
-      hence "lasso_from_node (induced_subgraph V\<^sub>\<alpha> \<sigma>) v' [] ys \<and> v'\<in>X" proof cases
-        case ys_has_x
-        from own.hyps(1,2) obtain ys' where
-          cycle': "cycle (induced_subgraph V\<^sub>\<alpha> ?\<sigma>') y ys'" and
-          sets_eq: "set ys' = set ys" and
-          y_in_ys': "y \<in> set ys'"
-          using cycle_intermediate_node[OF cycle ys_has_x]
-          apply clarsimp
-          subgoal for vs'
-            using cycle_D[of "induced_subgraph V\<^sub>\<alpha> ?\<sigma>'" x vs']
-            using ind_subgraph_to_strategy by fastforce
-          done
+        from lasso_from_node_partially_closed_sets[OF this \<sigma>'_closed_X' xs_no_A ys_no_A lasso]
+        have ys_in_X'_min_A: "set ys \<subseteq> ?X' - A" by simp
+        hence y_in_X'_min_A: "v' \<in> ?X' - A"
+          using origin_in_cycle[OF cycle] by auto
 
-        from own.hyps(3) sets_eq y_in_ys' ys_no_A have "y \<in> X-A" by blast
-        from cycle_partially_closed_set[OF this \<sigma>'_closed_X cycle'] sets_eq ys_no_A
-        have "set ys \<subseteq> X-A" by simp
-        with ys_has_x own.hyps(1) show ?thesis by blast
-      next
-        case ys_no_x
-        from own.hyps(1) have subset:
-          "induced_subgraph V\<^sub>\<alpha> ?\<sigma>' \<inter> (X-A)\<times>(X-A) \<subseteq> induced_subgraph V\<^sub>\<alpha> \<sigma>"
-          unfolding induced_subgraph_def E_of_strat_def
-          by (auto split: if_splits)
+        consider (ys_has_x) "x \<in> set ys" | (ys_no_x) "x \<notin> set ys" by blast
+        hence "lasso_from_node (induced_subgraph V\<^sub>\<alpha> \<sigma>) v' [] ys \<and> v'\<in>X" proof cases
+          case ys_has_x
+          from own.hyps(1,2) obtain ys' where
+            cycle': "cycle (induced_subgraph V\<^sub>\<alpha> ?\<sigma>') y ys'" and
+            sets_eq: "set ys' = set ys" and
+            y_in_ys': "y \<in> set ys'"
+            using cycle_intermediate_node[OF cycle ys_has_x]
+            apply clarsimp
+            subgoal for vs'
+              using cycle_D[of "induced_subgraph V\<^sub>\<alpha> ?\<sigma>'" x vs']
+              using ind_subgraph_to_strategy by fastforce
+            done
 
-        from ys_no_x ys_in_X'_min_A have ys_in_X_min_A: "set ys \<subseteq> X-A" by blast
-        from subgraph_cycle[OF subset cycle_restr_V[OF cycle this]]
-        have cycle_\<sigma>: " cycle (induced_subgraph V\<^sub>\<alpha> \<sigma>) v' ys " .
+          from own.hyps(3) sets_eq y_in_ys' ys_no_A have "y \<in> X-A" by blast
+          from cycle_partially_closed_set[OF this \<sigma>'_closed_X cycle'] sets_eq ys_no_A
+          have "set ys \<subseteq> X-A" by simp
+          with ys_has_x own.hyps(1) show ?thesis by blast
+        next
+          case ys_no_x
+          from own.hyps(1) have subset:
+            "induced_subgraph V\<^sub>\<alpha> ?\<sigma>' \<inter> (X-A)\<times>(X-A) \<subseteq> induced_subgraph V\<^sub>\<alpha> \<sigma>"
+            unfolding induced_subgraph_def E_of_strat_def
+            by (auto split: if_splits)
 
-        with ys_in_X_min_A have "v' \<in> X-A"
-          using origin_in_cycle by fast
-        with cycle_\<sigma> show ?thesis by (simp add: cycle_iff_lasso)
+          from ys_no_x ys_in_X'_min_A have ys_in_X_min_A: "set ys \<subseteq> X-A" by blast
+          from subgraph_cycle[OF subset cycle_restr_V[OF cycle this]]
+          have cycle_\<sigma>: " cycle (induced_subgraph V\<^sub>\<alpha> \<sigma>) v' ys " .
+
+          with ys_in_X_min_A have "v' \<in> X-A"
+            using origin_in_cycle by fast
+          with cycle_\<sigma> show ?thesis by (simp add: cycle_iff_lasso)
+        qed
+        with \<sigma>_forces_A_or_wins ys_no_A show ?thesis by fastforce
       qed
-      with \<sigma>_forces_A_or_wins ys_no_A show ?thesis by fastforce
+      thus "set (xs@ys) \<inter> A \<noteq> {} \<or> winning_player ys" by blast
     qed
-    thus "set (xs@ys) \<inter> A \<noteq> {} \<or> winning_player ys" by blast
-  qed
-next
-  case (opponent x X \<sigma>)
-  let ?X' = "insert x X"
+  next
+    case (opponent x X \<sigma>)
+    let ?X' = "insert x X"
+    from opponent have \<sigma>_closed_X: " induced_subgraph V\<^sub>\<alpha> \<sigma> `` (X - A) \<subseteq> X" by blast
+    with opponent have \<sigma>_closed_X': "induced_subgraph V\<^sub>\<alpha> \<sigma> `` (?X'-A) \<subseteq> ?X'" by blast
+    from opponent have \<sigma>_forces_A_or_wins:
+      "\<forall>x\<in>X. \<forall>xs ys. lasso_from_node (induced_subgraph V\<^sub>\<alpha> \<sigma>) x xs ys
+        \<longrightarrow> set (xs @ ys) \<inter> A \<noteq> {} \<or> winning_player ys" by simp
 
-  from opponent have \<sigma>_closed_X: " induced_subgraph V\<^sub>\<alpha> \<sigma> `` (X - A) \<subseteq> X" by blast
-  with opponent.hyps(2) have \<sigma>_closed_X': "induced_subgraph V\<^sub>\<alpha> \<sigma> `` (?X'-A) \<subseteq> ?X'" by auto
-  from opponent have \<sigma>_forces_A_or_wins:
-    "\<forall>x\<in>X. \<forall>xs ys. lasso_from_node (induced_subgraph V\<^sub>\<alpha> \<sigma>) x xs ys
-      \<longrightarrow> set (xs @ ys) \<inter> A \<noteq> {} \<or> winning_player ys" by simp
+    show ?case proof (intro ballI allI impI)
+      fix v xs ys
+      assume v_in_X': "v \<in> ?X'" and lasso: "lasso_from_node (induced_subgraph V\<^sub>\<alpha> \<sigma>) v xs ys"
+      from lasso obtain v' where
+        cycle: "cycle (induced_subgraph V\<^sub>\<alpha> \<sigma>) v' ys"
+        unfolding lasso_from_node_def by blast
 
-  show ?case proof (intro ballI allI impI)
-    fix v xs ys
-    assume v_in_X': "v \<in> ?X'" and lasso: "lasso_from_node (induced_subgraph V\<^sub>\<alpha> \<sigma>) v xs ys"
-    from lasso obtain v' where
-      cycle: "cycle (induced_subgraph V\<^sub>\<alpha> \<sigma>) v' ys"
-      unfolding lasso_from_node_def by blast
+      have "set (xs@ys) \<inter> A = {} \<Longrightarrow> winning_player ys"
+      proof -
+        assume no_A: "set (xs@ys) \<inter> A = {}"
+        hence xs_no_A: "set xs \<inter> A = {}" and ys_no_A: "set ys \<inter> A = {}" by auto
+        with v_in_X' have "v \<in> ?X' - A"
+          using origin_in_lasso[OF lasso] by blast
 
-    have "set (xs@ys) \<inter> A = {} \<Longrightarrow> winning_player ys"
-    proof -
-      assume no_A: "set (xs@ys) \<inter> A = {}"
-      hence xs_no_A: "set xs \<inter> A = {}" and ys_no_A: "set ys \<inter> A = {}" by auto
-      with v_in_X' have "v \<in> ?X' - A"
-        using origin_in_lasso[OF lasso] by blast
-
-      from lasso_from_node_partially_closed_sets[OF this \<sigma>_closed_X' xs_no_A ys_no_A lasso]
-      have ys_in_X'_min_A: "set ys \<subseteq> ?X'-A" by simp
-      hence v'_in_X'_min_A: "v' \<in> ?X'-A"
-        using origin_in_cycle[OF cycle] by blast
-
-      consider (ys_has_x) "x \<in> set ys" | (ys_no_x) "x \<notin> set ys" by blast
-      hence "lasso_from_node (induced_subgraph V\<^sub>\<alpha> \<sigma>) v' [] ys \<and> v' \<in> X" proof cases
-        case ys_has_x
-        from opponent.hyps(1,2) obtain y ys' where
-          x_y_edge: "(x,y) \<in> induced_subgraph V\<^sub>\<alpha> \<sigma>" and
-          y_in_X: "y \<in> X" and
-          cycle': "cycle (induced_subgraph V\<^sub>\<alpha> \<sigma>) y ys'" and
-          sets_eq: "set ys' = set ys" and
-          y_in_ys: "y \<in> set ys"
-          using cycle_intermediate_node[OF cycle ys_has_x]
-          apply clarsimp
-          subgoal for vs'
-            using cycle_D[of "induced_subgraph V\<^sub>\<alpha> \<sigma>" x vs']
-            using ind_subgraph_to_strategy by blast
-          done
-
-        from y_in_X y_in_ys ys_no_A have y_in_S_min_A: "y \<in> X-A" by blast
-        from cycle_partially_closed_set[OF this \<sigma>_closed_X cycle'] sets_eq ys_no_A
-        have "set ys \<subseteq> X-A" by auto
-        hence "v' \<in> X"
+        from lasso_from_node_partially_closed_sets[OF this \<sigma>_closed_X' xs_no_A ys_no_A lasso]
+        have ys_in_X'_min_A: "set ys \<subseteq> ?X'-A" by simp
+        hence v'_in_X'_min_A: "v' \<in> ?X'-A"
           using origin_in_cycle[OF cycle] by blast
 
-        with cycle show ?thesis by (simp add: cycle_iff_lasso)
-      next
-        case ys_no_x
-        with ys_in_X'_min_A have ys_in_S_min_A: "set ys \<subseteq> X-A" by blast
-        with origin_in_cycle[OF cycle] have v'_in_S_min_A: "v' \<in> X-A" by blast
-        with cycle show ?thesis by (simp add: cycle_iff_lasso)
+        consider (ys_has_x) "x \<in> set ys" | (ys_no_x) "x \<notin> set ys" by blast
+        hence "lasso_from_node (induced_subgraph V\<^sub>\<alpha> \<sigma>) v' [] ys \<and> v' \<in> X" proof cases
+          case ys_has_x
+          from opponent.hyps(1,2) obtain y ys' where
+            x_y_edge: "(x,y) \<in> induced_subgraph V\<^sub>\<alpha> \<sigma>" and
+            y_in_X: "y \<in> X" and
+            cycle': "cycle (induced_subgraph V\<^sub>\<alpha> \<sigma>) y ys'" and
+            sets_eq: "set ys' = set ys" and
+            y_in_ys: "y \<in> set ys"
+            using cycle_intermediate_node[OF cycle ys_has_x]
+            apply clarsimp
+            subgoal for vs'
+              using cycle_D[of "induced_subgraph V\<^sub>\<alpha> \<sigma>" x vs']
+              using ind_subgraph_to_strategy by blast
+            done
+
+          from y_in_X y_in_ys ys_no_A have y_in_S_min_A: "y \<in> X-A" by blast
+          from cycle_partially_closed_set[OF this \<sigma>_closed_X cycle'] sets_eq ys_no_A
+          have "set ys \<subseteq> X-A" by auto
+          hence "v' \<in> X"
+            using origin_in_cycle[OF cycle] by blast
+
+          with cycle show ?thesis by (simp add: cycle_iff_lasso)
+        next
+          case ys_no_x
+          with ys_in_X'_min_A have ys_in_S_min_A: "set ys \<subseteq> X-A" by blast
+          with origin_in_cycle[OF cycle] have v'_in_S_min_A: "v' \<in> X-A" by blast
+          with cycle show ?thesis by (simp add: cycle_iff_lasso)
+        qed
+
+        with \<sigma>_forces_A_or_wins no_A show ?thesis by fastforce
       qed
-
-      with \<sigma>_forces_A_or_wins no_A show ?thesis by fastforce
+      thus "set (xs@ys) \<inter> A \<noteq> {} \<or> winning_player ys" by blast
     qed
-    thus "set (xs@ys) \<inter> A \<noteq> {} \<or> winning_player ys" by blast
-  qed
-next
-  case (escape t X \<tau> \<sigma>)
-  let ?X' = "X \<union> t"
-  let ?\<sigma>' = "(\<tau> |` (t - A) ++ \<sigma>)"
+  next
+    case (escape t X \<tau> \<sigma>)
+    let ?X' = "X \<union> t"
+    let ?\<sigma>' = "(\<tau> |` (t - A) ++ \<sigma>)"
+    from escape have \<sigma>'_closed_X: "induced_subgraph V\<^sub>\<alpha> ?\<sigma>' `` (X-A) \<subseteq> X" by blast
+    from escape have \<sigma>'_closed_X': "induced_subgraph V\<^sub>\<alpha> ?\<sigma>' `` (?X'-A) \<subseteq> ?X'" by blast
+    from escape have \<sigma>_dom: "dom \<sigma> = V\<^sub>\<alpha> \<inter> (X-A)" by blast
+    from escape have \<sigma>_ran: "ran \<sigma> \<subseteq> X" by blast
+    from escape have \<sigma>_forces_A_or_wins:
+        "\<forall>x\<in>X. \<forall>xs ys. lasso_from_node (induced_subgraph V\<^sub>\<alpha> \<sigma>) x xs ys
+          \<longrightarrow> set (xs @ ys) \<inter> A \<noteq> {} \<or> winning_player ys" by blast
+    from escape have t_in_V: "t \<subseteq> V"
+      using player_tangle_in_V[of t] tangles_T by auto
+    from escape have \<tau>_winning:
+      "\<forall>v\<in>t. \<forall>xs. cycle (player_tangle_subgraph t \<tau>) v xs \<longrightarrow> winning_player xs"
+      unfolding player_tangle_strat_def Let_def by auto
 
-  from escape have \<sigma>_dom: "dom \<sigma> = V\<^sub>\<alpha> \<inter> (X - A)" and \<tau>_dom: "dom \<tau> = t \<inter> V\<^sub>\<alpha>" and
-    \<sigma>_ran: "ran \<sigma> \<subseteq> X" and t_in_V: "t \<subseteq> V" and
-    \<sigma>_closed_X: "induced_subgraph V\<^sub>\<alpha> \<sigma> `` (X - A) \<subseteq> X" and
-    \<tau>_winning: "\<forall>v\<in>t. \<forall>xs. cycle (player_tangle_subgraph t \<tau>) v xs \<longrightarrow> winning_player xs" and
-    \<sigma>_forces_A_or_wins:
-      "\<forall>x\<in>X. \<forall>xs ys. lasso_from_node (induced_subgraph V\<^sub>\<alpha> \<sigma>) x xs ys
-        \<longrightarrow> set (xs @ ys) \<inter> A \<noteq> {} \<or> winning_player ys"
-    unfolding player_tangle_strat_def Let_def
-    using player_tangle_in_V tangles_T by auto
-  from \<sigma>_dom \<tau>_dom have \<sigma>'_dom: "dom ?\<sigma>' =  V\<^sub>\<alpha> \<inter> (?X'-A)" by auto
 
-  from escape have \<sigma>'_ran: "ran ?\<sigma>' \<subseteq> ?X'"
-    unfolding player_tangle_strat_def
-    using ran_restrictD
-    unfolding ran_def by fast
+    show ?case proof (intro ballI allI impI)
+      fix v xs ys
+      assume v_in_X': "v\<in>?X'" and lasso: "lasso_from_node (induced_subgraph V\<^sub>\<alpha> ?\<sigma>') v xs ys"
+      from lasso obtain v' where
+        cycle: "cycle (induced_subgraph V\<^sub>\<alpha> ?\<sigma>') v' ys"
+        unfolding lasso_from_node_def by blast
 
-  have \<sigma>'_closed_X: "induced_subgraph V\<^sub>\<alpha> ?\<sigma>' `` (X-A) \<subseteq> X"
-  proof (rule subsetI)
-    fix y assume "y\<in>induced_subgraph V\<^sub>\<alpha> ?\<sigma>' `` (X-A)"
-    then obtain x where
-      edge: "(x,y)\<in>induced_subgraph V\<^sub>\<alpha> ?\<sigma>'" and
-      x_in_X_min_A: "x\<in>X-A"
-      by blast
-    consider (in_dom) "x \<in> dom ?\<sigma>'" | (notin_dom) "x \<notin> dom ?\<sigma>'" by fast
-    thus "y \<in> X" proof cases
-      case in_dom
-      with \<sigma>'_dom have x_in_V\<^sub>\<alpha>: "x \<in> V\<^sub>\<alpha>" by simp
-      with \<sigma>_closed_X edge x_in_X_min_A \<sigma>_dom
-      show ?thesis
-        using ind_subgraph_edge_in_E ind_subgraph_to_strategy[OF edge \<open>x\<in>V\<^sub>\<alpha>\<close>]
-          strategy_to_ind_subgraph
-        by blast
-    next
-      case notin_dom
-      with edge \<sigma>'_dom x_in_X_min_A
-      have "(x,y)\<in>induced_subgraph V\<^sub>\<alpha> \<sigma>"
-        using ind_subgraph_notin_dom by auto
-      with \<sigma>_closed_X x_in_X_min_A show ?thesis by blast
-    qed
-  qed
+      have "set (xs@ys) \<inter> A = {} \<Longrightarrow> winning_player ys"
+      proof -
+        assume no_A: "set (xs@ys) \<inter> A = {}"
+        hence xs_no_A: "set xs \<inter> A = {}" and ys_no_A: "set ys \<inter> A = {}" by auto
+        with v_in_X' have "v\<in>?X'-A"
+          using origin_in_lasso[OF lasso] by blast
 
-  have \<sigma>'_closed_X': "induced_subgraph V\<^sub>\<alpha> ?\<sigma>' `` (?X'-A) \<subseteq> ?X'"
-  proof (rule subsetI)
-    fix y assume "y\<in>induced_subgraph V\<^sub>\<alpha> ?\<sigma>' `` (?X'-A)"
-    then obtain x where
-      edge: "(x,y)\<in>induced_subgraph V\<^sub>\<alpha> ?\<sigma>'" and
-      x_in_X'_min_A: "x\<in>?X'-A"
-      by blast
+        from lasso_from_node_partially_closed_sets[OF this \<sigma>'_closed_X' xs_no_A ys_no_A lasso]
+        have ys_in_X'_min_A: "set ys \<subseteq> ?X'-A" by simp
+        hence v'_in_X'_min_A: "v' \<in> ?X'-A"
+          using origin_in_cycle[OF cycle] by blast
 
-    consider (in_dom) "x \<in> dom ?\<sigma>'" | (notin_dom) "x \<notin> dom ?\<sigma>'" by fast
-    thus "y\<in>?X'" proof cases
-      case in_dom with \<sigma>'_dom \<sigma>'_ran show ?thesis
-        using ind_subgraph_edge_dst[OF edge] by auto
-    next
-      case notin_dom
-      consider (in_X_min_A) "x \<in> X-A" | (notin_X_min_A) "x \<notin> X-A" by blast
-      thus ?thesis proof cases
-        case in_X_min_A with edge \<sigma>'_closed_X show ?thesis by blast
-      next
-        case notin_X_min_A
-        with x_in_X'_min_A have x_in_t_min_A: "x \<in> t-A" by blast
-        thus ?thesis
-          apply (cases "y\<in>opponent_escapes t")
-          subgoal using escape.hyps(4) by blast
-          subgoal unfolding opponent_escapes_def
-            using notin_dom \<sigma>'_dom ind_subgraph_edge_in_E[OF edge] E_in_V
-            by clarsimp blast
-          done
+        consider (ys_has_X) "set ys \<inter> X \<noteq> {}" | (ys_no_X) "set ys \<inter> X = {}" by blast
+        thus ?thesis proof cases
+          (** In this case, the cycle must be entirely contained in X because X is closed under
+              \<sigma>'. That also means it is won because under \<sigma>, all plays that do not go through A
+              are winning. *)
+          case ys_has_X
+          with ys_no_A obtain y ys' where
+            y_in_X_min_A: "y \<in> X-A" and
+            sets_eq: "set ys' = set ys" and
+            ys'_no_A: "set ys' \<inter> A = {}" and
+            cycle': "cycle (induced_subgraph V\<^sub>\<alpha> ?\<sigma>') y ys'"
+            using cycle_intermediate_node[OF cycle] by fastforce
+
+          from cycle_partially_closed_set[OF y_in_X_min_A \<sigma>'_closed_X cycle' ys'_no_A] sets_eq
+          have ys_in_X_min_A: "set ys \<subseteq> X-A" by blast
+          hence v'_in_X: "v' \<in> X" using origin_in_cycle[OF cycle] by blast
+
+          from \<sigma>_dom have subset: "induced_subgraph V\<^sub>\<alpha> ?\<sigma>' \<inter> (X-A)\<times>(X-A) \<subseteq> induced_subgraph V\<^sub>\<alpha> \<sigma>"
+            unfolding induced_subgraph_def E_of_strat_def by auto
+
+          from subgraph_cycle[OF subset cycle_restr_V[OF cycle ys_in_X_min_A]]
+          have "lasso_from_node (induced_subgraph V\<^sub>\<alpha> \<sigma>) v' [] ys"
+            by (simp add: cycle_iff_loop loop_impl_lasso)
+
+          with \<sigma>_forces_A_or_wins v'_in_X no_A show ?thesis by fastforce
+        next
+          case ys_no_X
+          with ys_in_X'_min_A have ys_in_t_min_X_min_A: "set ys \<subseteq> t-X-A" by blast
+          hence v'_in_t: "v'\<in>t" using origin_in_cycle[OF cycle] by blast
+
+          from \<sigma>_ran t_in_V have subset:
+            "induced_subgraph V\<^sub>\<alpha> ?\<sigma>' \<inter> (t-X-A)\<times>(t-X-A) \<subseteq> player_tangle_subgraph t \<tau> \<inter> (t-X-A)\<times>(t-X-A)"
+            unfolding induced_subgraph_def player_tangle_subgraph_def E_of_strat_def
+            using ind_subgraph_edge_dst[of _ _ V\<^sub>\<alpha> \<sigma>] strategy_to_ind_subgraph[of \<sigma> _ _ V\<^sub>\<alpha>]
+            by fastforce
+
+          from subgraph_cycle[OF subset cycle_restr_V[OF cycle ys_in_t_min_X_min_A]]
+          have "cycle (player_tangle_subgraph t \<tau>) v' ys" using restr_V_cycle by fast
+
+          with \<tau>_winning v'_in_t show ?thesis by blast
+        qed
       qed
+      thus "set (xs@ys) \<inter> A \<noteq> {} \<or> winning_player ys" by blast
     qed
   qed
+qed
 
-  show ?case proof (intro ballI allI impI)
-    fix v xs ys
-    assume v_in_X': "v\<in>?X'" and lasso: "lasso_from_node (induced_subgraph V\<^sub>\<alpha> ?\<sigma>') v xs ys"
-    from lasso obtain v' where
-      cycle: "cycle (induced_subgraph V\<^sub>\<alpha> ?\<sigma>') v' ys"
-      unfolding lasso_from_node_def by blast
+lemma tangle_attractor_step_path_to_A:
+  "\<lbrakk>tangle_attractor_step (X,\<sigma>) (X',\<sigma>'); tangle_attractor_step_I (X,\<sigma>)\<rbrakk>
+    \<Longrightarrow> \<forall>x\<in>X'. \<exists>x'\<in>A. \<exists>xs. path (induced_subgraph V\<^sub>\<alpha> \<sigma>') x xs x'"
+proof -
+  assume step: "tangle_attractor_step (X,\<sigma>) (X',\<sigma>')" and invar: "tangle_attractor_step_I (X,\<sigma>)"
+  hence "dom \<sigma>' = V\<^sub>\<alpha> \<inter> (X'-A)" "ran \<sigma>' \<subseteq> X'"
+    "induced_subgraph V\<^sub>\<alpha> \<sigma>' `` (X-A) \<subseteq> X" "induced_subgraph V\<^sub>\<alpha> \<sigma>' `` (X'-A) \<subseteq> X'"
+  using tangle_attractor_step_dom tangle_attractor_step_ran
+  using tangle_attractor_step_closed_X tangle_attractor_step_closed_X' by auto
 
-    have "set (xs@ys) \<inter> A = {} \<Longrightarrow> winning_player ys"
-    proof -
-      assume no_A: "set (xs@ys) \<inter> A = {}"
-      hence xs_no_A: "set xs \<inter> A = {}" and ys_no_A: "set ys \<inter> A = {}" by auto
-      with v_in_X' have "v\<in>?X'-A"
-        using origin_in_lasso[OF lasso] by blast
-
-      from lasso_from_node_partially_closed_sets[OF this \<sigma>'_closed_X' xs_no_A ys_no_A lasso]
-      have ys_in_X'_min_A: "set ys \<subseteq> ?X'-A" by simp
-      hence v'_in_X'_min_A: "v' \<in> ?X'-A"
-        using origin_in_cycle[OF cycle] by blast
-
-      consider (ys_has_X) "set ys \<inter> X \<noteq> {}" | (ys_no_X) "set ys \<inter> X = {}" by blast
-      thus ?thesis proof cases
-        (** In this case, the cycle must be entirely contained in X because X is closed under
-            \<sigma>'. That also means it is won because under \<sigma>, all plays that do not go through A
-            are winning. *)
-        case ys_has_X
-        with ys_no_A obtain y ys' where
-          y_in_X_min_A: "y \<in> X-A" and
-          sets_eq: "set ys' = set ys" and
-          ys'_no_A: "set ys' \<inter> A = {}" and
-          cycle': "cycle (induced_subgraph V\<^sub>\<alpha> ?\<sigma>') y ys'"
-          using cycle_intermediate_node[OF cycle] by fastforce
-
-        from cycle_partially_closed_set[OF y_in_X_min_A \<sigma>'_closed_X cycle' ys'_no_A] sets_eq
-        have ys_in_X_min_A: "set ys \<subseteq> X-A" by blast
-        hence v'_in_X: "v' \<in> X" using origin_in_cycle[OF cycle] by blast
-
-        from \<sigma>_dom have subset: "induced_subgraph V\<^sub>\<alpha> ?\<sigma>' \<inter> (X-A)\<times>(X-A) \<subseteq> induced_subgraph V\<^sub>\<alpha> \<sigma>"
-          unfolding induced_subgraph_def E_of_strat_def by auto
-
-        from subgraph_cycle[OF subset cycle_restr_V[OF cycle ys_in_X_min_A]]
-        have "lasso_from_node (induced_subgraph V\<^sub>\<alpha> \<sigma>) v' [] ys"
-          by (simp add: cycle_iff_loop loop_impl_lasso)
-
-        with \<sigma>_forces_A_or_wins v'_in_X no_A show ?thesis by fastforce
-      next
-        case ys_no_X
-        with ys_in_X'_min_A have ys_in_t_min_X_min_A: "set ys \<subseteq> t-X-A" by blast
-        hence v'_in_t: "v'\<in>t" using origin_in_cycle[OF cycle] by blast
-
-        from \<sigma>_ran t_in_V have subset:
-          "induced_subgraph V\<^sub>\<alpha> ?\<sigma>' \<inter> (t-X-A)\<times>(t-X-A) \<subseteq> player_tangle_subgraph t \<tau> \<inter> (t-X-A)\<times>(t-X-A)"
-          unfolding induced_subgraph_def player_tangle_subgraph_def E_of_strat_def
-          using ind_subgraph_edge_dst[of _ _ V\<^sub>\<alpha> \<sigma>] strategy_to_ind_subgraph[of \<sigma> _ _ V\<^sub>\<alpha>]
-          by fastforce
-
-        from subgraph_cycle[OF subset cycle_restr_V[OF cycle ys_in_t_min_X_min_A]]
-        have "cycle (player_tangle_subgraph t \<tau>) v' ys" using restr_V_cycle by fast
-
-        with \<tau>_winning v'_in_t show ?thesis by blast
-      qed
-    qed
-    thus "set (xs@ys) \<inter> A \<noteq> {} \<or> winning_player ys" by blast
+  with step invar show ?thesis
+    unfolding tangle_attractor_step_I_def split
+  proof (induction rule: tangle_attractor_step_induct)
+    (** Just glue x in front of the existing path from y to A. *)
+    case (own x X y \<sigma>)
+    then show ?case sorry
+  next
+    (** Just glue x in front of the existing path from any successor y to A. *)
+    case (opponent x X \<sigma>)
+    then show ?case sorry
+  next
+    (** t is strongly connected, so there is a path to an opponent node that escapes to a y in X.
+        From any x in t, get a path to an escape y in X, then get the path from that y to A, and
+        glue the two paths together to get a path from x to A. *)
+    case (escape t X \<sigma>' \<sigma>)
+    then show ?case sorry
   qed
 qed
 
@@ -437,14 +399,15 @@ qed
 lemma tangle_attractor_step_I_preserved:
   "\<lbrakk>tangle_attractor_step (X,\<sigma>) (X',\<sigma>'); tangle_attractor_step_I (X,\<sigma>)\<rbrakk>
     \<Longrightarrow> tangle_attractor_step_I (X',\<sigma>')"
+  using tangle_attractor_step_mono[of X \<sigma> X' \<sigma>']
   using tangle_attractor_step_strat_of_V\<^sub>\<alpha>[of X \<sigma> X' \<sigma>']
   using tangle_attractor_step_dom[of X \<sigma> X' \<sigma>']
   using tangle_attractor_step_ran[of X \<sigma> X' \<sigma>']
-  using tangle_attractor_step_closed[of X \<sigma> X' \<sigma>']
+  using tangle_attractor_step_closed_X'[of X \<sigma> X' \<sigma>']
   using tangle_attractor_step_forces_A_or_wins[of X \<sigma> X' \<sigma>']
-  using tangle_attractor_step_mono[of X \<sigma> X' \<sigma>']
-  unfolding tangle_attractor_step_I_def
-  by simp blast
+  using tangle_attractor_step_path_to_A[of X \<sigma> X' \<sigma>']
+  unfolding tangle_attractor_step_I_def split
+  by auto
 
 (** We will be using the reflexive transitive closure of the step relation for our final definition.
     To prove properties of the final definition, we will therefore need to prove them for the
@@ -813,72 +776,6 @@ lemma player_tangle_attractor_ss: "player_tangle_attractor X \<sigma> \<Longrigh
 (** If the target of the attractor is finite, so is the attracted region. *)
 lemma player_tangle_attractor_finite: "\<lbrakk>player_tangle_attractor X \<sigma>; finite A\<rbrakk> \<Longrightarrow> finite X"
   using finite_subset[OF player_tangle_attractor_ss] by blast
-
-  (**tangle_attractor_step.induct[
-    of "(X,\<sigma>)" "(X',\<sigma>')" for X \<sigma> X' \<sigma>',
-    where P="\<lambda>(a,b) (c,d). P a b c d" for P,
-    unfolded split]*)
-
-lemmas tangle_attractor_step_rtranclp_induct[consumes 1, case_names base step] =
-  rtranclp_induct[
-    of "tangle_attractor_step" "(X,\<sigma>)" "(X',\<sigma>')" for X \<sigma> X' \<sigma>',
-    where P="\<lambda>(a,b). P a b" for P,
-    unfolded split]
-
-lemma test: "\<lbrakk>tangle_attractor_step (X,\<sigma>) (X',\<sigma>');
-        \<forall>x\<in>X. \<exists>x'\<in>A. \<exists>xs. path (induced_subgraph (dom \<sigma>) \<sigma>) x xs x'\<rbrakk>
-        \<Longrightarrow> \<forall>x\<in>X'. \<exists>x'\<in>A. \<exists>xs. path (induced_subgraph (dom \<sigma>') \<sigma>') x xs x'"
-proof (induction rule: tangle_attractor_step_induct)
-  case (own x X y \<sigma>)
-  hence "Restr (induced_subgraph (dom \<sigma>) \<sigma>) X = Restr (induced_subgraph (dom (\<sigma>(x\<mapsto>y))) (\<sigma>(x\<mapsto>y))) X"
-    unfolding induced_subgraph_def E_of_strat_def
-    by (auto split: if_splits)
-  show ?case proof (intro ballI)
-    fix v assume "v \<in> insert x X"
-    consider (v_is_x) "v = x" | (v_not_x) "v \<noteq> x" by blast
-    thus "\<exists>x'\<in>A. \<exists>xs. path (induced_subgraph (dom (\<sigma>(x \<mapsto> y))) (\<sigma>(x \<mapsto> y))) v xs x'"
-    proof cases
-      case v_is_x
-      then show ?thesis sorry
-    next
-      case v_not_x
-      show ?thesis
-    qed
-  qed
-next
-  case (opponent x X \<sigma>)
-  then show ?case sorry
-next
-  case (escape t X \<sigma>' \<sigma>)
-  then show ?case sorry
-qed
-
-lemma "player_tangle_attractor X \<sigma> \<Longrightarrow> \<forall>x\<in>X. \<exists>x'\<in>A. \<exists>xs. path (induced_subgraph (dom \<sigma>) \<sigma>) x xs x'"
-proof -
-  assume attr: "player_tangle_attractor X \<sigma>"
-  then obtain \<sigma>' where
-    rtranclp_\<sigma>': "tangle_attractor_step\<^sup>*\<^sup>* (A,Map.empty) (X,\<sigma>')"
-    unfolding player_tangle_attractor_def by blast
-  then have "\<forall>x\<in>X. \<exists>x'\<in>A. \<exists>xs. path (induced_subgraph (dom \<sigma>') \<sigma>') x xs x'"
-  proof (induction rule: tangle_attractor_step_rtranclp_induct)
-    case base thus ?case
-      apply (intro ballI)
-      subgoal for x apply (rule bexI[where x=x])
-        subgoal apply (rule exI[where x="[]"]) by simp
-        subgoal by simp
-        done
-      done
-  next
-    case (step y z)
-    then obtain X \<sigma> X' \<sigma>' where "y = (X,\<sigma>)" "z = (X',\<sigma>')" by fastforce
-    with step have step_y_z: "tangle_attractor_step (X,\<sigma>) (X',\<sigma>')" by blast
-    from step \<open>y=(X,\<sigma>)\<close> have paths_to_A_X:
-      "\<forall>x\<in>X. \<exists>x'\<in>A. \<exists>xs. path (induced_subgraph (dom \<sigma>) \<sigma>) x xs x'" by blast
-    from step_y_z paths_to_A_X show ?case
-      using test[of X \<sigma> X' \<sigma>'] \<open>z = (X',\<sigma>')\<close> by blast
-  qed
-  show ?thesis
-qed
 end (** End of context with fixed A *)
 
 
