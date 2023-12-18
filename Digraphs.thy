@@ -209,7 +209,7 @@ lemma lasso_from_node_in_E: "lasso_from_node x xs ys
 
 (** The origin of a lasso is somewhere in the lasso, either in the spoke, or in the loop if the
     spoke is empty. *)
-lemma origin_in_lasso: "lasso_from_node x xs ys \<Longrightarrow> (x \<in> set xs \<or> x \<in> set ys)"
+lemma origin_in_lasso: "lasso_from_node x xs ys \<Longrightarrow> x \<in> set xs \<or> x \<in> set ys"
   unfolding lasso_from_node_def cycle_def
   using path.simps origin_in_path by metis
 
@@ -321,7 +321,7 @@ lemma cycle_impl_lasso': "cycle v vs \<Longrightarrow> lasso_from_node' v vs"
 
 (** The two lassos are equivalent. *)
 lemma lassos_equiv: "lasso_from_node' v xs \<longleftrightarrow> (\<exists>xs1 xs2. xs=xs1@xs2 \<and> lasso_from_node v xs1 xs2)"
-  unfolding lasso_from_node'_def lasso_from_node_def cycle_def by auto
+  unfolding lasso_from_node'_def lasso_from_node_def by auto
 
 (** A lasso can be extended by appending its loop to the end. *)
 lemma lasso'_extend_loop: "lasso_from_node' x vs \<Longrightarrow>
