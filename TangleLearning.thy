@@ -37,22 +37,22 @@ lemma van_dijk_2_player:
   assumes A_def: "A = {v. v\<in>V \<and> pr v = pr_set V}"
   assumes attr: "player_tangle_attractor T A Z \<sigma>"
   shows "\<forall>v\<in>Z. \<forall>xs ys.
-          lasso_from_node (induced_subgraph V\<^sub>\<alpha> \<sigma> \<inter> (Z \<times> Z)) v xs ys \<longrightarrow> winning_player ys"
+          lasso (induced_subgraph V\<^sub>\<alpha> \<sigma> \<inter> (Z \<times> Z)) v xs ys \<longrightarrow> winning_player ys"
 proof (intro ballI allI impI)
   let ?restr_subgraph = "induced_subgraph V\<^sub>\<alpha> \<sigma> \<inter> (Z \<times> Z)"
   fix v xs ys
-  assume v_in_Z: "v\<in>Z" and lasso_restr_v_xs_ys: "lasso_from_node ?restr_subgraph v xs ys"
+  assume v_in_Z: "v\<in>Z" and lasso_restr_v_xs_ys: "lasso ?restr_subgraph v xs ys"
   from player_tangle_attractor_ss[OF tangles_T fin_T attr] A_def
   have Z_in_V: "Z \<subseteq> V" by blast
 
   from restr_V_lasso[OF lasso_restr_v_xs_ys] have
     ys_in_Z: "set ys \<subseteq> Z" and
-    lasso_v_xs_ys: "lasso_from_node (induced_subgraph V\<^sub>\<alpha> \<sigma>) v xs ys"
+    lasso_v_xs_ys: "lasso (induced_subgraph V\<^sub>\<alpha> \<sigma>) v xs ys"
     by blast+
   with Z_in_V have ys_in_V: "set ys \<subseteq> V" by simp
 
-  from lasso_from_node_loop[OF lasso_v_xs_ys] obtain y where
-    lasso_y_ys: "lasso_from_node (induced_subgraph V\<^sub>\<alpha> \<sigma>) y [] ys" and
+  from lasso_loop[OF lasso_v_xs_ys] obtain y where
+    lasso_y_ys: "lasso (induced_subgraph V\<^sub>\<alpha> \<sigma>) y [] ys" and
     y_in_ys: "y \<in> set ys" and
     ys_notempty: "ys \<noteq> []"
     by fastforce
@@ -249,7 +249,7 @@ lemma van_dijk_2:
   assumes winning_top_p: "player_winningP \<alpha> (pr_set V)"
   assumes A_def: "A = {v. v\<in>V \<and> pr v = pr_set V}"
   assumes attr: "tangle_attractor \<alpha> T A Z \<sigma>"
-  shows "\<forall>v\<in>Z. \<forall>xs ys. lasso_from_node (Restr (induced_subgraph (V_player \<alpha>) \<sigma>) Z) v xs ys
+  shows "\<forall>v\<in>Z. \<forall>xs ys. lasso (Restr (induced_subgraph (V_player \<alpha>) \<sigma>) Z) v xs ys
             \<longrightarrow> player_wins_list \<alpha> ys"
   using assms
   using P0.van_dijk_2_player[of "{t\<in>T. tangle EVEN t}"]

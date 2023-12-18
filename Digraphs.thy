@@ -195,54 +195,54 @@ lemma cycle_impl_cycle_from_node: "cycle v vs \<Longrightarrow> cycle_from_node 
 
 section \<open>Lassos\<close>
 (** A lasso from a node with a spoke and a loop. *)
-definition lasso_from_node :: "'v \<Rightarrow> 'v list \<Rightarrow> 'v list \<Rightarrow> bool" where
-  "lasso_from_node x xs ys \<equiv> \<exists>y. path x xs y \<and> cycle y ys"
+definition lasso :: "'v \<Rightarrow> 'v list \<Rightarrow> 'v list \<Rightarrow> bool" where
+  "lasso x xs ys \<equiv> \<exists>y. path x xs y \<and> cycle y ys"
 
-lemma lasso_from_node_not_empty[simp]:"\<not>lasso_from_node x xs []"
-  unfolding lasso_from_node_def by auto
+lemma lasso_not_empty[simp]:"\<not>lasso x xs []"
+  unfolding lasso_def by auto
 
 (** The nodes in the lasso are in the graph. *)
-lemma lasso_from_node_in_E: "lasso_from_node x xs ys
+lemma lasso_in_E: "lasso x xs ys
   \<Longrightarrow> set xs \<subseteq> (EV E) \<and> set ys \<subseteq> (EV E)"
-  unfolding lasso_from_node_def
+  unfolding lasso_def
   using path_in_E cycle_in_E by force
 
 (** The origin of a lasso is somewhere in the lasso, either in the spoke, or in the loop if the
     spoke is empty. *)
-lemma origin_in_lasso: "lasso_from_node x xs ys \<Longrightarrow> x \<in> set xs \<or> x \<in> set ys"
-  unfolding lasso_from_node_def cycle_def
+lemma origin_in_lasso: "lasso x xs ys \<Longrightarrow> x \<in> set xs \<or> x \<in> set ys"
+  unfolding lasso_def cycle_def
   using path.simps origin_in_path by metis
 
 (** A lasso is equivalent to two paths; a spoke and a loop. *)
-lemma lasso_from_node_paths:
-  "lasso_from_node x xs ys \<longleftrightarrow> (\<exists>y. path x xs y \<and> path y ys y \<and> ys \<noteq> [])"
-  unfolding lasso_from_node_def cycle_def by simp
+lemma lasso_paths:
+  "lasso x xs ys \<longleftrightarrow> (\<exists>y. path x xs y \<and> path y ys y \<and> ys \<noteq> [])"
+  unfolding lasso_def cycle_def by simp
 
 (** If we have a lasso, we have a single path covering the spoke and loop, terminating at the start
     of the loop. *)
-lemma lasso_from_node_impl_path:
-  "lasso_from_node x xs ys \<Longrightarrow> \<exists>y vs. vs = xs@ys \<and> y \<in> set vs \<and> path x vs y"
-  unfolding lasso_from_node_def cycle_def
+lemma lasso_impl_path:
+  "lasso x xs ys \<Longrightarrow> \<exists>y vs. vs = xs@ys \<and> y \<in> set vs \<and> path x vs y"
+  unfolding lasso_def cycle_def
   using path_append origin_in_path by auto
 
 (** If a lasso is in a closed region of a graph, its nodes are in that region. *)
-lemma lasso_from_node_closed_sets: "\<lbrakk>x\<in>V; E``V\<subseteq>V; lasso_from_node x xs ys\<rbrakk> \<Longrightarrow> set xs \<subseteq> V \<and> set ys \<subseteq> V"
-  using lasso_from_node_paths path_closed_dest[of x V xs] path_closed_set[of _ V] by metis
+lemma lasso_closed_sets: "\<lbrakk>x\<in>V; E``V\<subseteq>V; lasso x xs ys\<rbrakk> \<Longrightarrow> set xs \<subseteq> V \<and> set ys \<subseteq> V"
+  using lasso_paths path_closed_dest[of x V xs] path_closed_set[of _ V] by metis
 
 (** If a lasso is in a partially closed region of a graph, and it does not go through the part of
     the region where it can exit, it will stay in the region. *)
-lemma lasso_from_node_partially_closed_sets:
+lemma lasso_partially_closed_sets:
   assumes "x\<in>V-R"
   assumes "E``(V-R)\<subseteq>V"
   assumes "set xs \<inter> R = {}"
   assumes "set ys \<inter> R = {}"
-  assumes "lasso_from_node x xs ys"
+  assumes "lasso x xs ys"
   shows "set xs \<subseteq> V-R \<and> set ys \<subseteq> V-R"
 proof -
   from assms(5) obtain y where
     path_x_xs_y: "path x xs y" and
     cycle_y_ys: "cycle y ys"
-    unfolding lasso_from_node_def by blast
+    unfolding lasso_def by blast
 
   from path_partially_closed_set[OF assms(1,2) path_x_xs_y assms(3)]
   have xs_in_V_min_R: "set xs \<subseteq> V-R" .
@@ -257,98 +257,98 @@ qed
 
 (** If we have a lasso, then there exists a y at the start of the loop, from which there is a lasso
     without a spoke. *)
-lemma lasso_from_node_loop:
-  "lasso_from_node x xs ys \<Longrightarrow> \<exists>y. y \<in> set ys \<and> lasso_from_node y [] ys"
-  unfolding lasso_from_node_def cycle_def
+lemma lasso_loop:
+  "lasso x xs ys \<Longrightarrow> \<exists>y. y \<in> set ys \<and> lasso y [] ys"
+  unfolding lasso_def cycle_def
   using origin_in_path by auto
 
 (** If there is a looping path from y, there is a lasso from y without a spoke. *)
-lemma loop_impl_lasso: "\<lbrakk>path y ys y; ys \<noteq> []\<rbrakk> \<Longrightarrow> lasso_from_node y [] ys"
-  unfolding lasso_from_node_def cycle_def by simp
+lemma loop_impl_lasso: "\<lbrakk>path y ys y; ys \<noteq> []\<rbrakk> \<Longrightarrow> lasso y [] ys"
+  unfolding lasso_def cycle_def by simp
 
 (** A cycle is a lasso without a spoke. *)
-lemma cycle_iff_lasso: "cycle y ys \<longleftrightarrow> lasso_from_node y [] ys"
-  unfolding lasso_from_node_def by simp
+lemma cycle_iff_lasso: "cycle y ys \<longleftrightarrow> lasso y [] ys"
+  unfolding lasso_def by simp
 
 (** If there is a cycle, it means there is a lasso, and vice versa. *)
-lemma cycle_from_iff_lasso: "cycle_from_node x ys \<longleftrightarrow> (\<exists>xs. lasso_from_node x xs ys)"
-  unfolding lasso_from_node_def cycle_from_node_def by simp
+lemma cycle_from_iff_lasso: "cycle_from_node x ys \<longleftrightarrow> (\<exists>xs. lasso x xs ys)"
+  unfolding lasso_def cycle_from_node_def by simp
 
 (** A lasso from a node with spoke and loop in a single list. *)
-definition lasso_from_node' :: "'v \<Rightarrow> 'v list \<Rightarrow> bool" where
-  "lasso_from_node' x vs \<equiv> \<exists>y xs ys. vs=xs@ys \<and>  path x xs y \<and> cycle y ys"
+definition lasso' :: "'v \<Rightarrow> 'v list \<Rightarrow> bool" where
+  "lasso' x vs \<equiv> \<exists>y xs ys. vs=xs@ys \<and>  path x xs y \<and> cycle y ys"
 
-lemma lasso_from_node'_not_empty[simp]: "\<not>lasso_from_node' v []"
-  unfolding lasso_from_node'_def by simp
+lemma lasso'_not_empty[simp]: "\<not>lasso' v []"
+  unfolding lasso'_def by simp
 
 (** The length of a lasso is always greater than 0. *)
-lemma lasso_from_node'_length: "lasso_from_node' v vs \<Longrightarrow> 0 < length vs"
+lemma lasso'_length: "lasso' v vs \<Longrightarrow> 0 < length vs"
   by force
 
 (** The nodes in a lasso are in the graph. *)
-lemma lasso_from_node'_in_E: "lasso_from_node' x vs \<Longrightarrow> set vs \<subseteq> (EV E)"
-  unfolding lasso_from_node'_def cycle_def
+lemma lasso'_in_E: "lasso' x vs \<Longrightarrow> set vs \<subseteq> (EV E)"
+  unfolding lasso'_def cycle_def
   using path_append path_in_E by blast
 
 (** The origin of a lasso is in its nodes. *)
-lemma origin_in_lasso': "lasso_from_node' x vs \<Longrightarrow> x \<in> set vs"
-  unfolding lasso_from_node'_def cycle_def
+lemma origin_in_lasso': "lasso' x vs \<Longrightarrow> x \<in> set vs"
+  unfolding lasso'_def cycle_def
   using path_append origin_in_path by blast
 
 (** A lasso is equivalent to two paths; a spoke and a loop. *)
-lemma lasso_from_node'_paths:
-  "lasso_from_node' x vs \<longleftrightarrow> (\<exists>y xs ys. vs=xs@ys \<and> path x xs y \<and> path y ys y \<and> ys \<noteq> [])"
-  unfolding lasso_from_node'_def cycle_def by simp
+lemma lasso'_paths:
+  "lasso' x vs \<longleftrightarrow> (\<exists>y xs ys. vs=xs@ys \<and> path x xs y \<and> path y ys y \<and> ys \<noteq> [])"
+  unfolding lasso'_def cycle_def by simp
 
 (** If a lasso is in a closed region of a graph, its nodes are also in that region. *)
-lemma lasso_from_node'_closed_set: "\<lbrakk>x\<in>V; E``V\<subseteq>V; lasso_from_node' x vs\<rbrakk> \<Longrightarrow> set vs \<subseteq> V"
-  using lasso_from_node'_paths[of x vs] path_closed_set path_closed_dest[of x V]
+lemma lasso'_closed_set: "\<lbrakk>x\<in>V; E``V\<subseteq>V; lasso' x vs\<rbrakk> \<Longrightarrow> set vs \<subseteq> V"
+  using lasso'_paths[of x vs] path_closed_set path_closed_dest[of x V]
   by clarsimp blast
 
 (** If there is a lasso, then there is a single path over the spoke and loop, terminating at the
     start of the loop. *)
-lemma lasso'_impl_path: "lasso_from_node' x vs \<Longrightarrow> \<exists>y. y \<in> set vs \<and> path x vs y"
-  unfolding lasso_from_node'_def cycle_def
+lemma lasso'_impl_path: "lasso' x vs \<Longrightarrow> \<exists>y. y \<in> set vs \<and> path x vs y"
+  unfolding lasso'_def cycle_def
   using path_append origin_in_path by fastforce
 
 (** If there exists a loop, then that is a lasso reachable from its starting point. *)
-lemma loop_impl_lasso': "\<lbrakk>path v vs v; vs \<noteq> []\<rbrakk> \<Longrightarrow> lasso_from_node' v vs"
-  unfolding lasso_from_node'_def cycle_def by fastforce
+lemma loop_impl_lasso': "\<lbrakk>path v vs v; vs \<noteq> []\<rbrakk> \<Longrightarrow> lasso' v vs"
+  unfolding lasso'_def cycle_def by fastforce
 
 (** If there is a cycle, then that is a lasso reachable from its starting point. *)
-lemma cycle_impl_lasso': "cycle v vs \<Longrightarrow> lasso_from_node' v vs"
-  unfolding lasso_from_node'_def cycle_def by fastforce
+lemma cycle_impl_lasso': "cycle v vs \<Longrightarrow> lasso' v vs"
+  unfolding lasso'_def cycle_def by fastforce
 
 (** The two lassos are equivalent. *)
-lemma lassos_equiv: "lasso_from_node' v xs \<longleftrightarrow> (\<exists>xs1 xs2. xs=xs1@xs2 \<and> lasso_from_node v xs1 xs2)"
-  unfolding lasso_from_node'_def lasso_from_node_def by auto
+lemma lassos_equiv: "lasso' v xs \<longleftrightarrow> (\<exists>xs1 xs2. xs=xs1@xs2 \<and> lasso v xs1 xs2)"
+  unfolding lasso'_def lasso_def by auto
 
 (** A lasso can be extended by appending its loop to the end. *)
-lemma lasso'_extend_loop: "lasso_from_node' x vs \<Longrightarrow>
-  \<exists>vs'. length vs < length vs' \<and> set vs = set vs' \<and> lasso_from_node' x vs'"
+lemma lasso'_extend_loop: "lasso' x vs \<Longrightarrow>
+  \<exists>vs'. length vs < length vs' \<and> set vs = set vs' \<and> lasso' x vs'"
 proof -
-  assume lasso: "lasso_from_node' x vs"
+  assume lasso: "lasso' x vs"
   then obtain y xs ys where
     vs_decomp: "vs=xs@ys" and
     path_x_xs_y: "path x xs y" and
     path_y_ys_y: "path y ys y" and
     ys_notempty: "ys\<noteq>[]"
-    using lasso_from_node'_paths by auto
+    using lasso'_paths by auto
   let ?vs' = "xs@ys@ys"
   show ?thesis
   proof (rule exI[where x="?vs'"]; intro conjI)
     from vs_decomp ys_notempty show "length vs < length ?vs'" by simp
     from vs_decomp show "set vs = set ?vs'" by simp
-    from path_x_xs_y path_y_ys_y ys_notempty show "lasso_from_node' x ?vs'"
-      unfolding lasso_from_node'_def cycle_def by fastforce
+    from path_x_xs_y path_y_ys_y ys_notempty show "lasso' x ?vs'"
+      unfolding lasso'_def cycle_def by fastforce
   qed
 qed
 
 (** A lasso can be extended to any length. *)
-lemma lasso'_extend_any_length: "lasso_from_node' v vs
-  \<Longrightarrow> \<exists>vs'. n < length vs' \<and> set vs = set vs' \<and> lasso_from_node' v vs'"
+lemma lasso'_extend_any_length: "lasso' v vs
+  \<Longrightarrow> \<exists>vs'. n < length vs' \<and> set vs = set vs' \<and> lasso' v vs'"
   apply (induction n)
-    subgoal using lasso_from_node'_length by blast
+    subgoal using lasso'_length by blast
     subgoal for n using lasso'_extend_loop Suc_lessI[of n] by metis
   done
 end (** End of context with fixed E. *)
@@ -388,11 +388,11 @@ lemma cycle_from_node_in_V: "\<lbrakk>v\<in>V; cycle_from_node E v xs\<rbrakk> \
   using cycle_from_node_in_E E_in_V by fastforce
 
 (** All nodes in a lasso reachable from a node are in V. *)
-lemma lasso_from_node_in_V: "\<lbrakk>v\<in>V; lasso_from_node E v xs ys\<rbrakk> \<Longrightarrow> set xs \<subseteq> V \<and> set ys \<subseteq> V"
-  using lasso_from_node_in_E E_in_V by fastforce
+lemma lasso_in_V: "\<lbrakk>v\<in>V; lasso E v xs ys\<rbrakk> \<Longrightarrow> set xs \<subseteq> V \<and> set ys \<subseteq> V"
+  using lasso_in_E E_in_V by fastforce
 
-lemma lasso_from_node'_in_V: "\<lbrakk>v\<in>V; lasso_from_node' E v xs\<rbrakk> \<Longrightarrow> set xs \<subseteq> V"
-  using lasso_from_node'_in_E E_in_V by fastforce
+lemma lasso'_in_V: "\<lbrakk>v\<in>V; lasso' E v xs\<rbrakk> \<Longrightarrow> set xs \<subseteq> V"
+  using lasso'_in_E E_in_V by fastforce
 
 (** You can obtain a path of any desired length in the graph. *)
 lemma path_any_length: "v\<in>V \<Longrightarrow> \<exists>xs v'. length xs = n \<and> path E v xs v'"
@@ -438,10 +438,10 @@ proof -
 qed
 
 (** You can always get a lasso in a finite graph where every node has a successor. *)
-lemma lasso_always_exists: "x\<in>V \<Longrightarrow> \<exists>xs ys. lasso_from_node E x xs ys"
+lemma lasso_always_exists: "x\<in>V \<Longrightarrow> \<exists>xs ys. lasso E x xs ys"
   using cycle_always_exists cycle_from_iff_lasso[of E] by blast
 
-lemma lasso'_always_exists: "x\<in>V \<Longrightarrow> \<exists>xs. lasso_from_node' E x xs"
+lemma lasso'_always_exists: "x\<in>V \<Longrightarrow> \<exists>xs. lasso' E x xs"
   using lasso_always_exists lassos_equiv[of E] by simp
 end (** End of locale finite_graph_V_Succ *)
 
@@ -460,10 +460,10 @@ lemma subgraph_cycle_from_node: "E' \<subseteq> E \<Longrightarrow> cycle_from_n
   unfolding cycle_from_node_def using subgraph_path[of E' E] subgraph_cycle[of E' E] by fast
 
 (** If a lasso exists in a subgraph, it exists in the whole graph. *)
-lemma subgraph_lasso: "E' \<subseteq> E \<Longrightarrow> lasso_from_node E' v xs ys \<Longrightarrow> lasso_from_node E v xs ys"
-  unfolding lasso_from_node_def using subgraph_path[of E' E] subgraph_cycle[of E' E] by fast
+lemma subgraph_lasso: "E' \<subseteq> E \<Longrightarrow> lasso E' v xs ys \<Longrightarrow> lasso E v xs ys"
+  unfolding lasso_def using subgraph_path[of E' E] subgraph_cycle[of E' E] by fast
 
-lemma subgraph_lasso': "E' \<subseteq> E \<Longrightarrow> lasso_from_node' E' v vs \<Longrightarrow> lasso_from_node' E v vs"
+lemma subgraph_lasso': "E' \<subseteq> E \<Longrightarrow> lasso' E' v vs \<Longrightarrow> lasso' E v vs"
   using lassos_equiv[of E'] subgraph_lasso[of E' E] lassos_equiv[of E] by blast
 
 (** If all nodes in a path exists in a region V, then it exists in the whole graph restricted to V. *)
@@ -483,24 +483,24 @@ lemma restr_V_cycle: "cycle (E \<inter> V\<times>V) v xs \<Longrightarrow> set x
   unfolding cycle_def using restr_V_path[of E V v xs v] by simp
 
 (** If all nodes in a lasso exist in a region V, then it exists in the whole graph restricted to V. *)
-lemma lasso_restr_V: "lasso_from_node E v xs ys \<Longrightarrow> set xs \<subseteq> V \<Longrightarrow> set ys \<subseteq> V \<Longrightarrow> lasso_from_node (E \<inter> V\<times>V) v xs ys"
-  unfolding lasso_from_node_def cycle_def
+lemma lasso_restr_V: "lasso E v xs ys \<Longrightarrow> set xs \<subseteq> V \<Longrightarrow> set ys \<subseteq> V \<Longrightarrow> lasso (E \<inter> V\<times>V) v xs ys"
+  unfolding lasso_def cycle_def
   using path_restr_V[of E _ _ _ V] origin_in_path[of E] by blast
 
-lemma restr_V_lasso: "lasso_from_node (E \<inter> V\<times>V) v xs ys \<Longrightarrow> set xs \<subseteq> V \<and> set ys \<subseteq> V \<and> lasso_from_node E v xs ys"
-  unfolding lasso_from_node_def cycle_def
+lemma restr_V_lasso: "lasso (E \<inter> V\<times>V) v xs ys \<Longrightarrow> set xs \<subseteq> V \<and> set ys \<subseteq> V \<and> lasso E v xs ys"
+  unfolding lasso_def cycle_def
   using restr_V_path[of E V] set_append[of xs ys] set_empty[of xs] path.simps(1) empty_subsetI by metis
 
-lemma lasso'_restr_V: "lasso_from_node' E v vs \<Longrightarrow> set vs \<subseteq> V \<Longrightarrow> lasso_from_node' (E \<inter> V\<times>V) v vs"
+lemma lasso'_restr_V: "lasso' E v vs \<Longrightarrow> set vs \<subseteq> V \<Longrightarrow> lasso' (E \<inter> V\<times>V) v vs"
 proof -
-  assume lasso_v_vs: "lasso_from_node' E v vs" and
+  assume lasso_v_vs: "lasso' E v vs" and
          vs_in_V: "set vs \<subseteq> V"
 
   from lasso_v_vs obtain xs v' ys where
     path_v_xs_v': "path E v xs v'" and
     path_v'_ys_v': "path E v' ys v'" and
     ys_notempty: "ys \<noteq> []" and vs_concat: "vs = xs@ys"
-    using lasso_from_node'_paths[of E v vs] by fast
+    using lasso'_paths[of E v vs] by fast
 
   from vs_in_V vs_concat have xs_in_V: "set xs \<subseteq> V" by simp
   from vs_in_V vs_concat have ys_in_V: "set ys \<subseteq> V" by simp
@@ -515,7 +515,7 @@ proof -
 
   from path_v_xs_v'_restr_V path_v'_ys_v'_restr_V vs_concat ys_notempty
   show ?thesis
-    using lasso_from_node'_def cycle_def by metis
+    using lasso'_def cycle_def by metis
 qed
 
 (** If a path exists in the intersection of two graphs, it exists in both of those graphs *)
@@ -536,14 +536,14 @@ lemma cycle_from_node_inter:
   using inf_sup_ord(1,2)[of E E'] subgraph_cycle_from_node[of "E\<inter>E'"] by fast+
 
 (** If a lasso exists in the intersection of two graphs, it exists in both of those graphs *)
-lemma lasso_from_node_inter:
-  "lasso_from_node (E \<inter> E') x xs ys \<Longrightarrow> lasso_from_node E x xs ys"
-  "lasso_from_node (E \<inter> E') x xs ys \<Longrightarrow> lasso_from_node E' x xs ys"
+lemma lasso_inter:
+  "lasso (E \<inter> E') x xs ys \<Longrightarrow> lasso E x xs ys"
+  "lasso (E \<inter> E') x xs ys \<Longrightarrow> lasso E' x xs ys"
   using inf_sup_ord(1,2)[of E E'] subgraph_lasso[of "E\<inter>E'"] by fast+
 
-lemma lasso_from_node'_inter:
-  "lasso_from_node' (E \<inter> E') v vs \<Longrightarrow> lasso_from_node' E v vs"
-  "lasso_from_node' (E \<inter> E') v vs \<Longrightarrow> lasso_from_node' E' v vs"
+lemma lasso'_inter:
+  "lasso' (E \<inter> E') v vs \<Longrightarrow> lasso' E v vs"
+  "lasso' (E \<inter> E') v vs \<Longrightarrow> lasso' E' v vs"
   using inf_sup_ord(1,2)[of E E'] subgraph_lasso'[of "E\<inter>E'"] by fast+
 
 lemma simulate_closed_path:

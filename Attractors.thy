@@ -319,7 +319,7 @@ qed
 (** There exists a strategy for the maximal attractor that forces all plays in it to go to A. *)
 lemma player_attractor_attracts: "\<exists>\<sigma>. strategy_of V\<^sub>\<alpha> \<sigma> \<and> dom \<sigma> = (player_attractor A - A) \<inter> V\<^sub>\<alpha> \<and> ran \<sigma> \<subseteq> player_attractor A \<and>
   (\<forall>v\<in>player_attractor A - A. \<forall>v'. (v,v') \<in> (induced_subgraph V\<^sub>\<alpha> \<sigma>) \<longrightarrow> v' \<in> player_attractor A) \<and>
-  (\<forall>v\<in>player_attractor A. \<forall>xs. lasso_from_node' (induced_subgraph V\<^sub>\<alpha> \<sigma>) v xs \<longrightarrow> set xs \<inter> A \<noteq> {})"
+  (\<forall>v\<in>player_attractor A. \<forall>xs. lasso' (induced_subgraph V\<^sub>\<alpha> \<sigma>) v xs \<longrightarrow> set xs \<inter> A \<noteq> {})"
 proof -
   obtain n where attr_x_rank_n: "player_attractor A = nodes_in_rank A n"
     using player_attractor_max_rank_eq by blast
@@ -347,7 +347,7 @@ proof -
   next
     fix v xs
     assume v_in_attr: "v \<in> player_attractor A"
-       and lasso_v_xs: "lasso_from_node' (induced_subgraph V\<^sub>\<alpha> \<sigma>) v xs"
+       and lasso_v_xs: "lasso' (induced_subgraph V\<^sub>\<alpha> \<sigma>) v xs"
 
     from v_in_attr attr_x_rank_n have v_in_rank_n: "v \<in> nodes_in_rank A n" by simp
 
@@ -355,7 +355,7 @@ proof -
     obtain xs' where
       len_xs': "n < length xs'" and
       set_xs'_eq: "set xs = set xs'" and
-      lasso_xs': "lasso_from_node' (induced_subgraph V\<^sub>\<alpha> \<sigma>) v xs'"
+      lasso_xs': "lasso' (induced_subgraph V\<^sub>\<alpha> \<sigma>) v xs'"
       by blast
 
     from lasso'_impl_path[OF lasso_xs']
@@ -405,7 +405,7 @@ lemma attractor_max_opponent: "\<lbrakk>v \<in> V_opponent \<alpha>; v \<notin> 
 lemma attractor_attracts: "\<exists>\<sigma>. strategy_of (V_player \<alpha>) \<sigma> \<and>
     dom \<sigma> = (attractor \<alpha> A - A) \<inter> V_player \<alpha> \<and> ran \<sigma> \<subseteq> attractor \<alpha> A \<and>
     (\<forall>v\<in>attractor \<alpha> A - A. \<forall>v'. (v,v') \<in> induced_subgraph (V_player \<alpha>) \<sigma> \<longrightarrow> v' \<in> attractor \<alpha> A) \<and>
-    (\<forall>v\<in>attractor \<alpha> A. \<forall>xs. lasso_from_node' (induced_subgraph (V_player \<alpha>) \<sigma>) v xs \<longrightarrow> set xs \<inter> A \<noteq> {})"
+    (\<forall>v\<in>attractor \<alpha> A. \<forall>xs. lasso' (induced_subgraph (V_player \<alpha>) \<sigma>) v xs \<longrightarrow> set xs \<inter> A \<noteq> {})"
     using P0.player_attractor_attracts P1.player_attractor_attracts by (cases \<alpha>) auto
 end (** End of context paritygame. *)
 

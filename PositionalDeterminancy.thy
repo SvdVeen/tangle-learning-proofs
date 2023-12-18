@@ -23,7 +23,7 @@ proof -
   and \<sigma>_dom: "dom \<sigma> = (X-W) \<inter> ?V\<^sub>\<alpha>"
   and \<sigma>_ran: "ran \<sigma> \<subseteq> X"
   and \<sigma>_closed: "\<forall>v\<in>X-W. \<forall>v'. (v,v') \<in> induced_subgraph ?V\<^sub>\<alpha> \<sigma> \<longrightarrow> v'\<in>X"
-  and \<sigma>_forces_W: "\<forall>v\<in>X. \<forall>vs. lasso_from_node' (induced_subgraph ?V\<^sub>\<alpha> \<sigma>) v vs \<longrightarrow> set vs \<inter> W \<noteq> {}"
+  and \<sigma>_forces_W: "\<forall>v\<in>X. \<forall>vs. lasso' (induced_subgraph ?V\<^sub>\<alpha> \<sigma>) v vs \<longrightarrow> set vs \<inter> W \<noteq> {}"
     unfolding X_def strategy_of_player_def using attractor_attracts[of \<alpha> W] by blast
 
   from assms obtain \<sigma>' where
@@ -102,7 +102,7 @@ proof -
       from \<sigma>_dom \<sigma>'_dom have "?\<tau>_subgame \<inter> (X-W)\<times>(X-W) \<subseteq> induced_subgraph ?V\<^sub>\<alpha> \<sigma>"
         unfolding induced_subgraph_def E_of_strat_def by auto
       from subgraph_path[OF this path_restr_V[OF path_y_ys_y ys_in_X_min_W y_in_X_min_W]] ys_notempty
-      have "lasso_from_node' (induced_subgraph ?V\<^sub>\<alpha> \<sigma>) y ys"
+      have "lasso' (induced_subgraph ?V\<^sub>\<alpha> \<sigma>) y ys"
         using loop_impl_lasso' by fast
 
       with \<sigma>_forces_W y_in_X no_W_in_ys show "False" by blast
@@ -729,7 +729,7 @@ proof -
             \<sigma>_dom: "dom \<sigma> = (A-{v}) \<inter> ?V\<^sub>\<alpha>" and
             \<sigma>_ran: "ran \<sigma> \<subseteq> A" and
             \<sigma>_closed: "\<forall>v\<in>A-{v}. \<forall>v'. (v,v') \<in> induced_subgraph ?V\<^sub>\<alpha> \<sigma> \<longrightarrow> v' \<in> A" and
-            \<sigma>_forces_v: "\<forall>a\<in>A. \<forall>xs. lasso_from_node' (induced_subgraph ?V\<^sub>\<alpha> \<sigma>) a xs \<longrightarrow> set xs \<inter> {v} \<noteq> {}"
+            \<sigma>_forces_v: "\<forall>a\<in>A. \<forall>xs. lasso' (induced_subgraph ?V\<^sub>\<alpha> \<sigma>) a xs \<longrightarrow> set xs \<inter> {v} \<noteq> {}"
             unfolding A_def using attractor_attracts[of \<alpha> "{v}"] by blast
 
           (** The winning strategy for V' will ensure wins in all cycles staying in V'. *)
@@ -825,11 +825,11 @@ proof -
           qed
 
           (** \<tau> forces all plays in A to go to v. *)
-          have \<tau>_forces_v: "\<forall>a\<in>A. \<forall>vs. lasso_from_node' ?\<tau>_subgame a vs \<longrightarrow> set vs \<inter> {v} \<noteq> {}"
+          have \<tau>_forces_v: "\<forall>a\<in>A. \<forall>vs. lasso' ?\<tau>_subgame a vs \<longrightarrow> set vs \<inter> {v} \<noteq> {}"
           proof (rule ballI; rule allI; rule impI; rule ccontr)
             fix a vs
             assume a_in_A: "a\<in>A" and
-                   lasso'_a_vs: "lasso_from_node' ?\<tau>_subgame a vs" and
+                   lasso'_a_vs: "lasso' ?\<tau>_subgame a vs" and
                    not_v_in_vs: "\<not>set vs \<inter> {v} \<noteq> {}"
             hence v_notin_vs: "v\<notin>set vs" by simp
 
@@ -869,7 +869,7 @@ proof -
             have "?\<tau>_subgame \<inter> (A-{v})\<times>(A-{v}) \<subseteq> induced_subgraph ?V\<^sub>\<alpha> \<sigma>"
               unfolding induced_subgraph_def E_of_strat_def V'_def by auto
             from subgraph_lasso'[OF this lasso'_restr_V[OF lasso'_a_vs vs_in_A_min_v]]
-            have "lasso_from_node' (induced_subgraph ?V\<^sub>\<alpha> \<sigma>) a vs" .
+            have "lasso' (induced_subgraph ?V\<^sub>\<alpha> \<sigma>) a vs" .
 
             from \<sigma>_forces_v a_in_A this have "set vs \<inter> {v} \<noteq> {}" by blast
             with v_notin_vs show "False" by blast

@@ -243,14 +243,14 @@ proof (induction rule: search_step_induct)
     \<sigma>_ran: "ran \<sigma> \<subseteq> Z" and
     \<sigma>_partially_closed: "(Restr (induced_subgraph (V_player \<alpha>) \<sigma>) R) `` (Z-A) \<subseteq> Z" and
     \<sigma>_forces_A_or_wins:
-      "(\<forall>x\<in>Z. \<forall>xs ys. lasso_from_node (Restr (induced_subgraph (V_player \<alpha>) \<sigma>) R) x xs ys
+      "(\<forall>x\<in>Z. \<forall>xs ys. lasso (Restr (induced_subgraph (V_player \<alpha>) \<sigma>) R) x xs ys
         \<longrightarrow>set (xs @ ys) \<inter> A \<noteq> {} \<or> player_wins_list \<alpha> ys)"
     unfolding restr_subgraph_V_player[OF R_valid_game]
       restr_ind_subgraph_V\<^sub>\<alpha>[OF paritygame.axioms[OF R_valid_game]]
     unfolding strategy_of_player_def strategy_of_def by auto
 
   have all_games_in_Z_won:
-    "\<forall>v\<in>Z. \<forall>xs ys. lasso_from_node (Restr (induced_subgraph (V_player \<alpha>) \<sigma>) Z) v xs ys
+    "\<forall>v\<in>Z. \<forall>xs ys. lasso (Restr (induced_subgraph (V_player \<alpha>) \<sigma>) Z) v xs ys
       \<longrightarrow> player_wins_list \<alpha> ys"
   proof -
     from R_in_V step(2,3) have "player_winningP \<alpha> (pr_set (V \<inter> R))"

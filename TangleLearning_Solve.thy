@@ -75,7 +75,7 @@ theorem tanglelearning_correct:
       winning_region EVEN W\<^sub>0 \<and>
       winning_region ODD W\<^sub>1)"
   using tanglelearning_terminates tanglelearning_partially_correct by blast
-  
+
 end (** End of context paritygame. *)
 
 end

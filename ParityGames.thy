@@ -153,12 +153,12 @@ abbreviation player_wins_list :: "player \<Rightarrow> 'v list \<Rightarrow> boo
 lemma subgraph_cycles_won_if_plays_won:
   assumes G_subgraph: "G \<subseteq> G'"
   assumes R_subset: "R \<subseteq> R'"
-  assumes plays_won_in_G': "\<forall>x\<in>R'. \<forall>xs ys. lasso_from_node G' x xs ys \<longrightarrow> player_wins_list \<alpha> ys"
+  assumes plays_won_in_G': "\<forall>x\<in>R'. \<forall>xs ys. lasso G' x xs ys \<longrightarrow> player_wins_list \<alpha> ys"
   shows "\<forall>y\<in>R. \<forall>ys. cycle G y ys \<longrightarrow> player_wins_list \<alpha> ys"
 proof (intro ballI allI impI)
   fix y ys assume y_in_R: "y \<in> R" and cycle: "cycle G y ys"
   hence "cycle G' y ys" using subgraph_cycle[OF G_subgraph] by blast
-  hence "lasso_from_node G' y [] ys" using cycle_iff_lasso by fast
+  hence "lasso G' y [] ys" using cycle_iff_lasso by fast
   with plays_won_in_G' y_in_R R_subset show "player_wins_list \<alpha> ys" by blast
 qed
 

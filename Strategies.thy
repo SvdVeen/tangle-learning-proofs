@@ -202,12 +202,12 @@ lemma ind_subgraph_cycle_from_node: "cycle_from_node (induced_subgraph V\<^sub>\
 
 (** Lassos that exist in and induced subgraph also exist in the whole graph. Shorthand for an
     existing combination of lemmas *)
-lemma ind_subgraph_lasso: "lasso_from_node (induced_subgraph V\<^sub>\<alpha> \<sigma>) x xs ys
-  \<Longrightarrow> lasso_from_node E x xs ys"
+lemma ind_subgraph_lasso: "lasso (induced_subgraph V\<^sub>\<alpha> \<sigma>) x xs ys
+  \<Longrightarrow> lasso E x xs ys"
   using subgraph_lasso[OF ind_subgraph] .
 
-lemma ind_subgraph_lasso': "lasso_from_node' (induced_subgraph V\<^sub>\<alpha> \<sigma>) v xs
-  \<Longrightarrow> lasso_from_node' E v xs"
+lemma ind_subgraph_lasso': "lasso' (induced_subgraph V\<^sub>\<alpha> \<sigma>) v xs
+  \<Longrightarrow> lasso' E v xs"
   using subgraph_lasso'[OF ind_subgraph] .
 
 
