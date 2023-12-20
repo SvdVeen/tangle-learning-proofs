@@ -266,7 +266,7 @@ proof (induction rule: search_step_induct)
 
   show ?case
   proof (rule ballI)
-    fix U assume Y_in_Y': "U \<in> Y'"
+    fix U assume U_in_Y': "U \<in> Y'"
     with Y'_def consider (old) "U \<in> Y" | (new) "U \<in> {S. bound_nt_bottom_SCC Z \<sigma> S}"
       by (auto split: if_splits)
     thus "\<exists>\<alpha>. tangle \<alpha> U \<and> U \<notin> T" proof cases
@@ -283,8 +283,10 @@ proof (induction rule: search_step_induct)
       let ?\<sigma>_graph_V = "induced_subgraph_V (dom \<sigma>) \<sigma>"
       have fin_graph_\<sigma>: "finite_graph_V ?\<sigma>_graph ?\<sigma>_graph_V" by simp
 
-      from new have \<sigma>_connected: "strongly_connected (Restr ?\<sigma>_graph U) (?\<sigma>_graph_V \<inter> U)"
-        using finite_graph_V.nt_bottom_SCC_strongly_connected[OF fin_graph_\<sigma>] by blast
+      from new U_in_V have \<sigma>_connected: "strongly_connected (Restr ?\<sigma>_graph U) U"
+        using finite_graph_V.nt_bottom_SCC_strongly_connected[OF fin_graph_\<sigma>]
+          finite_graph_V.nt_bottom_SCC_in_V[OF fin_graph_\<sigma>]
+        by (simp add: Int_absorb1)
       from new have \<sigma>_U_succ_in_U: "\<forall>v\<in>U. \<exists>v'\<in>U. (v,v') \<in> ?\<sigma>_graph"
         using finite_graph_V.nt_bottom_SCC_succ_in_SCC[OF fin_graph_\<sigma>] by blast
 
@@ -333,18 +335,10 @@ proof (induction rule: search_step_induct)
         unfolding \<sigma>'_def
         using ran_restrictD[of _ \<sigma> U] ind_subgraph_to_strategy by fastforce
 
-      have "EV (Restr ?\<sigma>'_graph U) \<subseteq> EV ?\<sigma>'_graph \<inter> U" by auto
-      hence \<sigma>'_connected:
-        "strongly_connected (tangle_subgraph \<alpha> U \<sigma>') (EV (tangle_subgraph \<alpha> U \<sigma>'))"
+      from \<sigma>_connected have \<sigma>'_connected:
+        "strongly_connected (tangle_subgraph \<alpha> U \<sigma>') U"
         unfolding tangle_subgraph_is_restricted_ind_subgraph[OF U_in_V \<sigma>'_dom \<sigma>'_ran]
-          strongly_connected_def
-        apply (intro conjI)
-        subgoal using U_notempty \<sigma>'_U_succ_in_U by blast
-        subgoal by (auto intro: rev_image_eqI)
-        subgoal using \<sigma>_connected
-          unfolding graphs_equal_in_U graph_V_equal_in_U
-          unfolding induced_subgraph_V_def strongly_connected_def by simp blast
-        done
+        by (simp add: graphs_equal_in_U)
 
       from U_in_Z have tangle_subgraph_subset:
         "tangle_subgraph \<alpha> U \<sigma>' \<subseteq> Restr (induced_subgraph (V_player \<alpha>) \<sigma>) Z"

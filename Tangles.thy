@@ -37,6 +37,7 @@ lemma player_tangle_subgraph_is_restricted_ind_subgraph:
   unfolding player_tangle_subgraph_def induced_subgraph_def E_of_strat_def
   using assms by (auto simp: ranI)
 
+
 subsection \<open>Tangle Strategies\<close>
 (** The tangle strategy as defined by Van Dijk:
     Player \<alpha>'s strategy \<sigma>:U\<^sub>\<alpha>\<rightarrow>U such that its tangle subgraph E' is strongly connected and \<alpha> wins
@@ -44,7 +45,7 @@ subsection \<open>Tangle Strategies\<close>
 definition player_tangle_strat :: "'v set \<Rightarrow> 'v strat \<Rightarrow> bool" where
   "player_tangle_strat U \<sigma> \<equiv> strategy_of V\<^sub>\<alpha> \<sigma> \<and> dom \<sigma> = U \<inter> V\<^sub>\<alpha> \<and> ran \<sigma> \<subseteq> U \<and>
    (let E' = player_tangle_subgraph U \<sigma> in (
-      strongly_connected E' (EV E') \<and>
+      strongly_connected E' U \<and>
       (\<forall>v \<in> U. \<forall>xs. cycle E' v xs \<longrightarrow> winning_player xs)
    ))"
 
@@ -158,7 +159,7 @@ proof -
       \<sigma>_ran: "ran \<sigma> \<subseteq> U " and
       \<sigma>_tangle_subgraph_connected_subgame:
         "strongly_connected (player_paritygame.player_tangle_subgraph E' V' V\<^sub>\<alpha>' U \<sigma>)
-            (EV (player_paritygame.player_tangle_subgraph E' V' V\<^sub>\<alpha>' U \<sigma>))" and
+            U" and
       \<sigma>_won_subgame:
         "\<forall>v\<in>U. \<forall>xs. cycle (player_paritygame.player_tangle_subgraph E' V' V\<^sub>\<alpha>' U \<sigma>) v xs
             \<longrightarrow> winning_player xs"
@@ -188,7 +189,7 @@ proof -
       done
 
     from \<sigma>_tangle_subgraph_connected_subgame have \<sigma>_tangle_subgraph_connected:
-      "strongly_connected (player_tangle_subgraph U \<sigma>) (EV (player_tangle_subgraph U \<sigma>))"
+      "strongly_connected (player_tangle_subgraph U \<sigma>) U"
       unfolding subgame_tangle_subgraph_is_tangle_subgraph by blast
 
     from \<sigma>_won_subgame have \<sigma>_won:
@@ -265,7 +266,7 @@ fun tangle_strat :: "player \<Rightarrow> 'v set \<Rightarrow> 'v strat \<Righta
 lemma tangle_strat_iff:
   "tangle_strat \<alpha> U \<sigma> \<longleftrightarrow> strategy_of (V_player \<alpha>) \<sigma> \<and> dom \<sigma> = U \<inter> V_player \<alpha> \<and> ran \<sigma> \<subseteq> U \<and>
    (let E' = tangle_subgraph \<alpha> U \<sigma> in (
-      strongly_connected E' (EV E') \<and>
+      strongly_connected E' U \<and>
       (\<forall>v \<in> U. \<forall>xs. cycle E' v xs \<longrightarrow> player_wins_list \<alpha> xs)
    ))"
   using P0.player_tangle_strat_def P1.player_tangle_strat_def
