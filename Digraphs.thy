@@ -359,10 +359,6 @@ locale finite_graph_V =
   fixes V :: "'v set"
   assumes E_in_V: "E \<subseteq> V \<times> V"
   assumes fin_V[simp, intro]: "finite V"
-
-locale finite_graph_V_Succ = finite_graph_V E V
-  for E and V :: "'v set" +
-  assumes succ: "v\<in>V \<Longrightarrow> E``{v}\<noteq>{}"
 begin
 (** E is finite. *)
 lemma fin_E[simp, intro!]: "finite E"
@@ -393,7 +389,13 @@ lemma lasso_in_V: "\<lbrakk>v\<in>V; lasso E v xs ys\<rbrakk> \<Longrightarrow> 
 
 lemma lasso'_in_V: "\<lbrakk>v\<in>V; lasso' E v xs\<rbrakk> \<Longrightarrow> set xs \<subseteq> V"
   using lasso'_in_E E_in_V by fastforce
+end (** End of locale finite_graph_V *)
 
+
+locale finite_graph_V_Succ = finite_graph_V E V
+  for E and V :: "'v set" +
+  assumes succ: "v\<in>V \<Longrightarrow> E``{v}\<noteq>{}"
+begin
 (** You can obtain a path of any desired length in the graph. *)
 lemma path_any_length: "v\<in>V \<Longrightarrow> \<exists>xs v'. length xs = n \<and> path E v xs v'"
 proof (induction n)
