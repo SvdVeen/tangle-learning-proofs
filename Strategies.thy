@@ -199,9 +199,9 @@ lemma ind_subgraph_path: "path (induced_subgraph V\<^sub>\<alpha> \<sigma>) v xs
 lemma ind_subgraph_cycle: "cycle (induced_subgraph V\<^sub>\<alpha> \<sigma>) v xs \<Longrightarrow> cycle E v xs"
   using subgraph_cycle[OF ind_subgraph] .
 
-lemma ind_subgraph_cycle_from_node: "cycle_from_node (induced_subgraph V\<^sub>\<alpha> \<sigma>) v xs
-   \<Longrightarrow> cycle_from_node E v xs"
-  using subgraph_cycle_from_node[OF ind_subgraph] .
+lemma ind_subgraph_reachable_cycle: "reachable_cycle (induced_subgraph V\<^sub>\<alpha> \<sigma>) v xs
+   \<Longrightarrow> reachable_cycle E v xs"
+  using subgraph_reachable_cycle[OF ind_subgraph] .
 
 (** Lassos that exist in and induced subgraph also exist in the whole graph. Shorthand for an
     existing combination of lemmas *)

@@ -30,7 +30,7 @@ proof -
       \<sigma>'_strat: "strategy_of_player \<alpha> \<sigma>'"
   and \<sigma>'_dom: "dom \<sigma>' = ?V\<^sub>\<alpha> \<inter> W"
   and \<sigma>'_ran: "ran \<sigma>' \<subseteq> W"
-  and \<sigma>'_winning: "\<forall>w\<in>W. \<forall>ys. cycle_from_node (induced_subgraph (dom \<sigma>') \<sigma>') w ys \<longrightarrow> player_wins_list \<alpha> ys"
+  and \<sigma>'_winning: "\<forall>w\<in>W. \<forall>ys. reachable_cycle (induced_subgraph (dom \<sigma>') \<sigma>') w ys \<longrightarrow> player_wins_list \<alpha> ys"
   and \<sigma>'_closed_opp: "E `` (W\<inter>V_opponent \<alpha>) \<subseteq> W"
     using winning_region_strat by force
 
@@ -78,20 +78,20 @@ proof -
   hence \<tau>_closed_X: "?\<tau>_subgame `` X \<subseteq> X" by blast
 
   (** All cycles reachable from X are won by the player under \<tau>. *)
-  have \<tau>_winning: "\<forall>v\<in>X. \<forall>ys. cycle_from_node ?\<tau>_subgame v ys \<longrightarrow> player_wins_list \<alpha> ys"
+  have \<tau>_winning: "\<forall>v\<in>X. \<forall>ys. reachable_cycle ?\<tau>_subgame v ys \<longrightarrow> player_wins_list \<alpha> ys"
   proof (rule ballI; rule allI; rule impI)
     fix v ys
-    assume v_in_X: "v\<in>X" and cycle_ys: "cycle_from_node ?\<tau>_subgame v ys"
+    assume v_in_X: "v\<in>X" and cycle_ys: "reachable_cycle ?\<tau>_subgame v ys"
     hence ys_notempty: "ys\<noteq>[]" by auto
 
-    from cycle_from_node_closed_set[OF v_in_X \<tau>_closed_X cycle_ys]
+    from reachable_cycle_closed_set[OF v_in_X \<tau>_closed_X cycle_ys]
     have ys_in_X: "set ys \<subseteq> X" .
 
     from cycle_ys ys_in_X  obtain y where
       path_y_ys_y: "path ?\<tau>_subgame y ys y" and
       y_in_ys: "y \<in> set ys" and
       y_in_X: "y\<in>X"
-      using cycle_from_node_paths[of ?\<tau>_subgame v ys] origin_in_path by fast
+      using reachable_cycle_paths[of ?\<tau>_subgame v ys] origin_in_path by fast
 
     have W_in_ys: "set ys \<inter> W \<noteq> {}" proof (rule ccontr)
       assume "\<not>set ys \<inter> W \<noteq> {}"
@@ -122,8 +122,8 @@ proof -
     have "?\<tau>_subgame \<inter> W\<times>W \<subseteq> (induced_subgraph (dom \<sigma>') \<sigma>')"
       unfolding induced_subgraph_def E_of_strat_def by auto
     from subgraph_path[OF this path_restr_V[OF path_y_ys_y ys_in_W y_in_W]]
-    have "cycle_from_node (induced_subgraph (dom \<sigma>') \<sigma>') y ys"
-      using loop_impl_cycle_from_node ys_notempty by fast
+    have "reachable_cycle (induced_subgraph (dom \<sigma>') \<sigma>') y ys"
+      using loop_impl_reachable_cycle ys_notempty by fast
 
     with \<sigma>'_winning y_in_W
     show "player_winningP \<alpha> (pr_list ys)" by blast
@@ -222,7 +222,7 @@ proof -
         \<sigma>_strat_subgame: "subgame.strategy_of_player \<alpha> \<sigma>"
     and \<sigma>_dom_subgame: "dom \<sigma> = subgame.V_player \<alpha> \<inter> W"
     and \<sigma>_ran: "ran \<sigma> \<subseteq> W"
-    and \<sigma>_winning_subgame: "\<forall>w\<in>W. \<forall>ys. cycle_from_node (subgame.induced_subgraph (dom \<sigma>) \<sigma>) w ys \<longrightarrow> player_wins_list \<alpha> ys"
+    and \<sigma>_winning_subgame: "\<forall>w\<in>W. \<forall>ys. reachable_cycle (subgame.induced_subgraph (dom \<sigma>) \<sigma>) w ys \<longrightarrow> player_wins_list \<alpha> ys"
     and \<sigma>_closed_opp_subgame: "E' `` (W\<inter>subgame.V_opponent \<alpha>) \<subseteq> W"
     using subgame.winning_region_strat by auto
 
@@ -273,27 +273,27 @@ proof -
     qed
   qed
 
-  have \<sigma>_winning: "\<forall>w\<in>W. \<forall>ys. cycle_from_node ?\<sigma>_subgraph w ys \<longrightarrow> player_wins_list \<alpha> ys"
+  have \<sigma>_winning: "\<forall>w\<in>W. \<forall>ys. reachable_cycle ?\<sigma>_subgraph w ys \<longrightarrow> player_wins_list \<alpha> ys"
   proof (rule ballI; rule allI; rule impI)
     fix w ys
-    assume w_in_W: "w\<in>W" and cycle_w_ys: "cycle_from_node ?\<sigma>_subgraph w ys"
+    assume w_in_W: "w\<in>W" and cycle_w_ys: "reachable_cycle ?\<sigma>_subgraph w ys"
     hence ys_notempty: "ys\<noteq>[]" by auto
 
     from \<sigma>_closed have "?\<sigma>_subgraph `` W \<subseteq> W" by blast
-    from cycle_from_node_closed_set[OF w_in_W this cycle_w_ys]
+    from reachable_cycle_closed_set[OF w_in_W this cycle_w_ys]
     have ys_in_W: "set ys \<subseteq> W" .
 
     from cycle_w_ys ys_in_W obtain w' where
       path_w'_ys_w': "path ?\<sigma>_subgraph w' ys w'" and
       w'_in_W: "w'\<in>W"
-      using cycle_from_node_paths[of ?\<sigma>_subgraph] origin_in_path by fastforce
+      using reachable_cycle_paths[of ?\<sigma>_subgraph] origin_in_path by fastforce
 
     have "?\<sigma>_subgraph \<inter> W\<times>W \<subseteq> subgame.induced_subgraph (dom \<sigma>) \<sigma>"
       using ind_subgraph_restr_subarena[OF subgame.arena_axioms, of "dom \<sigma>" "dom \<sigma>" \<sigma>]
       using W_in_V' unfolding V'_def E'_def by auto
     from subgraph_path[OF this path_restr_V[OF path_w'_ys_w' ys_in_W w'_in_W]] ys_notempty
-    have "cycle_from_node (subgame.induced_subgraph (dom \<sigma>) \<sigma>) w' ys"
-      using loop_impl_cycle_from_node by fast
+    have "reachable_cycle (subgame.induced_subgraph (dom \<sigma>) \<sigma>) w' ys"
+      using loop_impl_reachable_cycle by fast
 
     with \<sigma>_winning_subgame w'_in_W
     show "player_winningP \<alpha> (pr_list ys)" by blast
@@ -319,8 +319,8 @@ proof -
       subgoal using \<sigma>_strat by blast
       subgoal using \<sigma>_dom by blast
       subgoal using \<sigma>_ran by blast
-      subgoal using \<sigma>_winning by blast
       subgoal using \<sigma>_closed_opp by blast
+      subgoal using \<sigma>_winning by blast
     done
 qed
 end (** End of context paritygame. *)
@@ -516,7 +516,7 @@ proof -
             \<sigma>_strat: "strategy_of_player ?\<beta> \<sigma>" and
             \<sigma>_dom: "dom \<sigma> = ?V\<^sub>\<beta> \<inter> B" and
             \<sigma>_ran: "ran \<sigma> \<subseteq> B" and
-            \<sigma>_winning_opp: "\<forall>w\<in>B. \<forall>xs. cycle_from_node (induced_subgraph (dom \<sigma>) \<sigma>) w xs \<longrightarrow> player_wins_list ?\<beta> xs" and
+            \<sigma>_winning_opp: "\<forall>w\<in>B. \<forall>xs. reachable_cycle (induced_subgraph (dom \<sigma>) \<sigma>) w xs \<longrightarrow> player_wins_list ?\<beta> xs" and
             \<sigma>_closed_player: "E `` (B\<inter>V_opponent ?\<beta>) \<subseteq> B"
             unfolding winning_region_strat by fastforce
 
@@ -528,7 +528,7 @@ proof -
             \<sigma>'_strat_subgame': "subgame'.strategy_of_player ?\<beta> \<sigma>'" and
             \<sigma>'_dom_subgame': "dom \<sigma>' = subgame'.V_player ?\<beta> \<inter> X\<^sub>\<beta>" and
             \<sigma>'_ran: "ran \<sigma>' \<subseteq> X\<^sub>\<beta>" and
-            \<sigma>'_winning_opp_subgame': "\<forall>w\<in>X\<^sub>\<beta>. \<forall>xs. cycle_from_node (subgame'.induced_subgraph (dom \<sigma>') \<sigma>') w xs \<longrightarrow> player_wins_list ?\<beta> xs" and
+            \<sigma>'_winning_opp_subgame': "\<forall>w\<in>X\<^sub>\<beta>. \<forall>xs. reachable_cycle (subgame'.induced_subgraph (dom \<sigma>') \<sigma>') w xs \<longrightarrow> player_wins_list ?\<beta> xs" and
             \<sigma>'_closed_player_subgame': "E'' `` (X\<^sub>\<beta>\<inter>subgame'.V_opponent ?\<beta>) \<subseteq> X\<^sub>\<beta>"
             unfolding subgame'.winning_region_strat by fastforce
 
@@ -621,21 +621,21 @@ proof -
           hence \<tau>_closed': "?\<tau>_subgame `` (B\<union>X\<^sub>\<beta>) \<subseteq> B\<union>X\<^sub>\<beta>" by blast
 
           (** All cycles reachable from B\<union>X\<^sub>\<beta> are won by the opponent. *)
-          have \<tau>_winning: "\<forall>x\<in>B\<union>X\<^sub>\<beta>. \<forall>ys. cycle_from_node ?\<tau>_subgame x ys \<longrightarrow> player_wins_list ?\<beta> ys"
+          have \<tau>_winning: "\<forall>x\<in>B\<union>X\<^sub>\<beta>. \<forall>ys. reachable_cycle ?\<tau>_subgame x ys \<longrightarrow> player_wins_list ?\<beta> ys"
           proof (rule ballI; rule allI; rule impI)
             fix x ys
-            assume x_in_B_X\<^sub>\<beta>: "x\<in>B\<union>X\<^sub>\<beta>" and cycle_x_ys: "cycle_from_node ?\<tau>_subgame x ys"
+            assume x_in_B_X\<^sub>\<beta>: "x\<in>B\<union>X\<^sub>\<beta>" and cycle_x_ys: "reachable_cycle ?\<tau>_subgame x ys"
             from x_in_B_X\<^sub>\<beta> B_in_V X\<^sub>\<beta>_in_V have x_in_V: "x\<in>V" by blast
             from cycle_x_ys have ys_notempty: "ys\<noteq>[]" by auto
 
-            from cycle_from_node_closed_set[OF x_in_B_X\<^sub>\<beta> \<tau>_closed' cycle_x_ys]
+            from reachable_cycle_closed_set[OF x_in_B_X\<^sub>\<beta> \<tau>_closed' cycle_x_ys]
             have ys_in_B_X\<^sub>\<beta>: "set ys \<subseteq> B \<union> X\<^sub>\<beta>" .
 
             from cycle_x_ys ys_in_B_X\<^sub>\<beta> obtain y where
               path_y_ys_y: "path ?\<tau>_subgame y ys y" and
               y_in_ys: "y \<in> set ys" and
               y_in_B_X\<^sub>\<beta>: "y \<in> B \<union> X\<^sub>\<beta>"
-              using cycle_from_node_paths [of ?\<tau>_subgame x ys] origin_in_path by fast
+              using reachable_cycle_paths [of ?\<tau>_subgame x ys] origin_in_path by fast
 
             from ys_in_B_X\<^sub>\<beta> consider (B_in_ys) "set ys \<inter> B \<noteq> {}" | (ys_in_X\<^sub>\<beta>) "set ys \<subseteq> X\<^sub>\<beta>" by blast
             thus "player_winningP ?\<beta> (pr_list ys)" proof cases
@@ -656,8 +656,8 @@ proof -
               have "?\<tau>_subgame \<subseteq> induced_subgraph (dom \<sigma>) \<sigma>"
                 using ind_subgraph_add_disjoint(1)[OF \<tau>_doms_disj] by blast
               from subgraph_path[OF this path_y_ys_y] ys_notempty
-              have "cycle_from_node (induced_subgraph (dom \<sigma>) \<sigma>) y ys"
-                using loop_impl_cycle_from_node by fast
+              have "reachable_cycle (induced_subgraph (dom \<sigma>) \<sigma>) y ys"
+                using loop_impl_reachable_cycle by fast
 
               with \<sigma>_winning_opp y_in_B show ?thesis by blast
             next
@@ -668,8 +668,8 @@ proof -
                 unfolding induced_subgraph_def subgame'.induced_subgraph_def E_of_strat_def
                 unfolding E''_def V''_def by auto
               from subgraph_path[OF this path_restr_V[OF path_y_ys_y ys_in_X\<^sub>\<beta> y_in_X\<^sub>\<beta>]] ys_notempty
-              have "cycle_from_node (subgame'.induced_subgraph (dom \<sigma>') \<sigma>') y ys"
-                using loop_impl_cycle_from_node by fast
+              have "reachable_cycle (subgame'.induced_subgraph (dom \<sigma>') \<sigma>') y ys"
+                using loop_impl_reachable_cycle by fast
 
               with \<sigma>'_winning_opp_subgame' y_in_X\<^sub>\<beta> show ?thesis by blast
             qed
@@ -698,8 +698,8 @@ proof -
               subgoal using \<tau>_strat by blast
               subgoal using \<tau>_dom by blast
               subgoal using \<tau>_ran by blast
-              subgoal using \<tau>_winning by blast
               subgoal using \<tau>_closed_player by blast
+              subgoal using \<tau>_winning by blast
             done
         qed
 
@@ -737,7 +737,7 @@ proof -
             \<sigma>'_strat_subgame: "subgame.strategy_of_player \<alpha> \<sigma>'" and
             \<sigma>'_dom_subgame: "dom \<sigma>' = subgame.V_player \<alpha> \<inter> V'" and
             \<sigma>'_ran: "ran \<sigma>' \<subseteq> V'" and
-            \<sigma>'_winning_subgame: "\<forall>v'\<in>V'. \<forall>xs. cycle_from_node (subgame.induced_subgraph (dom \<sigma>') \<sigma>') v' xs \<longrightarrow> player_wins_list \<alpha> xs" and
+            \<sigma>'_winning_subgame: "\<forall>v'\<in>V'. \<forall>xs. reachable_cycle (subgame.induced_subgraph (dom \<sigma>') \<sigma>') v' xs \<longrightarrow> player_wins_list \<alpha> xs" and
             \<sigma>'_closed_opponent_subgame: "\<forall>v'\<in>V'. v' \<in> subgame.V_opponent \<alpha> \<longrightarrow> E' `` {v'} \<subseteq> V'"
             unfolding subgame.winning_region_strat by fast
           from \<sigma>'_strat_subgame have \<sigma>'_strat: "strategy_of_player \<alpha> \<sigma>'"
@@ -876,18 +876,18 @@ proof -
           qed
 
           (** \<tau> wins all cycles reachable in the graph. *)
-          have \<tau>_winning: "\<forall>x\<in>V. \<forall>ys. cycle_from_node ?\<tau>_subgame x ys \<longrightarrow> player_wins_list \<alpha> ys"
+          have \<tau>_winning: "\<forall>x\<in>V. \<forall>ys. reachable_cycle ?\<tau>_subgame x ys \<longrightarrow> player_wins_list \<alpha> ys"
           proof (rule ballI; rule allI; rule impI)
             fix x ys
-            assume x_in_V: "x\<in>V" and cycle_x_ys: "cycle_from_node ?\<tau>_subgame x ys"
+            assume x_in_V: "x\<in>V" and cycle_x_ys: "reachable_cycle ?\<tau>_subgame x ys"
             from cycle_x_ys have ys_notempty: "ys\<noteq>[]" by auto
-            from cycle_from_node_in_V[OF x_in_V ind_subgraph_cycle_from_node[OF cycle_x_ys]]
+            from reachable_cycle_in_V[OF x_in_V ind_subgraph_reachable_cycle[OF cycle_x_ys]]
             have ys_in_V: "set ys \<subseteq> V" .
 
             from cycle_x_ys obtain y where
               path_y_ys_y: "path ?\<tau>_subgame y ys y" and
               y_in_ys: "y \<in> set ys"
-              using cycle_from_node_paths[of ?\<tau>_subgame x ys] origin_in_path by fast
+              using reachable_cycle_paths[of ?\<tau>_subgame x ys] origin_in_path by fast
 
             consider (A_in_ys) "set ys \<inter> A \<noteq> {}" | (A_notin_ys) "set ys \<inter> A = {}" by blast
             thus "player_winningP \<alpha> (pr_list ys)" proof cases
@@ -913,8 +913,8 @@ proof -
                 unfolding induced_subgraph_def subgame.induced_subgraph_def E_of_strat_def
                 unfolding V'_def E'_def by auto
               from subgraph_path[OF this path_restr_V[OF path_y_ys_y ys_in_V' y_in_V']] ys_notempty
-              have "cycle_from_node (subgame.induced_subgraph (dom \<sigma>') \<sigma>') y ys"
-                using loop_impl_cycle_from_node by fastforce
+              have "reachable_cycle (subgame.induced_subgraph (dom \<sigma>') \<sigma>') y ys"
+                using loop_impl_reachable_cycle by fastforce
 
               with \<sigma>'_winning_subgame y_in_V' show ?thesis by blast
             qed
@@ -931,8 +931,8 @@ proof -
               subgoal using \<tau>_strat by blast
               subgoal using \<tau>_dom by blast
               subgoal using \<tau>_ran by blast
-              subgoal using \<tau>_winning by blast
               subgoal using V_player_opponent \<tau>_closed_opponent by blast
+              subgoal using \<tau>_winning by blast
             done
         qed
 

@@ -153,44 +153,44 @@ lemma cycle_intermediate_node:
 
 section \<open>Reachable cycles\<close>
  (** A cycle reachable from a node. *)
-definition cycle_from_node :: "'v \<Rightarrow> 'v list \<Rightarrow> bool" where
-  "cycle_from_node x ys \<equiv> \<exists>xs y. path x xs y \<and> cycle y ys"
+definition reachable_cycle :: "'v \<Rightarrow> 'v list \<Rightarrow> bool" where
+  "reachable_cycle x ys \<equiv> \<exists>xs y. path x xs y \<and> cycle y ys"
 
-lemma cycle_from_node_not_empty[simp]: "\<not>cycle_from_node v []"
-  unfolding cycle_from_node_def by auto
+lemma reachable_cycle_not_empty[simp]: "\<not>reachable_cycle v []"
+  unfolding reachable_cycle_def by auto
 
 (** The nodes in a cycle are in the graph. *)
-lemma cycle_from_node_in_E: "cycle_from_node v ys \<Longrightarrow> set ys \<subseteq> EV E"
-  unfolding cycle_from_node_def
+lemma reachable_cycle_in_E: "reachable_cycle v ys \<Longrightarrow> set ys \<subseteq> EV E"
+  unfolding reachable_cycle_def
   using path_in_E cycle_in_E by blast
 
 (** A cycle from a node is equivalent to two paths existing from x to some y, and from y to itself. *)
-lemma cycle_from_node_paths:
-  "cycle_from_node x ys \<longleftrightarrow> (\<exists>xs y. path x xs y \<and> path y ys y \<and> ys \<noteq> [])"
-  unfolding cycle_from_node_def cycle_def by simp
+lemma reachable_cycle_paths:
+  "reachable_cycle x ys \<longleftrightarrow> (\<exists>xs y. path x xs y \<and> path y ys y \<and> ys \<noteq> [])"
+  unfolding reachable_cycle_def cycle_def by simp
 
 (** A cycle from a node implies the existence of a single path from x to some y at the start of the
     loop. *)
-lemma cycle_from_node_impl_path: "cycle_from_node x ys \<Longrightarrow> \<exists>vs y. path x vs y"
-  using cycle_from_node_paths by auto
+lemma reachable_cycle_impl_path: "reachable_cycle x ys \<Longrightarrow> \<exists>vs y. path x vs y"
+  using reachable_cycle_paths by auto
 
 (** If a cycle from a node is in a closed region of a graph, its nodes are in that closed region. *)
-lemma cycle_from_node_closed_set: "\<lbrakk>x\<in>V; E``V\<subseteq>V; cycle_from_node x ys\<rbrakk> \<Longrightarrow> set ys \<subseteq> V"
-  using cycle_from_node_paths path_closed_dest path_closed_set by meson
+lemma reachable_cycle_closed_set: "\<lbrakk>x\<in>V; E``V\<subseteq>V; reachable_cycle x ys\<rbrakk> \<Longrightarrow> set ys \<subseteq> V"
+  using reachable_cycle_paths path_closed_dest path_closed_set by meson
 
 (** If there exists a cycle reachable from x, then that is a cycle reachable from its own starting
     point. *)
-lemma cycle_from_node_loop: "cycle_from_node x ys \<Longrightarrow> \<exists>y\<in>set ys. cycle_from_node y ys"
-  unfolding cycle_from_node_def cycle_def
+lemma reachable_cycle_loop: "reachable_cycle x ys \<Longrightarrow> \<exists>y\<in>set ys. reachable_cycle y ys"
+  unfolding reachable_cycle_def cycle_def
   using origin_in_path by blast
 
 (** If a nonempty loop exists, then that is a cycle reachable from its start. *)
-lemma loop_impl_cycle_from_node: "path v vs v \<and> vs \<noteq> [] \<Longrightarrow> cycle_from_node v vs"
-  unfolding cycle_from_node_def cycle_def by blast
+lemma loop_impl_reachable_cycle: "path v vs v \<and> vs \<noteq> [] \<Longrightarrow> reachable_cycle v vs"
+  unfolding reachable_cycle_def cycle_def by blast
 
 (** If a cycle exists, then that is a cycle reachable from its own start. *)
-lemma cycle_impl_cycle_from_node: "cycle v vs \<Longrightarrow> cycle_from_node v vs"
-  unfolding cycle_from_node_def cycle_def by blast
+lemma cycle_impl_reachable_cycle: "cycle v vs \<Longrightarrow> reachable_cycle v vs"
+  unfolding reachable_cycle_def cycle_def by blast
 
 
 section \<open>Lassos\<close>
@@ -271,8 +271,8 @@ lemma cycle_iff_lasso: "cycle y ys \<longleftrightarrow> lasso y [] ys"
   unfolding lasso_def by simp
 
 (** If there is a cycle, it means there is a lasso, and vice versa. *)
-lemma cycle_from_iff_lasso: "cycle_from_node x ys \<longleftrightarrow> (\<exists>xs. lasso x xs ys)"
-  unfolding lasso_def cycle_from_node_def by simp
+lemma cycle_from_iff_lasso: "reachable_cycle x ys \<longleftrightarrow> (\<exists>xs. lasso x xs ys)"
+  unfolding lasso_def reachable_cycle_def by simp
 
 (** A lasso from a node with spoke and loop in a single list. *)
 definition lasso' :: "'v \<Rightarrow> 'v list \<Rightarrow> bool" where
@@ -380,8 +380,8 @@ lemma path_in_V: "\<lbrakk>v\<in>V; path E v xs v'\<rbrakk> \<Longrightarrow> se
 lemma cycle_in_V: "\<lbrakk>v\<in>V; cycle E v xs\<rbrakk> \<Longrightarrow> set xs \<subseteq> V"
   using cycle_in_E E_in_V by fastforce
 
-lemma cycle_from_node_in_V: "\<lbrakk>v\<in>V; cycle_from_node E v xs\<rbrakk> \<Longrightarrow> set xs \<subseteq> V"
-  using cycle_from_node_in_E E_in_V by fastforce
+lemma reachable_cycle_in_V: "\<lbrakk>v\<in>V; reachable_cycle E v xs\<rbrakk> \<Longrightarrow> set xs \<subseteq> V"
+  using reachable_cycle_in_E E_in_V by fastforce
 
 (** All nodes in a lasso reachable from a node are in V. *)
 lemma lasso_in_V: "\<lbrakk>v\<in>V; lasso E v xs ys\<rbrakk> \<Longrightarrow> set xs \<subseteq> V \<and> set ys \<subseteq> V"
@@ -416,7 +416,7 @@ next
 qed
 
 (** You can always get a cycle in a finite graph where every node has a successor. *)
-lemma cycle_always_exists: "x\<in>V \<Longrightarrow> \<exists>xs. cycle_from_node E x xs"
+lemma cycle_always_exists: "x\<in>V \<Longrightarrow> \<exists>xs. reachable_cycle E x xs"
 proof -
   assume "x\<in>V"
   (** We can get a path of any length, so we get one that is longer than the number of nodes in V. *)
@@ -435,8 +435,8 @@ proof -
   (** The first and second paths form a cycle reachable from x, completing the proof. *)
   with xs have "path E x (xs1) y" by auto
   moreover from decomp xs have "path E y (y#xs2) y" by auto
-  ultimately have "cycle_from_node E x (y#xs2)" using cycle_from_node_paths by fast
-  thus "\<exists>xs. cycle_from_node E x xs" by auto
+  ultimately have "reachable_cycle E x (y#xs2)" using reachable_cycle_paths by fast
+  thus "\<exists>xs. reachable_cycle E x xs" by auto
 qed
 
 (** You can always get a lasso in a finite graph where every node has a successor. *)
@@ -458,8 +458,8 @@ lemma subgraph_cycle: "E' \<subseteq> E \<Longrightarrow> cycle E' v vs \<Longri
   unfolding cycle_def
   by (simp add: subgraph_path)
 
-lemma subgraph_cycle_from_node: "E' \<subseteq> E \<Longrightarrow> cycle_from_node E' v vs \<Longrightarrow> cycle_from_node E v vs"
-  unfolding cycle_from_node_def using subgraph_path[of E' E] subgraph_cycle[of E' E] by fast
+lemma subgraph_reachable_cycle: "E' \<subseteq> E \<Longrightarrow> reachable_cycle E' v vs \<Longrightarrow> reachable_cycle E v vs"
+  unfolding reachable_cycle_def using subgraph_path[of E' E] subgraph_cycle[of E' E] by fast
 
 (** If a lasso exists in a subgraph, it exists in the whole graph. *)
 lemma subgraph_lasso: "E' \<subseteq> E \<Longrightarrow> lasso E' v xs ys \<Longrightarrow> lasso E v xs ys"
@@ -532,10 +532,10 @@ lemma cycle_inter:
   "cycle (E \<inter> E') v vs \<Longrightarrow> cycle E' v vs"
   using inf_sup_ord(1,2)[of E E'] subgraph_cycle[of "E\<inter>E'"] by fast+
 
-lemma cycle_from_node_inter:
-  "cycle_from_node (E \<inter> E') v vs \<Longrightarrow> cycle_from_node E v vs"
-  "cycle_from_node (E \<inter> E') v vs \<Longrightarrow> cycle_from_node E' v vs"
-  using inf_sup_ord(1,2)[of E E'] subgraph_cycle_from_node[of "E\<inter>E'"] by fast+
+lemma reachable_cycle_inter:
+  "reachable_cycle (E \<inter> E') v vs \<Longrightarrow> reachable_cycle E v vs"
+  "reachable_cycle (E \<inter> E') v vs \<Longrightarrow> reachable_cycle E' v vs"
+  using inf_sup_ord(1,2)[of E E'] subgraph_reachable_cycle[of "E\<inter>E'"] by fast+
 
 (** If a lasso exists in the intersection of two graphs, it exists in both of those graphs *)
 lemma lasso_inter:

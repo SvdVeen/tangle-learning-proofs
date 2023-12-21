@@ -88,25 +88,25 @@ proof -
     unfolding player_tangle_def player_tangle_strat_def Let_def by auto
 
   (** We show that all cycles in U are won in the induced subgraph of \<sigma>. *)
-  have \<sigma>_winning_subgraph: "\<forall>u\<in>U. \<forall>ys. cycle_from_node (induced_subgraph (dom \<sigma>) \<sigma>) u ys
+  have \<sigma>_winning_subgraph: "\<forall>u\<in>U. \<forall>ys. reachable_cycle (induced_subgraph (dom \<sigma>) \<sigma>) u ys
       \<longrightarrow> winning_player ys"
   proof (rule ballI; rule allI; rule impI)
     fix u ys
-    assume u_in_U: "u \<in> U" and cycle_u_ys: "cycle_from_node (induced_subgraph (dom \<sigma>) \<sigma>) u ys"
+    assume u_in_U: "u \<in> U" and cycle_u_ys: "reachable_cycle (induced_subgraph (dom \<sigma>) \<sigma>) u ys"
 
     (** We know that U is closed for the opponent, and that \<sigma> only goes to U.
         Therefore, the induced subgraph of \<sigma> is closed in U, which means that the cycle
         stays in U. *)
     from \<sigma>_dom U_closed_opp have "induced_subgraph (dom \<sigma>) \<sigma> `` U \<subseteq> U"
       using ind_subgraph_closed_region[OF U_in_V _ \<sigma>_ran, of "dom \<sigma>"] by blast
-    from cycle_from_node_closed_set[OF u_in_U this cycle_u_ys]
+    from reachable_cycle_closed_set[OF u_in_U this cycle_u_ys]
     have ys_in_U: "set ys \<subseteq> U" .
 
-    (** We take only the cycle at the end of the cycle_from_node. We know that it starts in U. *)
+    (** We take only the cycle at the end of the reachable_cycle. We know that it starts in U. *)
     from cycle_u_ys ys_in_U obtain y where
         cycle_y_ys: "cycle (induced_subgraph (dom \<sigma>) \<sigma>) y ys" and
         y_in_U: "y \<in> U"
-      unfolding cycle_from_node_def
+      unfolding reachable_cycle_def
       using origin_in_cycle by fastforce
 
     (** The subgraph of \<sigma> restructed to U is part of its tangle subgraph, so the cycle is won
@@ -125,8 +125,8 @@ proof -
       subgoal using \<sigma>_strat .
       subgoal using \<sigma>_dom Int_commute ..
       subgoal using \<sigma>_ran .
-      subgoal using \<sigma>_winning_subgraph .
       subgoal using U_closed_opp .
+      subgoal using \<sigma>_winning_subgraph .
     done
 qed
 

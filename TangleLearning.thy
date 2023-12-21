@@ -199,7 +199,7 @@ proof (rule conjI)
 		\<sigma>_strat: "strategy_of V\<^sub>\<alpha> \<sigma>" and
 		\<sigma>_dom: "dom \<sigma> = V\<^sub>\<alpha> \<inter> R" and
 		\<sigma>_ran: "ran \<sigma> \<subseteq> R" and
-		\<sigma>_winning: "\<forall>v\<in>R. \<forall>xs. cycle_from_node (induced_subgraph (dom \<sigma>) \<sigma>) v xs
+		\<sigma>_winning: "\<forall>v\<in>R. \<forall>xs. reachable_cycle (induced_subgraph (dom \<sigma>) \<sigma>) v xs
 								\<longrightarrow> winning_player xs" and
 		R_closed_opponent: "E `` (R\<inter>V\<^sub>\<beta>) \<subseteq> R"
 		unfolding player_winning_region_def by fastforce

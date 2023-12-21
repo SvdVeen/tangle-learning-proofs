@@ -13,9 +13,8 @@ abbreviation "winning_opponent xs \<equiv> \<not>winningP (pr_list xs)"
     player *)
 definition player_winning_region :: "'v set \<Rightarrow> bool" where
   "player_winning_region W \<equiv> W\<subseteq>V \<and> (\<exists>\<sigma>.
-    strategy_of V\<^sub>\<alpha> \<sigma> \<and> dom \<sigma> = V\<^sub>\<alpha> \<inter> W \<and> ran \<sigma> \<subseteq> W \<and>
-    (\<forall>v\<in>W. \<forall>xs. cycle_from_node (induced_subgraph (dom \<sigma>) \<sigma>) v xs \<longrightarrow> winning_player xs) \<and>
-     E `` (W \<inter> V\<^sub>\<beta>) \<subseteq> W)"
+    strategy_of V\<^sub>\<alpha> \<sigma> \<and> dom \<sigma> = V\<^sub>\<alpha> \<inter> W \<and> ran \<sigma> \<subseteq> W \<and> E `` (W \<inter> V\<^sub>\<beta>) \<subseteq> W \<and>
+    (\<forall>v\<in>W. \<forall>xs. reachable_cycle (induced_subgraph (dom \<sigma>) \<sigma>) v xs \<longrightarrow> winning_player xs))"
 
 lemma player_winning_region_empty[simp]: "player_winning_region {}"
   unfolding player_winning_region_def strategy_of_def E_of_strat_def
@@ -29,7 +28,7 @@ lemma player_winning_region_in_V: "player_winning_region W \<Longrightarrow> W\<
 definition losing_region :: "'v set \<Rightarrow> bool" where
   "losing_region W \<equiv> (W\<subseteq>V \<and> (\<exists>\<sigma>.
     strategy_of V\<^sub>\<beta> \<sigma> \<and> dom \<sigma> = V\<^sub>\<beta> \<inter> W \<and> ran \<sigma> \<subseteq> W \<and>
-    (\<forall>v\<in>W. \<forall>xs. cycle_from_node (induced_subgraph (dom \<sigma>) \<sigma>) v xs \<longrightarrow> winning_opponent xs) \<and>
+    (\<forall>v\<in>W. \<forall>xs. reachable_cycle (induced_subgraph (dom \<sigma>) \<sigma>) v xs \<longrightarrow> winning_opponent xs) \<and>
     E `` (W\<inter>V\<^sub>\<alpha>) \<subseteq> W))"
 
 lemma losing_region_empty[simp]: "losing_region {}"
@@ -44,7 +43,7 @@ lemma losing_region_in_V: "losing_region L \<Longrightarrow> L\<subseteq>V"
     reachable from that node are won by the player *)
 definition won_by_player :: "'v \<Rightarrow> bool" where
   "won_by_player v \<equiv> (v\<in>V \<and> (\<exists>\<sigma>. strategy_of V\<^sub>\<alpha> \<sigma> \<and>
-  (\<forall>xs. cycle_from_node (induced_subgraph (dom \<sigma>) \<sigma>) v xs \<longrightarrow> winning_player xs)))"
+  (\<forall>xs. reachable_cycle (induced_subgraph (dom \<sigma>) \<sigma>) v xs \<longrightarrow> winning_player xs)))"
 
 (** A node that is won by the player is part of the graph *)
 lemma won_by_player_in_V: "won_by_player v \<Longrightarrow> v\<in>V"
@@ -53,7 +52,7 @@ lemma won_by_player_in_V: "won_by_player v \<Longrightarrow> v\<in>V"
 (** This definition exists for symmetry *)
 definition won_by_opponent :: "'v \<Rightarrow> bool" where
   "won_by_opponent v \<equiv> (v\<in>V \<and> (\<exists>\<sigma>. strategy_of V\<^sub>\<beta> \<sigma> \<and>
-  (\<forall>xs. cycle_from_node (induced_subgraph (dom \<sigma>) \<sigma>) v xs \<longrightarrow> winning_opponent xs)))"
+  (\<forall>xs. reachable_cycle (induced_subgraph (dom \<sigma>) \<sigma>) v xs \<longrightarrow> winning_opponent xs)))"
 
 (** A vertex that is won by the opponent exists in the graph *)
 lemma won_by_opponent_in_V: "won_by_opponent v \<Longrightarrow> v\<in>V"
@@ -75,18 +74,18 @@ proof clarsimp
   define G\<sigma> where "G\<sigma> = induced_subgraph (dom \<sigma>) \<sigma>"
   define G\<sigma>' where "G\<sigma>' = induced_subgraph (dom \<sigma>') \<sigma>'"
   assume \<sigma>_player: "strategy_of V\<^sub>\<alpha> \<sigma>"
-    and \<sigma>_win: "\<forall>xs. cycle_from_node G\<sigma> v xs \<longrightarrow> winningP (pr_list xs)"
+    and \<sigma>_win: "\<forall>xs. reachable_cycle G\<sigma> v xs \<longrightarrow> winningP (pr_list xs)"
     and \<sigma>'_opp: "strategy_of (V-V\<^sub>\<alpha>) \<sigma>'"
     and "v\<in>V"
   interpret Ginter: paritygame "G\<sigma> \<inter> G\<sigma>'" V V\<^sub>0 pr
     using ind_subgraph_inter_opposed[OF G\<sigma>_def G\<sigma>'_def \<sigma>_player \<sigma>'_opp] .
 
   from Ginter.cycle_always_exists[OF \<open>v\<in>V\<close>] Ginter.succ \<open>v\<in>V\<close>
-  obtain xs where xs: "cycle_from_node (G\<sigma> \<inter> G\<sigma>') v xs" by blast
-  moreover from xs have "cycle_from_node G\<sigma> v xs" using cycle_from_node_inter by fastforce
+  obtain xs where xs: "reachable_cycle (G\<sigma> \<inter> G\<sigma>') v xs" by blast
+  moreover from xs have "reachable_cycle G\<sigma> v xs" using reachable_cycle_inter by fastforce
   with \<sigma>_win have "winningP (pr_list xs)" by blast
-  moreover from xs have "cycle_from_node G\<sigma>' v xs" using cycle_from_node_inter by fastforce
-  ultimately show "\<exists>xs. cycle_from_node (G\<sigma>') v xs \<and> winning_player xs" by blast
+  moreover from xs have "reachable_cycle G\<sigma>' v xs" using reachable_cycle_inter by fastforce
+  ultimately show "\<exists>xs. reachable_cycle (G\<sigma>') v xs \<and> winning_player xs" by blast
 qed
 
 (** By the previous lemma, a node cannot be won by both players at the same time *)
@@ -126,9 +125,8 @@ lemma winning_region_in_V: "winning_region \<alpha> W \<Longrightarrow> W\<subse
 (** The player has a strategy under which their winning region is closed and all cycles reachable
     from nodes in the region are won by the player *)
 lemma winning_region_strat: "winning_region \<alpha> W = (W\<subseteq>V \<and> (\<exists>\<sigma>.
-  strategy_of_player \<alpha> \<sigma> \<and> dom \<sigma> = V_player \<alpha> \<inter> W \<and> ran \<sigma> \<subseteq> W \<and>
-  (\<forall>w\<in>W. \<forall>xs. cycle_from_node (induced_subgraph (dom \<sigma>) \<sigma>) w xs \<longrightarrow> player_wins_list \<alpha> xs) \<and>
-  E `` (W \<inter> V_opponent \<alpha>) \<subseteq> W))"
+  strategy_of_player \<alpha> \<sigma> \<and> dom \<sigma> = V_player \<alpha> \<inter> W \<and> ran \<sigma> \<subseteq> W \<and> E `` (W \<inter> V_opponent \<alpha>) \<subseteq> W \<and>
+  (\<forall>w\<in>W. \<forall>xs. reachable_cycle (induced_subgraph (dom \<sigma>) \<sigma>) w xs \<longrightarrow> player_wins_list \<alpha> xs)))"
   unfolding strategy_of_player_def
   using P0.player_winning_region_def P1.player_winning_region_def V\<^sub>1_def V\<^sub>0_opposite_V\<^sub>1 by (cases \<alpha>; simp)
 
@@ -143,7 +141,7 @@ lemma won_by_in_V: "won_by \<alpha> v \<Longrightarrow> v\<in>V"
 
 (** We can get a winning strategy for a node that is won by a player *)
 lemma won_by_strat: "won_by \<alpha> v = (v \<in> V \<and> (\<exists>\<sigma>. strategy_of_player \<alpha> \<sigma> \<and>
-  (\<forall>xs. cycle_from_node (induced_subgraph (dom \<sigma>) \<sigma>) v xs \<longrightarrow> player_wins_list \<alpha> xs)))"
+  (\<forall>xs. reachable_cycle (induced_subgraph (dom \<sigma>) \<sigma>) v xs \<longrightarrow> player_wins_list \<alpha> xs)))"
   unfolding strategy_of_player_def
   by (cases \<alpha>; simp add: P0.won_by_player_def P1.won_by_player_def)
 
