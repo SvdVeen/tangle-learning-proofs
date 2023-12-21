@@ -5,8 +5,8 @@ chapter \<open>Winning Regions\<close>
 section \<open>Winning Regions for Arbitrary Players\<close>
 context player_paritygame begin
 (** Shorthand for who wins a cycle *)
-abbreviation "winning_player xs \<equiv> winningP (top_pr xs)"
-abbreviation "winning_opponent xs \<equiv> \<not>winningP (top_pr xs)"
+abbreviation "winning_player xs \<equiv> winningP (pr_list xs)"
+abbreviation "winning_opponent xs \<equiv> \<not>winningP (pr_list xs)"
 
 (** A winning region is a region in the graph where one player has a strategy that makes it
     closed, and where every cycle reachable from every node in that region is won by that
@@ -75,7 +75,7 @@ proof clarsimp
   define G\<sigma> where "G\<sigma> = induced_subgraph (dom \<sigma>) \<sigma>"
   define G\<sigma>' where "G\<sigma>' = induced_subgraph (dom \<sigma>') \<sigma>'"
   assume \<sigma>_player: "strategy_of V\<^sub>\<alpha> \<sigma>"
-    and \<sigma>_win: "\<forall>xs. cycle_from_node G\<sigma> v xs \<longrightarrow> winningP (top_pr xs)"
+    and \<sigma>_win: "\<forall>xs. cycle_from_node G\<sigma> v xs \<longrightarrow> winningP (pr_list xs)"
     and \<sigma>'_opp: "strategy_of (V-V\<^sub>\<alpha>) \<sigma>'"
     and "v\<in>V"
   interpret Ginter: paritygame "G\<sigma> \<inter> G\<sigma>'" V V\<^sub>0 pr
@@ -84,7 +84,7 @@ proof clarsimp
   from Ginter.cycle_always_exists[OF \<open>v\<in>V\<close>] Ginter.succ \<open>v\<in>V\<close>
   obtain xs where xs: "cycle_from_node (G\<sigma> \<inter> G\<sigma>') v xs" by blast
   moreover from xs have "cycle_from_node G\<sigma> v xs" using cycle_from_node_inter by fastforce
-  with \<sigma>_win have "winningP (top_pr xs)" by blast
+  with \<sigma>_win have "winningP (pr_list xs)" by blast
   moreover from xs have "cycle_from_node G\<sigma>' v xs" using cycle_from_node_inter by fastforce
   ultimately show "\<exists>xs. cycle_from_node (G\<sigma>') v xs \<and> winning_player xs" by blast
 qed

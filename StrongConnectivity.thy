@@ -18,32 +18,19 @@ lemma strongly_connected_E_in_V: "strongly_connected E V \<Longrightarrow> E \<s
   unfolding strongly_connected_def by blast
 
 (** If a graph is strongly connected, there exists a path from every node to every other node. *)
-lemma strongly_connected_path: "strongly_connected E V \<Longrightarrow> \<forall>v\<in>V. \<forall>v'\<in>V. \<exists>vs. path E v vs v'"
+lemma strongly_connected_path:
+  "strongly_connected E V \<Longrightarrow> \<forall>v\<in>V. \<forall>v'\<in>V. \<exists>vs. path E v vs v'"
   unfolding strongly_connected_def
   using rtrancl_is_path[of _ _ E] by simp
 
 context finite_graph_V
 begin
 section\<open>Strongly Connected Graphs Restricted to a Region\<close>
-
-(** If a subgraph is strongly connected, then the regular graph restricted to that subgraph
-    is also already strongly connected. *)
-lemma strongly_connected_restr_subgraph:
-  "\<lbrakk>E' \<subseteq> E; V' \<subseteq> V; strongly_connected E' V'\<rbrakk> \<Longrightarrow> strongly_connected (E\<inter>E') (V\<inter>V')"
-  unfolding strongly_connected_def
-  using E_in_V by (auto simp: Int_absorb1)
-
-(** If a restricted graph is strongly connected, then there exists a path from every node in the
-    region to every other node in the region. *)
+(** If a restricted graph is strongly connected, then every node in the
+    region is reachable from  every other node in the region. *)
 lemma strongly_connected_restr_connected:
-  "\<lbrakk>R \<subseteq> V; strongly_connected (Restr E R) (V\<inter>R)\<rbrakk> \<Longrightarrow> \<forall>v\<in>R. \<forall>v'\<in>R. (v,v')\<in>(Restr E R)\<^sup>*"
+  "\<lbrakk>R \<subseteq> V; strongly_connected (Restr E R) R\<rbrakk> \<Longrightarrow> \<forall>v\<in>R. \<forall>v'\<in>R. (v,v')\<in>(Restr E R)\<^sup>*"
   unfolding strongly_connected_def by blast
-
-(** If a restricted graph is strongly connected, then there always exists a path between
-    each pair of nodes in that region. *)
-lemma strongly_connected_restr_path:
-  "\<lbrakk>R \<subseteq> V; strongly_connected (Restr E R) (V\<inter>R)\<rbrakk> \<Longrightarrow> \<forall>v\<in>R. \<forall>v'\<in>R. \<exists>vs. path (Restr E R) v vs v'"
-  using strongly_connected_restr_connected[of R] path_iff_rtrancl[of _ _ "Restr E R"] by blast
 
 
 section \<open>Strongly Connected Components\<close>
@@ -51,8 +38,8 @@ section \<open>Strongly Connected Components\<close>
     strongly connected and maximal; there is no larger component that contains it and is also
     strongly connected. *)
 definition SCC :: "'v set \<Rightarrow> bool" where
-  "SCC R \<equiv> R \<subseteq> V \<and> strongly_connected (Restr E R) (V\<inter>R) \<and>
-    (\<nexists>R'. R \<subset> R' \<and> strongly_connected (Restr E R') (V\<inter>R'))"
+  "SCC R \<equiv> R \<subseteq> V \<and> strongly_connected (Restr E R) R \<and>
+    (\<nexists>R'. R \<subset> R' \<and> strongly_connected (Restr E R') R')"
 
 (** SCCs are non-empty because our strong connectivity definition excludes empty graphs. *)
 lemma SCC_notempty[simp]: "\<not>SCC {}"
@@ -67,11 +54,11 @@ lemma SCC_finite: "SCC R \<Longrightarrow> finite R"
   using finite_subset[OF SCC_in_V fin_V] .
 
 (** The graph restricted to a strongly connected component is strongly connected. *)
-lemma SCC_strongly_connected: "SCC R \<Longrightarrow> strongly_connected (Restr E R) (V\<inter>R)"
+lemma SCC_strongly_connected: "SCC R \<Longrightarrow> strongly_connected (Restr E R) R"
   unfolding SCC_def by blast
 
 (** Strongly connected components are maximal. *)
-lemma SCC_maximal: "SCC R \<Longrightarrow> \<nexists>R'. R \<subset> R' \<and> strongly_connected (Restr E R') (V\<inter>R')"
+lemma SCC_maximal: "SCC R \<Longrightarrow> \<nexists>R'. R \<subset> R' \<and> strongly_connected (Restr E R') R'"
   unfolding SCC_def by blast
 
 (** There are a finite number of SCCs in every graph. *)
@@ -81,7 +68,7 @@ lemma finite_SCCs: "finite {R. SCC R}"
 (** For every pair of nodes in a strongly connected component, there exists a path from one to the
     other. *)
 lemma SCC_path: "SCC R \<Longrightarrow> \<forall>v\<in>R. \<forall>v'\<in>R. \<exists>vs. path (Restr E R) v vs v'"
-  unfolding SCC_def using strongly_connected_restr_path by simp
+  unfolding SCC_def using strongly_connected_path[of "Restr E R" R] by blast
 
 
 section \<open>Bottom Strongly Connected Components\<close>
@@ -107,11 +94,13 @@ lemma bottom_SCC_finite: "bottom_SCC R \<Longrightarrow> finite R"
   using finite_subset[OF bottom_SCC_in_V fin_V] .
 
 (** The graph restricted to a bottom SCC is strongly connected. *)
-lemma bottom_SCC_strongly_connected: "bottom_SCC R \<Longrightarrow> strongly_connected (Restr E R) (V\<inter>R)"
+lemma bottom_SCC_strongly_connected:
+  "bottom_SCC R \<Longrightarrow> strongly_connected (Restr E R) R"
   using SCC_strongly_connected[OF bottom_SCC_is_SCC] .
 
 (** All bottom SCCs are maximal. *)
-lemma bottom_SCC_maximal: "bottom_SCC R \<Longrightarrow> \<nexists>R'. R \<subset> R' \<and> strongly_connected (Restr E R') (V\<inter>R')"
+lemma bottom_SCC_maximal:
+  "bottom_SCC R \<Longrightarrow> \<nexists>R'. R \<subset> R' \<and> strongly_connected (Restr E R') R'"
   using SCC_maximal[OF bottom_SCC_is_SCC] .
 
 (** Bottom SCCs are closed in E. *)
@@ -155,12 +144,12 @@ lemma nt_bottom_SCC_finite: "nt_bottom_SCC R \<Longrightarrow> finite R"
   using finite_subset[OF nt_bottom_SCC_in_V fin_V] .
 
 (** The graph restricted to a non-trivial bottom SCC is strongly connected. *)
-lemma nt_bottom_SCC_strongly_connected: "nt_bottom_SCC R \<Longrightarrow> strongly_connected (Restr E R) (V\<inter>R)"
+lemma nt_bottom_SCC_strongly_connected: "nt_bottom_SCC R \<Longrightarrow> strongly_connected (Restr E R) R"
   using SCC_strongly_connected[OF nt_bottom_SCC_is_SCC] .
 
 (** Non-trivial bottom SCCs are maximal. *)
 lemma nt_bottom_SCC_maximal:
-  "nt_bottom_SCC R \<Longrightarrow> \<nexists>R'. R \<subset> R' \<and> strongly_connected (Restr E R') (V\<inter>R')"
+  "nt_bottom_SCC R \<Longrightarrow> \<nexists>R'. R \<subset> R' \<and> strongly_connected (Restr E R') R'"
   using SCC_maximal[OF nt_bottom_SCC_is_SCC] .
 
 (** A non-trivial bottom SCC has at least one edge. *)
@@ -232,12 +221,12 @@ lemma nt_bottom_SCC_path_nonempty:
 proof (intro ballI)
   fix v v'
   assume SCC_R: "nt_bottom_SCC R" and v_in_R: "v \<in> R" and v'_in_R: "v' \<in> R"
-  from SCC_R have R_in_V: "R \<subseteq> V" and R_connected: "strongly_connected (Restr E R) (V\<inter>R)"
+  from SCC_R have R_in_V: "R \<subseteq> V" and R_connected: "strongly_connected (Restr E R) R"
     using nt_bottom_SCC_in_V nt_bottom_SCC_strongly_connected by blast+
   (** Because R is strongly connected, we know there is a path from v to v' in the reflexive
       transitive closure of E restricted to R. We can use an induction over this to show our thesis. *)
   from strongly_connected_restr_connected[OF this] v_in_R v'_in_R
-  have "(v,v') \<in> (Restr E R)\<^sup>*" by blast
+  have "(v,v') \<in> (Restr E R)\<^sup>*" by simp
   thus "\<exists>vs. vs \<noteq> [] \<and> path (Restr E R) v vs v'"
   proof (induction rule: converse_rtrancl_induct)
     case base

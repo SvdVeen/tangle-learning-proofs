@@ -9,8 +9,8 @@ locale paritygame = arena E V V\<^sub>0
   fixes pr :: "'v \<Rightarrow> nat"
 begin
   (** Gives the top priority in a list. Used to determine which player wins a cycle. *)
-  definition top_pr :: "'v list \<Rightarrow> nat" where
-    "top_pr xs \<equiv> MAX v \<in> set xs. pr v"
+  definition pr_list :: "'v list \<Rightarrow> nat" where
+    "pr_list xs \<equiv> MAX v \<in> set xs. pr v"
 
   (** Gives the top priority in a set of nodes. *)
   definition pr_set :: "'v set \<Rightarrow> nat" where
@@ -30,8 +30,8 @@ begin
 
   (** The top priority in a nonempty list that is a subset of V is less than or equal to the top
       priority in V. *)
-  lemma top_pr_le_pr_set_V: "\<lbrakk>set xs \<subseteq> V; xs \<noteq> []\<rbrakk> \<Longrightarrow> top_pr xs \<le> pr_set V"
-    unfolding top_pr_def pr_set_def
+  lemma pr_list_le_pr_set_V: "\<lbrakk>set xs \<subseteq> V; xs \<noteq> []\<rbrakk> \<Longrightarrow> pr_list xs \<le> pr_set V"
+    unfolding pr_list_def pr_set_def
     using image_mono Max_mono by auto
 end
 
@@ -145,7 +145,7 @@ sublocale P1: player_paritygame E V V\<^sub>0 pr V\<^sub>1 odd
   by (auto simp: V\<^sub>1_in_V)
 
 abbreviation player_wins_list :: "player \<Rightarrow> 'v list \<Rightarrow> bool" where
-  "player_wins_list \<alpha> xs \<equiv> player_winningP \<alpha> (top_pr xs)"
+  "player_wins_list \<alpha> xs \<equiv> player_winningP \<alpha> (pr_list xs)"
 
 (** If we have a cycle in a subgraph of some other graph, and all plays in that graph are won
     by a specific player, then this cycle forms part of a play in the larger graph, meaning it is

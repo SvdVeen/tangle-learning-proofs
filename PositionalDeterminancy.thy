@@ -126,7 +126,7 @@ proof -
       using loop_impl_cycle_from_node ys_notempty by fast
 
     with \<sigma>'_winning y_in_W
-    show "player_winningP \<alpha> (top_pr ys)" by blast
+    show "player_winningP \<alpha> (pr_list ys)" by blast
   qed
 
   (** X is closed for the opponent, regardless of \<tau>. *)
@@ -296,7 +296,7 @@ proof -
       using loop_impl_cycle_from_node by fast
 
     with \<sigma>_winning_subgame w'_in_W
-    show "player_winningP \<alpha> (top_pr ys)" by blast
+    show "player_winningP \<alpha> (pr_list ys)" by blast
   qed
 
   have \<sigma>_closed_opp: "\<forall>v\<in>W. v \<in> V_opponent \<alpha> \<longrightarrow> E `` {v} \<subseteq> W"
@@ -376,12 +376,12 @@ proof -
         assume vs_in_V: "set vs \<subseteq> V" and v_in_vs: "v \<in> set vs"
         hence "vs \<noteq> []" by fastforce
 
-        with vs_in_V have top_pr_vs_le_p: "top_pr vs \<le> p"
-          unfolding top_pr_def p_def
+        with vs_in_V have pr_list_vs_le_p: "pr_list vs \<le> p"
+          unfolding pr_list_def p_def
           using image_mono Max_mono by auto
         moreover from v_in_vs v_pr have "p \<in> pr ` set vs" by blast
-        ultimately have "top_pr vs = p"
-          unfolding top_pr_def by (simp add: antisym)
+        ultimately have "pr_list vs = p"
+          unfolding pr_list_def by (simp add: antisym)
 
         with player_wins_p show "player_wins_list \<alpha> vs" by simp
       qed
@@ -638,7 +638,7 @@ proof -
               using cycle_from_node_paths [of ?\<tau>_subgame x ys] origin_in_path by fast
 
             from ys_in_B_X\<^sub>\<beta> consider (B_in_ys) "set ys \<inter> B \<noteq> {}" | (ys_in_X\<^sub>\<beta>) "set ys \<subseteq> X\<^sub>\<beta>" by blast
-            thus "player_winningP ?\<beta> (top_pr ys)" proof cases
+            thus "player_winningP ?\<beta> (pr_list ys)" proof cases
               case B_in_ys
               have ys_in_B: "set ys \<subseteq> B" proof -
               from B_in_ys obtain y' ys' where
@@ -890,7 +890,7 @@ proof -
               using cycle_from_node_paths[of ?\<tau>_subgame x ys] origin_in_path by fast
 
             consider (A_in_ys) "set ys \<inter> A \<noteq> {}" | (A_notin_ys) "set ys \<inter> A = {}" by blast
-            thus "player_winningP \<alpha> (top_pr ys)" proof cases
+            thus "player_winningP \<alpha> (pr_list ys)" proof cases
               case A_in_ys
               then obtain y' where y'_in_ys: "y'\<in>set ys" and y'_in_A: "y'\<in>A" by blast
               from loop_intermediate_node[OF path_y_ys_y y'_in_ys]

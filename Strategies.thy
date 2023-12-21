@@ -31,23 +31,26 @@ lemma players_disjoint: "V\<^sub>0 \<inter> V\<^sub>1 = {}"
 (** If a node is in V\<^sub>0, it is not in V\<^sub>1 and vice versa *)
 lemma in_V\<^sub>1_notin_V\<^sub>0: "v\<in>V \<Longrightarrow> v\<notin>V\<^sub>0 \<longleftrightarrow> v\<in>V\<^sub>1"
   unfolding V\<^sub>1_def by blast
-
+end (** End of locale arena *)
 
 section \<open>Strategies\<close>
 (** A positional strategy for a player \<alpha> is a function \<sigma>:V\<^sub>\<alpha>\<rightarrow>V *)
-type_synonym 'a strat = "'a \<Rightarrow> 'a option"
+type_synonym 'v strat = "('v,'v) map"
 
 
 subsection \<open>Edges of a Strategy\<close>
 (** The set of edges in a strategy *)
-definition E_of_strat :: "'a strat \<Rightarrow> 'a dgraph" where
+definition E_of_strat :: "'v strat \<Rightarrow> 'v dgraph" where
   "E_of_strat \<sigma> = {(u,v). \<sigma> u = Some v}"
+
+(** Potential improvement: use Map.graph
+    This would let us use its lemmas instead *)
+lemma "E_of_strat \<sigma> = Map.graph \<sigma>"
+  unfolding E_of_strat_def Map.graph_def
+  by simp
 
 lemma E_of_strat_empty[simp]: "E_of_strat Map.empty = {}"
   unfolding E_of_strat_def by fast
-
-lemma E_of_strat_empty_iff_empty_map[simp]: "E_of_strat \<sigma> = {} \<longleftrightarrow> \<sigma> = Map.empty"
-  unfolding E_of_strat_def by auto
 
 (** If a strategy is part of another, its edges are a subset of the other strategy's edges *)
 lemma strat_le_E_of_strat: "\<sigma> \<subseteq>\<^sub>m \<sigma>' \<Longrightarrow> E_of_strat \<sigma> \<subseteq> E_of_strat \<sigma>'"
@@ -65,7 +68,7 @@ lemma E_of_strat_dom: "dom \<sigma> = fst`E_of_strat \<sigma>"
 lemma E_of_strat_ran: "ran \<sigma> = snd`E_of_strat \<sigma>"
   unfolding E_of_strat_def ran_def by force
 
-
+context arena begin
 subsection \<open>Strategies of Sets\<close>
 (** Checks whether a strategy is in the graph and belongs to a particular player *)
 definition strategy_of :: "'v set \<Rightarrow> 'v strat \<Rightarrow> bool" where
