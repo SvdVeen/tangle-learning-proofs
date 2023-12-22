@@ -12,7 +12,7 @@ abbreviation (input) valid_subgame :: "'v set \<Rightarrow> bool" where
 
 abbreviation (input) bound_nt_bottom_SCC :: "'v set \<Rightarrow> 'v strat \<Rightarrow> 'v set \<Rightarrow> bool" where
   "bound_nt_bottom_SCC Z \<sigma> S \<equiv> S \<subseteq> Z \<and>
-    finite_graph_V.nt_bottom_SCC (induced_subgraph (dom \<sigma>) \<sigma>) (induced_subgraph_V (dom \<sigma>) \<sigma>) S"
+    finite_graph_V.nt_bottom_SCC (induced_subgraph \<sigma>) (induced_subgraph_V \<sigma>) S"
 
 abbreviation (input) subgraph_tattr
   :: "'v set \<Rightarrow> player \<Rightarrow> 'v set set \<Rightarrow> 'v set \<Rightarrow> 'v set \<Rightarrow> 'v strat \<Rightarrow> bool" where
@@ -122,16 +122,16 @@ proof (induction rule: search_step_induct)
     \<sigma>_strat: "strategy_of (V_player \<alpha> \<inter> Z) \<sigma>" and
     \<sigma>_dom: "dom \<sigma> \<subseteq> V_player \<alpha> \<inter> Z" and
     \<sigma>_ran: "ran \<sigma> \<subseteq> Z" and
-    \<sigma>_partially_closed: "(Restr (induced_subgraph (V_player \<alpha>) \<sigma>) R) `` (Z-A) \<subseteq> Z" and
+    \<sigma>_partially_closed: "(Restr (induced_subgraph \<sigma>) R) `` (Z-A) \<subseteq> Z" and
     \<sigma>_forces_A_or_wins:
-      "(\<forall>x\<in>Z. \<forall>xs ys. lasso (Restr (induced_subgraph (V_player \<alpha>) \<sigma>) R) x xs ys
+      "(\<forall>x\<in>Z. \<forall>xs ys. lasso (Restr (induced_subgraph \<sigma>) R) x xs ys
         \<longrightarrow>set (xs @ ys) \<inter> A \<noteq> {} \<or> player_wins_list \<alpha> ys)"
     unfolding restr_subgraph_V_player[OF R_valid_game]
-      restr_ind_subgraph_V\<^sub>\<alpha>[OF paritygame.axioms[OF R_valid_game]]
+      restr_ind_subgraph[OF paritygame.axioms[OF R_valid_game]]
     unfolding strategy_of_player_def strategy_of_def by auto
 
   have all_games_in_Z_won:
-    "\<forall>v\<in>Z. \<forall>xs ys. lasso (Restr (induced_subgraph (V_player \<alpha>) \<sigma>) Z) v xs ys
+    "\<forall>v\<in>Z. \<forall>xs ys. lasso (Restr (induced_subgraph \<sigma>) Z) v xs ys
       \<longrightarrow> player_wins_list \<alpha> ys"
   proof -
     from R_in_V step(2,3) have "player_winningP \<alpha> (pr_set (V \<inter> R))"
@@ -141,7 +141,7 @@ proof (induction rule: search_step_induct)
     ultimately show ?thesis
       using paritygame.van_dijk_2[OF R_valid_game fin_T _ _ attr]
       unfolding restr_subgraph_V_player[OF R_valid_game]
-        restr_ind_subgraph_V\<^sub>\<alpha>[OF paritygame.axioms[OF R_valid_game]]
+        restr_ind_subgraph[OF paritygame.axioms[OF R_valid_game]]
         Restr_subset[OF Z_in_R] by simp
   qed
 
@@ -160,8 +160,8 @@ proof (induction rule: search_step_induct)
       from new have U_notempty: "U \<noteq> {}"
         using finite_graph_V.nt_bottom_SCC_notempty by force
 
-      let ?\<sigma>_graph = "induced_subgraph (dom \<sigma>) \<sigma>"
-      let ?\<sigma>_graph_V = "induced_subgraph_V (dom \<sigma>) \<sigma>"
+      let ?\<sigma>_graph = "induced_subgraph \<sigma>"
+      let ?\<sigma>_graph_V = "induced_subgraph_V \<sigma>"
       have fin_graph_\<sigma>: "finite_graph_V ?\<sigma>_graph ?\<sigma>_graph_V" by simp
 
       from new U_in_V have \<sigma>_connected: "strongly_connected (Restr ?\<sigma>_graph U) U"
@@ -172,8 +172,8 @@ proof (induction rule: search_step_induct)
         using finite_graph_V.nt_bottom_SCC_succ_in_SCC[OF fin_graph_\<sigma>] by blast
 
       define \<sigma>' where "\<sigma>' = \<sigma> |` U"
-      let ?\<sigma>'_graph = "induced_subgraph (dom \<sigma>') \<sigma>'"
-      let ?\<sigma>'_graph_V = "induced_subgraph_V (dom \<sigma>') \<sigma>'"
+      let ?\<sigma>'_graph = "induced_subgraph \<sigma>'"
+      let ?\<sigma>'_graph_V = "induced_subgraph_V \<sigma>'"
       have \<sigma>'_le_\<sigma>: "\<sigma>' \<subseteq>\<^sub>m \<sigma>" by (auto simp: \<sigma>'_def map_le_def)
 
       from restricted_strat_subgraph_same_in_region[OF \<sigma>'_def] have graphs_equal_in_U:
@@ -183,7 +183,7 @@ proof (induction rule: search_step_induct)
         using finite_graph_V.nt_bottom_SCC_in_V[OF fin_graph_\<sigma>] by blast
 
       from \<sigma>_U_succ_in_U graphs_equal_in_U have \<sigma>'_U_succ_in_U:
-        "\<forall>v\<in>U. \<exists>v'\<in>U. (v, v') \<in> induced_subgraph (dom \<sigma>') \<sigma>'" by blast
+        "\<forall>v\<in>U. \<exists>v'\<in>U. (v, v') \<in> induced_subgraph \<sigma>'" by blast
 
       from \<sigma>_strat have \<sigma>'_strat: "strategy_of (V_player \<alpha>) \<sigma>'"
         using strat_le_E_of_strat[OF \<sigma>'_le_\<sigma>]
@@ -222,7 +222,7 @@ proof (induction rule: search_step_induct)
         by (simp add: graphs_equal_in_U)
 
       from U_in_Z have tangle_subgraph_subset:
-        "tangle_subgraph \<alpha> U \<sigma>' \<subseteq> Restr (induced_subgraph (V_player \<alpha>) \<sigma>) Z"
+        "tangle_subgraph \<alpha> U \<sigma>' \<subseteq> Restr (induced_subgraph \<sigma>) Z"
         unfolding tangle_subgraph_is_restricted_ind_subgraph[OF U_in_V \<sigma>'_dom \<sigma>'_ran]
         unfolding \<sigma>'_dom
         unfolding restricted_strat_and_dom_subgraph_same_in_region[OF \<sigma>'_def] by blast

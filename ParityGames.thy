@@ -54,8 +54,8 @@ abbreviation (input) V\<^sub>\<beta> :: "'v set" where
     and its successors in any strategy of the opponent's nodes are the same as its successors
     in the entire graph. *)
 lemma player_induced_succs:
-  "\<lbrakk>v\<in>V\<^sub>\<alpha>; strategy_of V\<^sub>\<alpha> \<sigma>\<rbrakk> \<Longrightarrow> induced_subgraph (dom \<sigma>) \<sigma> `` {v} \<noteq> {}"
-  "\<lbrakk>v\<in>V\<^sub>\<alpha>; strategy_of V\<^sub>\<beta> \<sigma>\<rbrakk> \<Longrightarrow> induced_subgraph (dom \<sigma>) \<sigma> `` {v} = E `` {v}"
+  "\<lbrakk>v\<in>V\<^sub>\<alpha>; strategy_of V\<^sub>\<alpha> \<sigma>\<rbrakk> \<Longrightarrow> induced_subgraph \<sigma> `` {v} \<noteq> {}"
+  "\<lbrakk>v\<in>V\<^sub>\<alpha>; strategy_of V\<^sub>\<beta> \<sigma>\<rbrakk> \<Longrightarrow> induced_subgraph \<sigma> `` {v} = E `` {v}"
   unfolding induced_subgraph_def E_of_strat_def strategy_of_def V\<^sub>1_def
     subgoal using succ[of v] V\<^sub>\<alpha>_subset apply (cases "v\<in>dom \<sigma>") by blast+
     subgoal by auto
@@ -65,8 +65,8 @@ lemma player_induced_succs:
     and its successors in any strategy of the player's nodes are the same as its successors
     in the entire graph. *)
 lemma opponent_induced_succs:
-  "\<lbrakk>v\<in>V\<^sub>\<beta>; strategy_of V\<^sub>\<beta> \<sigma>\<rbrakk> \<Longrightarrow> induced_subgraph (dom \<sigma>) \<sigma> `` {v} \<noteq> {}"
-  "\<lbrakk>v\<in>V\<^sub>\<beta>; strategy_of V\<^sub>\<alpha> \<sigma>\<rbrakk> \<Longrightarrow> induced_subgraph (dom \<sigma>) \<sigma> `` {v} = E `` {v}"
+  "\<lbrakk>v\<in>V\<^sub>\<beta>; strategy_of V\<^sub>\<beta> \<sigma>\<rbrakk> \<Longrightarrow> induced_subgraph \<sigma> `` {v} \<noteq> {}"
+  "\<lbrakk>v\<in>V\<^sub>\<beta>; strategy_of V\<^sub>\<alpha> \<sigma>\<rbrakk> \<Longrightarrow> induced_subgraph \<sigma> `` {v} = E `` {v}"
   unfolding induced_subgraph_def E_of_strat_def strategy_of_def V\<^sub>1_def
     subgoal using succ[of v] by (cases "v\<in>dom \<sigma>") auto
     subgoal by auto
@@ -74,8 +74,8 @@ lemma opponent_induced_succs:
 
 (** The intersection of two opposing players' induced subgraphs is a valid parity game. *)
 lemma ind_subgraph_inter_opposed:
-  assumes G\<sigma>: "G\<sigma> = induced_subgraph (dom \<sigma>) \<sigma>"
-  assumes G\<sigma>': "G\<sigma>' = induced_subgraph (dom \<sigma>') \<sigma>'"
+  assumes G\<sigma>: "G\<sigma> = induced_subgraph \<sigma>"
+  assumes G\<sigma>': "G\<sigma>' = induced_subgraph \<sigma>'"
   assumes \<sigma>_player: "strategy_of V\<^sub>\<alpha> \<sigma>"
   assumes \<sigma>'_opp: "strategy_of V\<^sub>\<beta> \<sigma>'"
   shows "paritygame (G\<sigma> \<inter> G\<sigma>') V V\<^sub>0"

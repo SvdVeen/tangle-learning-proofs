@@ -22,25 +22,25 @@ proof -
       \<sigma>_strat: "strategy_of_player \<alpha> \<sigma>"
   and \<sigma>_dom: "dom \<sigma> = (X-W) \<inter> ?V\<^sub>\<alpha>"
   and \<sigma>_ran: "ran \<sigma> \<subseteq> X"
-  and \<sigma>_closed: "\<forall>v\<in>X-W. \<forall>v'. (v,v') \<in> induced_subgraph ?V\<^sub>\<alpha> \<sigma> \<longrightarrow> v'\<in>X"
-  and \<sigma>_forces_W: "\<forall>v\<in>X. \<forall>vs. lasso' (induced_subgraph ?V\<^sub>\<alpha> \<sigma>) v vs \<longrightarrow> set vs \<inter> W \<noteq> {}"
+  and \<sigma>_closed: "\<forall>v\<in>X-W. \<forall>v'. (v,v') \<in> induced_subgraph \<sigma> \<longrightarrow> v'\<in>X"
+  and \<sigma>_forces_W: "\<forall>v\<in>X. \<forall>vs. lasso' (induced_subgraph \<sigma>) v vs \<longrightarrow> set vs \<inter> W \<noteq> {}"
     unfolding X_def strategy_of_player_def using attractor_attracts[of \<alpha> W] by blast
 
   from assms obtain \<sigma>' where
       \<sigma>'_strat: "strategy_of_player \<alpha> \<sigma>'"
   and \<sigma>'_dom: "dom \<sigma>' = ?V\<^sub>\<alpha> \<inter> W"
   and \<sigma>'_ran: "ran \<sigma>' \<subseteq> W"
-  and \<sigma>'_winning: "\<forall>w\<in>W. \<forall>ys. reachable_cycle (induced_subgraph (dom \<sigma>') \<sigma>') w ys \<longrightarrow> player_wins_list \<alpha> ys"
+  and \<sigma>'_winning: "\<forall>w\<in>W. \<forall>ys. reachable_cycle (induced_subgraph \<sigma>') w ys \<longrightarrow> player_wins_list \<alpha> ys"
   and \<sigma>'_closed_opp: "E `` (W\<inter>V_opponent \<alpha>) \<subseteq> W"
     using winning_region_strat by force
 
-  from \<sigma>'_closed_opp \<sigma>'_dom have \<sigma>'_closed: "induced_subgraph (dom \<sigma>') \<sigma>' `` W \<subseteq> W"
+  from \<sigma>'_closed_opp \<sigma>'_dom have \<sigma>'_closed: "induced_subgraph \<sigma>' `` W \<subseteq> W"
     apply (cases \<alpha>; simp add: V\<^sub>1_def)
     using ind_subgraph_closed_region[OF winning_region_in_V[OF assms] _ \<sigma>'_ran] by blast+
 
   (** We combine the two strategies, which forms a winning strategy for the new region. *)
   let ?\<tau> = "\<sigma> ++ \<sigma>'"
-  let ?\<tau>_subgame = "induced_subgraph (dom ?\<tau>) ?\<tau>"
+  let ?\<tau>_subgame = "induced_subgraph ?\<tau>"
   from \<sigma>_dom \<sigma>'_dom have \<tau>_doms_disj: "dom \<sigma> \<inter> dom \<sigma>' = {}" by auto
 
   (** \<tau> is a strategy of the player. *)
@@ -69,7 +69,7 @@ proof -
     next
       case in_X_min_W
       with \<sigma>'_dom have v_notin_\<sigma>': "v \<notin> dom \<sigma>'" by simp
-      from in_X_min_W \<sigma>_dom have  "(v,v')\<in>induced_subgraph ?V\<^sub>\<alpha> \<sigma>"
+      from in_X_min_W \<sigma>_dom have  "(v,v')\<in>induced_subgraph \<sigma>"
         using ind_subgraph_add_notin_dom(1)[OF edge_in_subgame v_notin_\<sigma>']
         unfolding induced_subgraph_def by simp
       with in_X_min_W \<sigma>_closed show ?thesis by blast
@@ -99,10 +99,10 @@ proof -
       with ys_in_X have ys_in_X_min_W: "set ys \<subseteq> X-W" by blast
       with y_in_ys have y_in_X_min_W: "y\<in>X-W" by blast
 
-      from \<sigma>_dom \<sigma>'_dom have "?\<tau>_subgame \<inter> (X-W)\<times>(X-W) \<subseteq> induced_subgraph ?V\<^sub>\<alpha> \<sigma>"
+      from \<sigma>_dom \<sigma>'_dom have "?\<tau>_subgame \<inter> (X-W)\<times>(X-W) \<subseteq> induced_subgraph \<sigma>"
         unfolding induced_subgraph_def E_of_strat_def by auto
       from subgraph_path[OF this path_restr_V[OF path_y_ys_y ys_in_X_min_W y_in_X_min_W]] ys_notempty
-      have "lasso' (induced_subgraph ?V\<^sub>\<alpha> \<sigma>) y ys"
+      have "lasso' (induced_subgraph \<sigma>) y ys"
         using loop_impl_lasso' by fast
 
       with \<sigma>_forces_W y_in_X no_W_in_ys show "False" by blast
@@ -119,10 +119,10 @@ proof -
     qed
     with y_in_ys have y_in_W: "y\<in>W" by blast
 
-    have "?\<tau>_subgame \<inter> W\<times>W \<subseteq> (induced_subgraph (dom \<sigma>') \<sigma>')"
+    have "?\<tau>_subgame \<inter> W\<times>W \<subseteq> (induced_subgraph \<sigma>')"
       unfolding induced_subgraph_def E_of_strat_def by auto
     from subgraph_path[OF this path_restr_V[OF path_y_ys_y ys_in_W y_in_W]]
-    have "reachable_cycle (induced_subgraph (dom \<sigma>') \<sigma>') y ys"
+    have "reachable_cycle (induced_subgraph \<sigma>') y ys"
       using loop_impl_reachable_cycle ys_notempty by fast
 
     with \<sigma>'_winning y_in_W
@@ -222,11 +222,11 @@ proof -
         \<sigma>_strat_subgame: "subgame.strategy_of_player \<alpha> \<sigma>"
     and \<sigma>_dom_subgame: "dom \<sigma> = subgame.V_player \<alpha> \<inter> W"
     and \<sigma>_ran: "ran \<sigma> \<subseteq> W"
-    and \<sigma>_winning_subgame: "\<forall>w\<in>W. \<forall>ys. reachable_cycle (subgame.induced_subgraph (dom \<sigma>) \<sigma>) w ys \<longrightarrow> player_wins_list \<alpha> ys"
+    and \<sigma>_winning_subgame: "\<forall>w\<in>W. \<forall>ys. reachable_cycle (subgame.induced_subgraph \<sigma>) w ys \<longrightarrow> player_wins_list \<alpha> ys"
     and \<sigma>_closed_opp_subgame: "E' `` (W\<inter>subgame.V_opponent \<alpha>) \<subseteq> W"
     using subgame.winning_region_strat by auto
 
-  let ?\<sigma>_subgraph = "induced_subgraph (dom \<sigma>) \<sigma>"
+  let ?\<sigma>_subgraph = "induced_subgraph \<sigma>"
 
   from \<sigma>_strat_subgame E'_def have \<sigma>_strat: "strategy_of_player \<alpha> \<sigma>"
     unfolding strategy_of_player_def subgame.strategy_of_player_def
@@ -288,11 +288,11 @@ proof -
       w'_in_W: "w'\<in>W"
       using reachable_cycle_paths[of ?\<sigma>_subgraph] origin_in_path by fastforce
 
-    have "?\<sigma>_subgraph \<inter> W\<times>W \<subseteq> subgame.induced_subgraph (dom \<sigma>) \<sigma>"
-      using ind_subgraph_restr_subarena[OF subgame.arena_axioms, of "dom \<sigma>" "dom \<sigma>" \<sigma>]
+    have "?\<sigma>_subgraph \<inter> W\<times>W \<subseteq> subgame.induced_subgraph \<sigma>"
+      using ind_subgraph_restr_subarena[OF subgame.arena_axioms, of \<sigma>]
       using W_in_V' unfolding V'_def E'_def by auto
     from subgraph_path[OF this path_restr_V[OF path_w'_ys_w' ys_in_W w'_in_W]] ys_notempty
-    have "reachable_cycle (subgame.induced_subgraph (dom \<sigma>) \<sigma>) w' ys"
+    have "reachable_cycle (subgame.induced_subgraph \<sigma>) w' ys"
       using loop_impl_reachable_cycle by fast
 
     with \<sigma>_winning_subgame w'_in_W
@@ -516,11 +516,11 @@ proof -
             \<sigma>_strat: "strategy_of_player ?\<beta> \<sigma>" and
             \<sigma>_dom: "dom \<sigma> = ?V\<^sub>\<beta> \<inter> B" and
             \<sigma>_ran: "ran \<sigma> \<subseteq> B" and
-            \<sigma>_winning_opp: "\<forall>w\<in>B. \<forall>xs. reachable_cycle (induced_subgraph (dom \<sigma>) \<sigma>) w xs \<longrightarrow> player_wins_list ?\<beta> xs" and
+            \<sigma>_winning_opp: "\<forall>w\<in>B. \<forall>xs. reachable_cycle (induced_subgraph \<sigma>) w xs \<longrightarrow> player_wins_list ?\<beta> xs" and
             \<sigma>_closed_player: "E `` (B\<inter>V_opponent ?\<beta>) \<subseteq> B"
             unfolding winning_region_strat by fastforce
 
-          from \<sigma>_closed_player \<sigma>_dom have \<sigma>_closed: "induced_subgraph (dom \<sigma>) \<sigma> `` B \<subseteq> B"
+          from \<sigma>_closed_player \<sigma>_dom have \<sigma>_closed: "induced_subgraph \<sigma> `` B \<subseteq> B"
             apply (cases \<alpha>; simp add: V\<^sub>1_def)
             using ind_subgraph_closed_region[OF B_in_V _ \<sigma>_ran] by blast+
 
@@ -528,17 +528,17 @@ proof -
             \<sigma>'_strat_subgame': "subgame'.strategy_of_player ?\<beta> \<sigma>'" and
             \<sigma>'_dom_subgame': "dom \<sigma>' = subgame'.V_player ?\<beta> \<inter> X\<^sub>\<beta>" and
             \<sigma>'_ran: "ran \<sigma>' \<subseteq> X\<^sub>\<beta>" and
-            \<sigma>'_winning_opp_subgame': "\<forall>w\<in>X\<^sub>\<beta>. \<forall>xs. reachable_cycle (subgame'.induced_subgraph (dom \<sigma>') \<sigma>') w xs \<longrightarrow> player_wins_list ?\<beta> xs" and
+            \<sigma>'_winning_opp_subgame': "\<forall>w\<in>X\<^sub>\<beta>. \<forall>xs. reachable_cycle (subgame'.induced_subgraph \<sigma>') w xs \<longrightarrow> player_wins_list ?\<beta> xs" and
             \<sigma>'_closed_player_subgame': "E'' `` (X\<^sub>\<beta>\<inter>subgame'.V_opponent ?\<beta>) \<subseteq> X\<^sub>\<beta>"
             unfolding subgame'.winning_region_strat by fastforce
 
-          have \<sigma>'_closed_subgame': "subgame'.induced_subgraph (dom \<sigma>') \<sigma>' `` X\<^sub>\<beta> \<subseteq> X\<^sub>\<beta>"
+          have \<sigma>'_closed_subgame': "subgame'.induced_subgraph \<sigma>' `` X\<^sub>\<beta> \<subseteq> X\<^sub>\<beta>"
           proof (rule subsetI)
             fix v'
-            assume "v'\<in>subgame'.induced_subgraph (dom \<sigma>') \<sigma>' `` X\<^sub>\<beta>"
+            assume "v'\<in>subgame'.induced_subgraph \<sigma>' `` X\<^sub>\<beta>"
             then obtain v where
               v_in_X\<^sub>\<beta>: "v\<in>X\<^sub>\<beta>" and
-              edge_in_subgame: "(v,v')\<in>subgame'.induced_subgraph (dom \<sigma>') \<sigma>'" and
+              edge_in_subgame: "(v,v')\<in>subgame'.induced_subgraph \<sigma>'" and
               edge_in_E'': "(v,v')\<in>E''"
               and "v \<in> V''"
               using X\<^sub>\<beta>_in_V'' by auto
@@ -561,7 +561,7 @@ proof -
 
           (** If we combine the two strategies, we get a winning strategy for B\<union>X\<^sub>\<beta>. *)
           let ?\<tau> = "\<sigma> ++ \<sigma>'"
-          let ?\<tau>_subgame = "induced_subgraph (dom ?\<tau>) ?\<tau>"
+          let ?\<tau>_subgame = "induced_subgraph ?\<tau>"
           from \<sigma>_dom \<sigma>'_dom V''_B_disj X\<^sub>\<beta>_in_V'' have \<tau>_doms_disj: "dom \<sigma> \<inter> dom \<sigma>' = {}" by auto
 
           (** \<tau> is a strategy of the opponent. *)
@@ -653,10 +653,10 @@ proof -
               qed
               with y_in_ys have y_in_B: "y\<in>B" by blast
 
-              have "?\<tau>_subgame \<subseteq> induced_subgraph (dom \<sigma>) \<sigma>"
+              have "?\<tau>_subgame \<subseteq> induced_subgraph \<sigma>"
                 using ind_subgraph_add_disjoint(1)[OF \<tau>_doms_disj] by blast
               from subgraph_path[OF this path_y_ys_y] ys_notempty
-              have "reachable_cycle (induced_subgraph (dom \<sigma>) \<sigma>) y ys"
+              have "reachable_cycle (induced_subgraph \<sigma>) y ys"
                 using loop_impl_reachable_cycle by fast
 
               with \<sigma>_winning_opp y_in_B show ?thesis by blast
@@ -664,11 +664,11 @@ proof -
               case ys_in_X\<^sub>\<beta>
               with y_in_ys have y_in_X\<^sub>\<beta>: "y\<in>X\<^sub>\<beta>" by blast
 
-              from V''_comp' \<tau>_doms_disj have "?\<tau>_subgame \<inter> X\<^sub>\<beta>\<times>X\<^sub>\<beta> \<subseteq> subgame'.induced_subgraph (dom \<sigma>') \<sigma>'"
+              from V''_comp' \<tau>_doms_disj have "?\<tau>_subgame \<inter> X\<^sub>\<beta>\<times>X\<^sub>\<beta> \<subseteq> subgame'.induced_subgraph \<sigma>'"
                 unfolding induced_subgraph_def subgame'.induced_subgraph_def E_of_strat_def
                 unfolding E''_def V''_def by auto
               from subgraph_path[OF this path_restr_V[OF path_y_ys_y ys_in_X\<^sub>\<beta> y_in_X\<^sub>\<beta>]] ys_notempty
-              have "reachable_cycle (subgame'.induced_subgraph (dom \<sigma>') \<sigma>') y ys"
+              have "reachable_cycle (subgame'.induced_subgraph \<sigma>') y ys"
                 using loop_impl_reachable_cycle by fast
 
               with \<sigma>'_winning_opp_subgame' y_in_X\<^sub>\<beta> show ?thesis by blast
@@ -728,8 +728,8 @@ proof -
             \<sigma>_strat: "strategy_of ?V\<^sub>\<alpha> \<sigma>" and
             \<sigma>_dom: "dom \<sigma> = (A-{v}) \<inter> ?V\<^sub>\<alpha>" and
             \<sigma>_ran: "ran \<sigma> \<subseteq> A" and
-            \<sigma>_closed: "\<forall>v\<in>A-{v}. \<forall>v'. (v,v') \<in> induced_subgraph ?V\<^sub>\<alpha> \<sigma> \<longrightarrow> v' \<in> A" and
-            \<sigma>_forces_v: "\<forall>a\<in>A. \<forall>xs. lasso' (induced_subgraph ?V\<^sub>\<alpha> \<sigma>) a xs \<longrightarrow> set xs \<inter> {v} \<noteq> {}"
+            \<sigma>_closed: "\<forall>v\<in>A-{v}. \<forall>v'. (v,v') \<in> induced_subgraph \<sigma> \<longrightarrow> v' \<in> A" and
+            \<sigma>_forces_v: "\<forall>a\<in>A. \<forall>xs. lasso' (induced_subgraph \<sigma>) a xs \<longrightarrow> set xs \<inter> {v} \<noteq> {}"
             unfolding A_def using attractor_attracts[of \<alpha> "{v}"] by blast
 
           (** The winning strategy for V' will ensure wins in all cycles staying in V'. *)
@@ -737,7 +737,7 @@ proof -
             \<sigma>'_strat_subgame: "subgame.strategy_of_player \<alpha> \<sigma>'" and
             \<sigma>'_dom_subgame: "dom \<sigma>' = subgame.V_player \<alpha> \<inter> V'" and
             \<sigma>'_ran: "ran \<sigma>' \<subseteq> V'" and
-            \<sigma>'_winning_subgame: "\<forall>v'\<in>V'. \<forall>xs. reachable_cycle (subgame.induced_subgraph (dom \<sigma>') \<sigma>') v' xs \<longrightarrow> player_wins_list \<alpha> xs" and
+            \<sigma>'_winning_subgame: "\<forall>v'\<in>V'. \<forall>xs. reachable_cycle (subgame.induced_subgraph \<sigma>') v' xs \<longrightarrow> player_wins_list \<alpha> xs" and
             \<sigma>'_closed_opponent_subgame: "\<forall>v'\<in>V'. v' \<in> subgame.V_opponent \<alpha> \<longrightarrow> E' `` {v'} \<subseteq> V'"
             unfolding subgame.winning_region_strat by fast
           from \<sigma>'_strat_subgame have \<sigma>'_strat: "strategy_of_player \<alpha> \<sigma>'"
@@ -754,7 +754,7 @@ proof -
           (** We need to show that the edge from v to the random successor actually exists. *)
           have v_target_edge: "(v,v_target)\<in>E"
             unfolding v_target_def
-            using some_in_eq E_in_V v_succ by blast
+            using some_in_eq v_succ by blast
           hence v_target_in_V: "v_target \<in> V" using E_in_V by blast
 
           define v_choice where "v_choice \<equiv> if v \<in> ?V\<^sub>\<alpha> then [v \<mapsto> v_target] else Map.empty"
@@ -781,7 +781,7 @@ proof -
 
           (** Now we can combine the three to form a winning strategy for V. *)
           let ?\<tau> = "\<sigma> ++ \<sigma>' ++ v_choice"
-          let ?\<tau>_subgame = "induced_subgraph (dom ?\<tau>) ?\<tau>"
+          let ?\<tau>_subgame = "induced_subgraph ?\<tau>"
 
           (** The domains of the three strategies are disjoint. *)
           from \<sigma>_dom \<sigma>'_dom have \<sigma>_\<sigma>'_dom_disj: "dom \<sigma> \<inter> dom \<sigma>' = {}"
@@ -818,7 +818,7 @@ proof -
           proof (rule ballI; rule allI; rule impI)
             fix a a'
             assume a_in_A_min_v: "a\<in>A-{v}" and edge_in_\<tau>: "(a,a')\<in>?\<tau>_subgame"
-            with \<sigma>_dom \<sigma>'_dom v_choice_dom have edge_in_\<sigma>: "(a,a')\<in>induced_subgraph ?V\<^sub>\<alpha> \<sigma>"
+            with \<sigma>_dom \<sigma>'_dom v_choice_dom have edge_in_\<sigma>: "(a,a')\<in>induced_subgraph \<sigma>"
               unfolding induced_subgraph_def E_of_strat_def V'_def
               apply simp by blast
             with a_in_A_min_v \<sigma>_closed show "a'\<in>A" by blast
@@ -866,10 +866,10 @@ proof -
             qed
 
             from \<tau>_dom \<sigma>'_dom v_choice_dom A_in_V
-            have "?\<tau>_subgame \<inter> (A-{v})\<times>(A-{v}) \<subseteq> induced_subgraph ?V\<^sub>\<alpha> \<sigma>"
+            have "?\<tau>_subgame \<inter> (A-{v})\<times>(A-{v}) \<subseteq> induced_subgraph \<sigma>"
               unfolding induced_subgraph_def E_of_strat_def V'_def by auto
             from subgraph_lasso'[OF this lasso'_restr_V[OF lasso'_a_vs vs_in_A_min_v]]
-            have "lasso' (induced_subgraph ?V\<^sub>\<alpha> \<sigma>) a vs" .
+            have "lasso' (induced_subgraph \<sigma>) a vs" .
 
             from \<sigma>_forces_v a_in_A this have "set vs \<inter> {v} \<noteq> {}" by blast
             with v_notin_vs show "False" by blast
@@ -909,11 +909,11 @@ proof -
                 unfolding V'_def by blast
               from ys_in_V A_notin_ys V_composed_of have ys_in_V': "set ys \<subseteq> V'" by blast
 
-              from \<sigma>'_v_choice_dom_disj have "?\<tau>_subgame \<inter> V' \<times> V' \<subseteq> subgame.induced_subgraph (dom \<sigma>') \<sigma>'"
+              from \<sigma>'_v_choice_dom_disj have "?\<tau>_subgame \<inter> V' \<times> V' \<subseteq> subgame.induced_subgraph \<sigma>'"
                 unfolding induced_subgraph_def subgame.induced_subgraph_def E_of_strat_def
                 unfolding V'_def E'_def by auto
               from subgraph_path[OF this path_restr_V[OF path_y_ys_y ys_in_V' y_in_V']] ys_notempty
-              have "reachable_cycle (subgame.induced_subgraph (dom \<sigma>') \<sigma>') y ys"
+              have "reachable_cycle (subgame.induced_subgraph \<sigma>') y ys"
                 using loop_impl_reachable_cycle by fastforce
 
               with \<sigma>'_winning_subgame y_in_V' show ?thesis by blast

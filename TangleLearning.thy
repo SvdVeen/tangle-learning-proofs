@@ -37,9 +37,9 @@ lemma van_dijk_2_player:
 	assumes A_def: "A = {v. v\<in>V \<and> pr v = pr_set V}"
 	assumes attr: "player_tangle_attractor T A Z \<sigma>"
 	shows "\<forall>v\<in>Z. \<forall>xs ys.
-					lasso (induced_subgraph V\<^sub>\<alpha> \<sigma> \<inter> (Z \<times> Z)) v xs ys \<longrightarrow> winning_player ys"
+					lasso (induced_subgraph \<sigma> \<inter> (Z \<times> Z)) v xs ys \<longrightarrow> winning_player ys"
 proof (intro ballI allI impI)
-	let ?restr_subgraph = "induced_subgraph V\<^sub>\<alpha> \<sigma> \<inter> (Z \<times> Z)"
+	let ?restr_subgraph = "induced_subgraph \<sigma> \<inter> (Z \<times> Z)"
 	fix v xs ys
 	assume v_in_Z: "v\<in>Z" and lasso_restr_v_xs_ys: "lasso ?restr_subgraph v xs ys"
 	from player_tangle_attractor_ss[OF tangles_T fin_T attr] A_def
@@ -47,12 +47,12 @@ proof (intro ballI allI impI)
 
 	from restr_V_lasso[OF lasso_restr_v_xs_ys] have
 		ys_in_Z: "set ys \<subseteq> Z" and
-		lasso_v_xs_ys: "lasso (induced_subgraph V\<^sub>\<alpha> \<sigma>) v xs ys"
+		lasso_v_xs_ys: "lasso (induced_subgraph \<sigma>) v xs ys"
 		by blast+
 	with Z_in_V have ys_in_V: "set ys \<subseteq> V" by simp
 
 	from lasso_loop[OF lasso_v_xs_ys] obtain y where
-		lasso_y_ys: "lasso (induced_subgraph V\<^sub>\<alpha> \<sigma>) y [] ys" and
+		lasso_y_ys: "lasso (induced_subgraph \<sigma>) y [] ys" and
 		y_in_ys: "y \<in> set ys" and
 		ys_notempty: "ys \<noteq> []"
 		by fastforce
@@ -80,7 +80,7 @@ proof (intro ballI allI impI)
 	qed
 qed
 
-lemma "x \<notin> dom \<sigma> \<Longrightarrow> induced_subgraph V\<^sub>\<alpha> \<sigma> \<subseteq> induced_subgraph V\<^sub>\<alpha> (\<sigma>(x\<mapsto>y))"
+lemma "x \<notin> dom \<sigma> \<Longrightarrow> induced_subgraph \<sigma> \<subseteq> induced_subgraph (\<sigma>(x\<mapsto>y))"
 	unfolding induced_subgraph_def E_of_strat_def by force
 
 xxx, sorry
@@ -92,7 +92,7 @@ lemma van_dijk_3_player:
 	assumes fin_T: "finite T"
 	assumes A_def: "A = {v. v\<in>V \<and> pr v = pr_set V}"
 	assumes attr: "player_tangle_attractor T A Z \<sigma>"
-	shows "\<forall>v\<in>Z. \<exists>v'. pr v' = pr_set V \<and> (\<exists>vs. path (induced_subgraph V\<^sub>\<alpha> \<sigma>) v	vs v')"
+	shows "\<forall>v\<in>Z. \<exists>v'. pr v' = pr_set V \<and> (\<exists>vs. path (induced_subgraph \<sigma>) v	vs v')"
 	using tangles_T fin_T attr
 proof (induction rule: player_tangle_attractor_induct)
 	case base thus ?case
@@ -108,7 +108,7 @@ next
 	show ?case proof (rule ballI)
 		fix v assume v_in_S': "v \<in> insert x S"
 		consider (x) "v=x" | (not_x) "v\<noteq>x" by blast
-		thus "\<exists>v'. pr v' = pr_set V \<and> (\<exists>vs. path (induced_subgraph V\<^sub>\<alpha> (\<sigma>(x\<mapsto>y))) v vs v')"
+		thus "\<exists>v'. pr v' = pr_set V \<and> (\<exists>vs. path (induced_subgraph (\<sigma>(x\<mapsto>y))) v vs v')"
 		proof cases
 			case x
 			then show ?thesis sorry
@@ -122,20 +122,20 @@ next
 	show ?case proof (rule ballI)
 		fix v assume v_in_S': "v \<in> insert x S"
 		consider (x) "v=x" | (not_x) "v\<noteq>x" by blast
-		thus "\<exists>v'. pr v' = pr_set V \<and> (\<exists>vs. path (induced_subgraph V\<^sub>\<alpha> \<sigma>) v vs v')"
+		thus "\<exists>v'. pr v' = pr_set V \<and> (\<exists>vs. path (induced_subgraph \<sigma>) v vs v')"
 		proof cases
 			case x with opponent obtain y where
 			edge_in_E: "(x,y) \<in> E" and
-			edge_in_subgraph: "(x,y) \<in> induced_subgraph V\<^sub>\<alpha> \<sigma>"
+			edge_in_subgraph: "(x,y) \<in> induced_subgraph \<sigma>"
 			using succ ind_subgraph_notin_dom
 			by blast
 
 		with opponent.IH opponent.hyps(2) obtain x' ys where
 			pr_x': "pr x' = pr_set V" and
-			path_y_ys_x': "path (induced_subgraph V\<^sub>\<alpha> \<sigma>) y ys x'"
+			path_y_ys_x': "path (induced_subgraph \<sigma>) y ys x'"
 			by blast
 		from path_y_ys_x' edge_in_subgraph x have path_v_x':
-			"path (induced_subgraph V\<^sub>\<alpha> \<sigma>) v (x#ys) x'" by auto
+			"path (induced_subgraph \<sigma>) v (x#ys) x'" by auto
 		show ?thesis
 			apply (rule exI[where x="x'"]; rule conjI)
 			subgoal using pr_x' .
@@ -199,7 +199,7 @@ proof (rule conjI)
 		\<sigma>_strat: "strategy_of V\<^sub>\<alpha> \<sigma>" and
 		\<sigma>_dom: "dom \<sigma> = V\<^sub>\<alpha> \<inter> R" and
 		\<sigma>_ran: "ran \<sigma> \<subseteq> R" and
-		\<sigma>_winning: "\<forall>v\<in>R. \<forall>xs. reachable_cycle (induced_subgraph (dom \<sigma>) \<sigma>) v xs
+		\<sigma>_winning: "\<forall>v\<in>R. \<forall>xs. reachable_cycle (induced_subgraph \<sigma>) v xs
 								\<longrightarrow> winning_player xs" and
 		R_closed_opponent: "E `` (R\<inter>V\<^sub>\<beta>) \<subseteq> R"
 		unfolding player_winning_region_def by fastforce
@@ -249,7 +249,7 @@ lemma van_dijk_2:
 	assumes winning_top_p: "player_winningP \<alpha> (pr_set V)"
 	assumes A_def: "A = {v. v\<in>V \<and> pr v = pr_set V}"
 	assumes attr: "tangle_attractor \<alpha> T A Z \<sigma>"
-	shows "\<forall>v\<in>Z. \<forall>xs ys. lasso (Restr (induced_subgraph (V_player \<alpha>) \<sigma>) Z) v xs ys
+	shows "\<forall>v\<in>Z. \<forall>xs ys. lasso (Restr (induced_subgraph \<sigma>) Z) v xs ys
 						\<longrightarrow> player_wins_list \<alpha> ys"
 	using assms
 	using P0.van_dijk_2_player[of "{t\<in>T. tangle EVEN t}"]
