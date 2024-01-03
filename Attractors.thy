@@ -10,7 +10,7 @@ context player_paritygame begin
 (** A maximal attractor for a target set. *)
 inductive_set player_attractor :: "'v set \<Rightarrow> 'v set" for A where
   base: "x \<in> A \<Longrightarrow> x \<in> player_attractor A"
-| own: "\<lbrakk> x \<in> V\<^sub>\<alpha>-A; (x,y)\<in>E; y\<in>player_attractor A \<rbrakk> \<Longrightarrow> x \<in> player_attractor A"
+| player: "\<lbrakk> x \<in> V\<^sub>\<alpha>-A; (x,y)\<in>E; y\<in>player_attractor A \<rbrakk> \<Longrightarrow> x \<in> player_attractor A"
 | opponent: "\<lbrakk> x\<in>V\<^sub>\<beta>-A; \<forall>y. (x,y)\<in>E \<longrightarrow> y\<in>player_attractor A \<rbrakk> \<Longrightarrow> x \<in> player_attractor A"
 
 (** The target set A is a subset of its maximal attractor. *)
@@ -63,7 +63,7 @@ lemma player_attractor_ss_nodes_in_rank:
   proof (induction rule: player_attractor.induct)
     case (base x) thus ?case using nodes_in_rank.simps(1) by fast
   next
-    case (own x y) thus ?case using nodes_in_rank.simps(2) by blast
+    case (player x y) thus ?case using nodes_in_rank.simps(2) by blast
   next
     case (opponent x)
     define n_of_y where "n_of_y \<equiv> \<lambda>y. SOME n. y \<in> nodes_in_rank n"

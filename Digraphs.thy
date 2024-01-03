@@ -40,8 +40,8 @@ lemma path_iff_rtrancl: "(v,v') \<in> E\<^sup>* \<longleftrightarrow> (\<exists>
 (** The nodes in a path are in the graph. *)
 lemma path_in_E: "path v xs v' \<Longrightarrow> set xs \<subseteq> EV E"
   apply (induction xs arbitrary: v)
-    subgoal by simp
-    subgoal using subset_fst_snd by simp blast
+  subgoal by simp
+  subgoal using subset_fst_snd by simp blast
   done
 
 (** The origin of a path is included in its set of nodes. *)
@@ -51,6 +51,10 @@ lemma origin_in_path: "\<lbrakk>path v xs v'; xs \<noteq> []\<rbrakk> \<Longrigh
 (** A path can be deconstructed into its first edge and the rest of the path. *)
 lemma path_D: "\<lbrakk>path v xs v'; xs \<noteq> []\<rbrakk> \<Longrightarrow> \<exists>y ys. xs = v#(ys) \<and> (v,y) \<in> E \<and> path y ys v'"
   by (induction xs arbitrary: v) auto
+
+(** A path can be deconstructed into its last edge and the rest of the path. *)
+lemma path_D_rev: "\<lbrakk>path v xs v'; xs \<noteq> []\<rbrakk> \<Longrightarrow> \<exists>y ys. (y,v') \<in> E \<and> xs = ys@[y] \<and> path v ys y"
+  by (induction xs rule: rev_induct) auto
 
 (** If a path is in a closed region of a graph, its nodes will entirely be in that region *)
 lemma path_closed_set: "\<lbrakk>v\<in>V; E``V\<subseteq>V; path v xs v'\<rbrakk> \<Longrightarrow> set xs \<subseteq> V"
@@ -72,7 +76,7 @@ lemma path_partially_closed_set: "\<lbrakk>v\<in>V-R; E``(V-R)\<subseteq>V; path
     excluded in closedness, is destination is within the partially closed region. *)
 lemma path_partially_closed_dest: "\<lbrakk>v\<in>V-R; E``(V-R)\<subseteq>V; path v xs v'; set xs \<inter> R = {}\<rbrakk> \<Longrightarrow> v'\<in>V"
   apply (induction xs arbitrary: v; simp)
-    subgoal for x xs by (cases xs) auto
+  subgoal for x xs by (cases xs) auto
   done
 
 (** If you have an intermediate node in a path, you can split it into two paths with the
@@ -80,10 +84,62 @@ lemma path_partially_closed_dest: "\<lbrakk>v\<in>V-R; E``(V-R)\<subseteq>V; pat
 lemma path_intermediate_node: "\<lbrakk>path v xs v'; x \<in> set xs\<rbrakk>
   \<Longrightarrow> \<exists>xs1 xs2. xs = (xs1@xs2) \<and> path v xs1 x \<and> path x xs2 v'"
   apply (induction xs arbitrary: v)
-    subgoal by simp
-    subgoal for x' xs using split_list_first[of x "x'#xs"] by fastforce
+  subgoal by simp
+  subgoal for x' xs using split_list_first[of x "x'#xs"] by fastforce
   done
 
+(** If a path intersects with some region, we can get the shortest subpath that leads to that
+    region. *)
+lemma shortest_subpath_to_intersecting_region:
+  "\<lbrakk>path v xs w; set xs \<inter> X \<noteq> {}\<rbrakk> \<Longrightarrow> \<exists>w' \<in> X. \<exists>xs'. set xs' \<inter> X = {} \<and> path v xs' w'"
+proof (induction xs arbitrary: v)
+  (** For an empty path, we have a clear contradiction. *)
+  case Nil thus ?case by simp
+next
+  (** For a nonempty path, we need to look whether it already starts in the region X. *)
+  case (Cons x xs)
+  hence [simp]: "x=v" by simp
+  consider (x_in_X) "x \<in> X" | (x_notin_X) "x \<notin> X" by blast
+  thus ?case proof cases
+    (** If v is already in X, then we have an empty path that satisfies our conditions. *)
+    case x_in_X
+    show ?thesis
+      apply (rule bexI[where x=v])
+      subgoal apply (rule exI[where x="[]"]) by simp
+      subgoal using x_in_X by simp
+      done
+  next
+    (** If v is not in X, then xs contains part of X and, consequently, is nonempty. *)
+    case x_notin_X
+    with \<open>set (x#xs) \<inter> X \<noteq> {}\<close> have
+      X_in_xs: "set xs \<inter> X \<noteq> {}" and xs_notempty: "xs \<noteq> []"
+      by auto
+    (** We get the path minus V *)
+    from \<open>path v (x#xs) w\<close> xs_notempty obtain v' where
+      "(v,v')\<in>E" "path v' xs w"
+      using path_D by blast
+    (** By the IH, there is a part of this path that satisfies our conditions. *)
+    from Cons.IH[OF \<open>path v' xs w\<close> X_in_xs] obtain w' xs' where
+      w'_in_X: "w' \<in> X" and X_notin_xs': "set xs' \<inter> X = {}" and "path v' xs' w'" by blast
+    (** Now we can add v back to the front of this path, giving us a path that satisfies the lemma. *)
+    with \<open>(v,v')\<in>E\<close> have path_v_w': "path v (v#xs') w'" by auto
+    show ?thesis
+      apply (rule bexI[where x=w'])
+      subgoal apply (rule exI[where x="v#xs'"])
+        using x_notin_X X_notin_xs' path_v_w' by auto
+      subgoal using w'_in_X by simp
+      done
+  qed
+qed
+
+(** If we have a path to some target region, we can get the shortest subpath to that region that
+    does not contain it. *)
+lemma shortest_subpath_to_target_region:
+  "\<lbrakk>path v xs w; w \<in> X\<rbrakk> \<Longrightarrow> \<exists>w'\<in>X. \<exists>xs'. set xs' \<inter> X = {} \<and> path v xs' w'"
+  apply (cases "set xs \<inter> X = {}")
+  subgoal by blast
+  subgoal using shortest_subpath_to_intersecting_region[of v xs w X] by blast
+  done
 
 section \<open>Cycles\<close>
 (** A cycle from a node to itself. *)
@@ -473,7 +529,8 @@ lemma path_restr_V: "path E v vs v' \<Longrightarrow> set vs \<subseteq> V \<Lon
   apply (induction vs arbitrary: v; simp)
   using origin_in_path by fastforce
 
-lemma restr_V_path: "path (E \<inter> V\<times>V) v xs v' \<Longrightarrow> xs \<noteq> [] \<Longrightarrow> v \<in> V \<and> set xs \<subseteq> V  \<and> path E v xs v'"
+lemma restr_V_path:
+  "path (E \<inter> V\<times>V) v xs v' \<Longrightarrow> xs \<noteq> [] \<Longrightarrow> v \<in> V \<and> set xs \<subseteq> V \<and> v' \<in> V \<and> path E v xs v'"
   apply (induction xs arbitrary: v; simp)
   using subgraph_path by force
 

@@ -58,11 +58,13 @@ lemma won_by_opponent_in_V: "won_by_opponent v \<Longrightarrow> v\<in>V"
   unfolding won_by_opponent_def by simp
 
 (** Every node in a winning region for a player is won by that player *)
-lemma player_winning_region_won_by_player: "player_winning_region W \<Longrightarrow> \<forall>w\<in>W. won_by_player w"
+lemma player_winning_region_won_by_player:
+  "player_winning_region W \<Longrightarrow> \<forall>w\<in>W. won_by_player w"
   unfolding player_winning_region_def won_by_player_def by blast
 
 (** Every node in a losing region for a player is won by their opponent *)
-lemma losing_region_won_by_opponent: "losing_region W \<Longrightarrow> \<forall>w\<in>W. won_by_opponent w"
+lemma losing_region_won_by_opponent:
+  "losing_region W \<Longrightarrow> \<forall>w\<in>W. won_by_opponent w"
   unfolding losing_region_def won_by_opponent_def by blast
 
 (** If a node is won by the player, it cannot be won by the opponent *)
@@ -73,18 +75,20 @@ proof clarsimp
   define G\<sigma> where "G\<sigma> = induced_subgraph \<sigma>"
   define G\<sigma>' where "G\<sigma>' = induced_subgraph \<sigma>'"
   assume \<sigma>_player: "strategy_of V\<^sub>\<alpha> \<sigma>"
-    and \<sigma>_win: "\<forall>xs. reachable_cycle G\<sigma> v xs \<longrightarrow> winningP (pr_list xs)"
-    and \<sigma>'_opp: "strategy_of (V-V\<^sub>\<alpha>) \<sigma>'"
+    and \<sigma>_win: "\<forall>xs. reachable_cycle G\<sigma> v xs \<longrightarrow> winning_player xs"
+    and \<sigma>'_opp: "strategy_of V\<^sub>\<beta> \<sigma>'"
     and "v\<in>V"
-  interpret Ginter: paritygame "G\<sigma> \<inter> G\<sigma>'" V V\<^sub>0 pr
+  interpret Ginter: paritygame "G\<sigma>\<inter>G\<sigma>'" V V\<^sub>0 pr
     using ind_subgraph_inter_opposed[OF G\<sigma>_def G\<sigma>'_def \<sigma>_player \<sigma>'_opp] .
 
-  from Ginter.cycle_always_exists[OF \<open>v\<in>V\<close>] Ginter.succ \<open>v\<in>V\<close>
-  obtain xs where xs: "reachable_cycle (G\<sigma> \<inter> G\<sigma>') v xs" by blast
-  moreover from xs have "reachable_cycle G\<sigma> v xs" using reachable_cycle_inter by fastforce
-  with \<sigma>_win have "winningP (pr_list xs)" by blast
-  moreover from xs have "reachable_cycle G\<sigma>' v xs" using reachable_cycle_inter by fastforce
-  ultimately show "\<exists>xs. reachable_cycle (G\<sigma>') v xs \<and> winning_player xs" by blast
+  from Ginter.cycle_always_exists[OF \<open>v\<in>V\<close>]
+  obtain xs where xs: "reachable_cycle (G\<sigma>\<inter>G\<sigma>') v xs" by blast
+  from xs have "reachable_cycle G\<sigma> v xs"
+    using reachable_cycle_inter by fastforce
+  with \<sigma>_win have "winning_player xs" by blast
+  moreover from xs have "reachable_cycle G\<sigma>' v xs"
+    using reachable_cycle_inter by fastforce
+  ultimately show "\<exists>xs. reachable_cycle G\<sigma>' v xs \<and> winning_player xs" by blast
 qed
 
 (** By the previous lemma, a node cannot be won by both players at the same time *)
@@ -98,11 +102,124 @@ lemma nonempty_player_winning_region_exclusive:
   shows "player_winning_region W \<Longrightarrow> \<not>losing_region W"
 proof -
   assume "player_winning_region W"
-  with assms obtain w where "w \<in> W" "won_by_player w"
+  with \<open>W\<noteq>{}\<close> obtain w where "w \<in> W" "won_by_player w"
     using player_winning_region_won_by_player by fast
   hence "\<not>won_by_opponent w" using winning_v_exclusive by simp
   from \<open>w\<in>W\<close> \<open>\<not>won_by_opponent w\<close> show "\<not>losing_region W"
     using losing_region_won_by_opponent by blast
+qed
+
+lemma disjoint_player_winning_region_union:
+  assumes W\<^sub>1_winning: "player_winning_region W\<^sub>1"
+  assumes W\<^sub>2_winning: "player_winning_region W\<^sub>2"
+  assumes disj: "W\<^sub>1 \<inter> W\<^sub>2 = {}"
+  shows "player_winning_region (W\<^sub>1\<union>W\<^sub>2)"
+proof -
+  from W\<^sub>1_winning obtain \<sigma>\<^sub>1 where
+    W\<^sub>1_in_V: "W\<^sub>1 \<subseteq> V" and
+    \<sigma>\<^sub>1_strat: "strategy_of V\<^sub>\<alpha> \<sigma>\<^sub>1" and
+    \<sigma>\<^sub>1_dom: "dom \<sigma>\<^sub>1 = V\<^sub>\<alpha> \<inter> W\<^sub>1" and
+    \<sigma>\<^sub>1_ran: "ran \<sigma>\<^sub>1 \<subseteq> W\<^sub>1" and
+    W\<^sub>1_closed_opp: "E `` (W\<^sub>1\<inter>V\<^sub>\<beta>) \<subseteq> W\<^sub>1" and
+    \<sigma>\<^sub>1_winning: "\<forall>v\<in>W\<^sub>1. \<forall>xs. reachable_cycle (induced_subgraph \<sigma>\<^sub>1) v xs \<longrightarrow> winning_player xs"
+    unfolding player_winning_region_def by auto
+
+  from W\<^sub>2_winning obtain \<sigma>\<^sub>2 where
+    W\<^sub>2_in_V: "W\<^sub>2 \<subseteq> V" and
+    \<sigma>\<^sub>2_strat: "strategy_of V\<^sub>\<alpha> \<sigma>\<^sub>2" and
+    \<sigma>\<^sub>2_dom: "dom \<sigma>\<^sub>2 = V\<^sub>\<alpha> \<inter> W\<^sub>2" and
+    \<sigma>\<^sub>2_ran: "ran \<sigma>\<^sub>2 \<subseteq> W\<^sub>2" and
+    W\<^sub>2_closed_opp: "E `` (W\<^sub>2\<inter>V\<^sub>\<beta>) \<subseteq> W\<^sub>2" and
+    \<sigma>\<^sub>2_winning: "\<forall>v\<in>W\<^sub>2. \<forall>xs. reachable_cycle (induced_subgraph \<sigma>\<^sub>2) v xs \<longrightarrow> winning_player xs"
+    unfolding player_winning_region_def by auto
+
+  define \<tau> where "\<tau> = \<sigma>\<^sub>1 ++ \<sigma>\<^sub>2"
+
+  from W\<^sub>1_in_V W\<^sub>1_closed_opp \<sigma>\<^sub>1_ran \<sigma>\<^sub>1_dom \<sigma>\<^sub>2_dom disj
+  have \<tau>_closed_W\<^sub>1: "induced_subgraph \<tau> `` W\<^sub>1 \<subseteq> W\<^sub>1"
+    unfolding \<tau>_def
+    apply clarsimp
+    subgoal for y x apply (cases "x \<in> V\<^sub>\<alpha>")
+      subgoal using ind_subgraph_add_notin_dom[of x y \<sigma>\<^sub>1 \<sigma>\<^sub>2] ind_subgraph_edge_dst by blast
+      subgoal using ind_subgraph_edge_in_E by blast
+      done
+    done
+
+  from \<sigma>\<^sub>2_dom disj have restr_\<tau>_subgraph_\<sigma>\<^sub>1:
+    "Restr (induced_subgraph \<tau>) W\<^sub>1 \<subseteq> induced_subgraph \<sigma>\<^sub>1"
+    unfolding \<tau>_def induced_subgraph_def E_of_strat_def
+    by auto
+
+  from W\<^sub>2_in_V W\<^sub>2_closed_opp \<sigma>\<^sub>2_ran \<sigma>\<^sub>1_dom \<sigma>\<^sub>2_dom disj
+  have \<tau>_closed_W\<^sub>2: "induced_subgraph \<tau> `` W\<^sub>2 \<subseteq> W\<^sub>2"
+    unfolding \<tau>_def
+    apply clarsimp
+    subgoal for y x apply (cases "x \<in> V\<^sub>\<alpha>")
+      subgoal using ind_subgraph_add_notin_dom[of x y \<sigma>\<^sub>1 \<sigma>\<^sub>2] ind_subgraph_edge_dst by blast
+      subgoal using ind_subgraph_edge_in_E by blast
+      done
+    done
+
+  from \<sigma>\<^sub>1_dom disj have restr_\<tau>_subgraph_\<sigma>\<^sub>2:
+    "Restr (induced_subgraph \<tau>) W\<^sub>2 \<subseteq> induced_subgraph \<sigma>\<^sub>2"
+    unfolding \<tau>_def induced_subgraph_def E_of_strat_def
+    by auto
+
+  {
+    fix W \<sigma> v xs
+    assume v_in_W: "v \<in> W" and
+      \<tau>_closed_W: "induced_subgraph \<tau> `` W \<subseteq> W" and
+      \<sigma>_win: "\<forall>v\<in>W. \<forall>xs. reachable_cycle (induced_subgraph \<sigma>) v xs \<longrightarrow> winning_player xs" and
+      restr_\<tau>_subgraph: "Restr (induced_subgraph \<tau>) W \<subseteq> induced_subgraph \<sigma>" and
+      reachable_cycle: "reachable_cycle (induced_subgraph \<tau>) v xs"
+
+    from reachable_cycle obtain v' where cycle: "cycle (induced_subgraph \<tau>) v' xs"
+      unfolding reachable_cycle_def by blast
+
+    from reachable_cycle_closed_set[OF v_in_W \<tau>_closed_W reachable_cycle]
+    have xs_in_W: "set xs \<subseteq> W" .
+    hence v'_in_W: "v' \<in> W" using origin_in_cycle[OF cycle] by blast
+
+    from cycle_restr_V[OF cycle xs_in_W]
+    have "cycle (induced_subgraph \<sigma>) v' xs"
+      using subgraph_cycle[OF restr_\<tau>_subgraph] by blast
+    hence "reachable_cycle (induced_subgraph \<sigma>) v' xs"
+      using cycle_impl_reachable_cycle by fast
+
+    with v'_in_W \<sigma>_win have "winning_player xs" by blast
+  } note W_winning_aux = this
+
+  from W\<^sub>1_in_V W\<^sub>2_in_V have Un_in_V: "W\<^sub>1 \<union> W\<^sub>2\<subseteq> V" by simp
+  moreover from W\<^sub>1_closed_opp W\<^sub>2_closed_opp
+  have Un_closed_opp: "E `` ((W\<^sub>1\<union>W\<^sub>2) \<inter> V\<^sub>\<beta>) \<subseteq> (W\<^sub>1\<union>W\<^sub>2)" by auto
+
+  moreover from \<sigma>\<^sub>1_strat \<sigma>\<^sub>2_strat have \<tau>_strat: "strategy_of V\<^sub>\<alpha> \<tau>"
+    unfolding \<tau>_def by simp
+
+  moreover from \<sigma>\<^sub>1_dom \<sigma>\<^sub>2_dom have \<tau>_dom: "dom \<tau> = V\<^sub>\<alpha> \<inter> (W\<^sub>1\<union>W\<^sub>2)"
+    unfolding \<tau>_def by auto
+
+  moreover from \<sigma>\<^sub>1_dom \<sigma>\<^sub>2_dom disj have "dom \<sigma>\<^sub>1 \<inter> dom \<sigma>\<^sub>2 = {}" by auto
+  with \<sigma>\<^sub>1_ran \<sigma>\<^sub>2_ran have \<tau>_ran: "ran \<tau> \<subseteq> (W\<^sub>1\<union>W\<^sub>2)"
+    unfolding \<tau>_def
+    using ran_map_add by blast
+
+  moreover have \<tau>_win:
+    "\<forall>v\<in>W\<^sub>1\<union>W\<^sub>2. \<forall>xs. reachable_cycle (induced_subgraph \<tau>) v xs \<longrightarrow> winning_player xs"
+  proof (intro ballI allI impI)
+    fix v xs
+    assume v_in_Un: "v \<in> W\<^sub>1 \<union> W\<^sub>2" and
+      reachable_cycle: "reachable_cycle (induced_subgraph \<tau>) v xs"
+    from v_in_Un consider (v_in_W\<^sub>1) "v \<in> W\<^sub>1" | (v_in_W\<^sub>2) "v \<in> W\<^sub>2" by blast
+    thus "winning_player xs"
+      apply (cases)
+      subgoal using W_winning_aux[OF _ \<tau>_closed_W\<^sub>1 \<sigma>\<^sub>1_winning restr_\<tau>_subgraph_\<sigma>\<^sub>1 reachable_cycle] .
+      subgoal using W_winning_aux[OF _ \<tau>_closed_W\<^sub>2 \<sigma>\<^sub>2_winning restr_\<tau>_subgraph_\<sigma>\<^sub>2 reachable_cycle] .
+      done
+  qed
+
+  ultimately show ?thesis
+    unfolding player_winning_region_def by blast
 qed
 end (** End of context player_paritygame. *)
 
@@ -175,6 +292,14 @@ lemma nonempty_winning_region_not_winning_for_opponent:
 (** A node cannot be won by a player and their opponent at the same time. *)
 lemma won_by_player_not_won_by_opponent: "\<not>(won_by \<alpha> v \<and> won_by (opponent \<alpha>) v)"
   using P0.winning_v_exclusive P1.winning_v_exclusive by (cases \<alpha>) auto
+
+lemma disjoint_winning_region_union:
+  assumes "winning_region \<alpha> W\<^sub>1"
+  assumes "winning_region \<alpha> W\<^sub>2"
+  assumes "W\<^sub>1 \<inter> W\<^sub>2 = {}"
+  shows "winning_region \<alpha> (W\<^sub>1\<union>W\<^sub>2)"
+  using assms P0.disjoint_player_winning_region_union P1.disjoint_player_winning_region_union
+  by (cases \<alpha>; simp add: V\<^sub>1_def)
 end (** End of context paritygame. *)
 
 end

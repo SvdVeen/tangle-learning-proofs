@@ -161,8 +161,7 @@ proof (unfold_locales)
   from V\<^sub>0' V' show "V\<^sub>0'\<subseteq>V'" using V\<^sub>0_in_V by blast
   show "\<And>v. v \<in> V' \<Longrightarrow> E' `` {v} \<noteq> {}"
   proof -
-    fix v
-    assume v_in_V': "v\<in>V'"
+    fix v assume v_in_V': "v\<in>V'"
     hence v_in_V: "v\<in>V" using V' by simp
     from v_in_V' V' have "v \<notin> X" by simp
     with notin_attractor_succ[OF v_in_V] X
@@ -757,7 +756,7 @@ proof -
             using some_in_eq v_succ by blast
           hence v_target_in_V: "v_target \<in> V" using E_in_V by blast
 
-          define v_choice where "v_choice \<equiv> if v \<in> ?V\<^sub>\<alpha> then [v \<mapsto> v_target] else Map.empty"
+          define v_choice where "v_choice \<equiv> if v \<in> ?V\<^sub>\<alpha> then [v\<mapsto>v_target] else Map.empty"
 
           (** The domain of v_choice depends on the owner of v. *)
           have v_choice_dom_player: "v \<in> ?V\<^sub>\<alpha> \<longrightarrow> dom v_choice = ?V\<^sub>\<alpha> \<inter> {v}"
