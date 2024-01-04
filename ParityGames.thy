@@ -28,11 +28,24 @@ begin
     unfolding pr_set_def
     using Max_in[of "pr ` S"] by fastforce
 
+  lemma pr_list_eq_pr_set_set: "pr_list xs = pr_set (set xs)"
+    unfolding pr_list_def pr_set_def by simp
+
   (** The top priority in a nonempty list that is a subset of V is less than or equal to the top
       priority in V. *)
   lemma pr_list_le_pr_set_V: "\<lbrakk>set xs \<subseteq> V; xs \<noteq> []\<rbrakk> \<Longrightarrow> pr_list xs \<le> pr_set V"
     unfolding pr_list_def pr_set_def
     using image_mono Max_mono by auto
+
+  (** If we have a node of the top priority in V in a list xs that is entirely in V, then the top
+      priority in the list is equal to the top priority in V. *)
+  lemma pr_V_in_list: "\<lbrakk>set xs \<subseteq> V; v \<in> set xs; pr v = pr_set V\<rbrakk> \<Longrightarrow> pr_list xs = pr_set V"
+    using pr_list_le_pr_set_V pr_le_pr_set
+    by (simp add: pr_list_eq_pr_set_set) fastforce
+
+  (** A valid subgame is a region in V that is a valid parity game. *)
+  abbreviation (input) valid_subgame :: "'v set \<Rightarrow> bool" where
+    "valid_subgame R \<equiv> R \<subseteq> V \<and> paritygame (Restr E R) (V\<inter>R) (V\<^sub>0\<inter>R)"
 end
 
 

@@ -1383,24 +1383,10 @@ lemma tangle_attractor_finite:
 lemma remove_tangle_attractor_subgame:
   assumes fin_T: "finite T"
   assumes tangle_attractor: "tangle_attractor \<alpha> T A X \<sigma>"
-  shows "paritygame (Restr E (V-X)) (V-X) (V\<^sub>0-X)"
-proof (unfold_locales)
-  show "Restr E (V-X) \<subseteq> (V-X)\<times>(V-X)" by blast
-  show "finite (V-X)" by simp
-  show "V\<^sub>0-X \<subseteq> V-X" using V\<^sub>0_in_V by blast
-  show "\<And>v. v \<in> V-X \<Longrightarrow> Restr E (V-X) `` {v} \<noteq> {}"
-  proof -
-    fix v
-    assume v_in_V_min_X: "v \<in> V-X"
-    hence v_in_V: "v\<in>V" by simp
-    from v_in_V_min_X have "v \<notin> X" by simp
-    with notin_tangle_attractor_succ[OF fin_T tangle_attractor v_in_V]
-    have "E `` {v} - X \<noteq> {}" by simp
-    then obtain w where w: "(v,w) \<in> E \<and> w \<in> V-X" using E_in_V by blast
-    with v_in_V_min_X have "(v,w) \<in> Restr E (V-X)" using E_in_V by blast
-    then show "Restr E (V-X) `` {v} \<noteq> {}" by blast
-  qed
-qed
+  shows "valid_subgame (V-X)"
+  apply simp
+  apply (unfold_locales; clarsimp)
+  using notin_tangle_attractor_succ[OF fin_T tangle_attractor] E_in_V by blast
 
 
 subsection \<open>\<alpha>-maximal regions\<close>

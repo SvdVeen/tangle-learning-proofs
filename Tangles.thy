@@ -111,7 +111,7 @@ proof -
 
     (** The subgraph of \<sigma> restructed to U is part of its tangle subgraph, so the cycle is won
         by the known properties of \<sigma>. *)
-    have "induced_subgraph \<sigma> \<inter> (U\<times>U) \<subseteq> player_tangle_subgraph U \<sigma>"
+    have "Restr (induced_subgraph \<sigma>) U \<subseteq> player_tangle_subgraph U \<sigma>"
       using player_tangle_subgraph_is_restricted_ind_subgraph[OF U_in_V \<sigma>_dom \<sigma>_ran] by simp
     from \<sigma>_winning y_in_U subgraph_cycle[OF this cycle_restr_V[OF cycle_y_ys ys_in_U]]
       show "winning_player ys" by simp
@@ -120,12 +120,11 @@ proof -
   (** We now prove that \<sigma> is a winning region strategy. *)
   show ?thesis
     unfolding player_winning_region_def
-    apply (simp add: U_in_V)
+    apply (simp add: U_in_V U_closed_opp)
     apply (rule exI[where x="\<sigma>"]; intro conjI)
       subgoal using \<sigma>_strat .
       subgoal using \<sigma>_dom Int_commute ..
       subgoal using \<sigma>_ran .
-      subgoal using U_closed_opp .
       subgoal using \<sigma>_winning_subgraph .
     done
 qed

@@ -7,8 +7,6 @@ context paritygame begin
 (** I may want to use this and move it to paritygames.thy.
     More, similar abbreviations for using concepts in a restricted subgame may be useful for
     legibility.*)
-abbreviation (input) valid_subgame :: "'v set \<Rightarrow> bool" where
-  "valid_subgame R \<equiv> R \<subseteq> V \<and> paritygame (Restr E R) (V\<inter>R) (V\<^sub>0\<inter>R)"
 
 abbreviation (input) bound_nt_bottom_SCC :: "'v set \<Rightarrow> 'v strat \<Rightarrow> 'v set \<Rightarrow> bool" where
   "bound_nt_bottom_SCC Z \<sigma> S \<equiv> S \<subseteq> Z \<and>
@@ -60,7 +58,7 @@ definition search_I ::  "'v set \<times> 'v set set \<Rightarrow> bool" where
 *)
 
 definition search_I :: "'v set \<times> 'v set set \<Rightarrow> bool" where
-  "search_I \<equiv> \<lambda>(R,Y). finite R \<and> valid_subgame R \<and> finite Y \<and> (\<forall>U \<in> Y. \<exists>\<alpha>. tangle \<alpha> U \<and> U \<notin> T)"
+  "search_I \<equiv> \<lambda>(R,Y). finite R \<and> valid_subgame R \<and> finite Y \<and> (\<forall>U \<in> Y. \<exists>\<alpha>. tangle \<alpha> U)"
 
 (** If we end with an empty region, then we have a finite, non-empty Y containing new tangles that
     were not included in T before, as specified by our invariant. *)
@@ -110,7 +108,7 @@ proof (induction rule: search_step_induct)
     Ov_def: "Ov = {v \<in> V_player \<alpha> \<inter> A. E `` {v} \<inter> Z \<noteq> {}}
       \<union> {v \<in> V_opponent \<alpha> \<inter> A. E `` {v} \<inter> R \<subseteq> Z}" and
     Y'_def: "Y' = (if Ov \<noteq> {} then Y \<union> {S. bound_nt_bottom_SCC Z \<sigma> S} else Y)" and
-    new_tangles_Y: "\<forall>U \<in> Y. \<exists>\<alpha>. tangle \<alpha> U \<and> U \<notin> T" and
+    tangles_Y: "\<forall>U \<in> Y. \<exists>\<alpha>. tangle \<alpha> U" and
     R_in_V: "R \<subseteq> V" and
     R_valid_game: "paritygame (Restr E R) (V\<inter>R) (V\<^sub>0\<inter>R)"
     by auto
@@ -154,7 +152,7 @@ proof (induction rule: search_step_induct)
     with Y'_def consider (old) "U \<in> Y" | (new) "U \<in> {S. bound_nt_bottom_SCC Z \<sigma> S}"
       by (auto split: if_splits)
     thus "\<exists>\<alpha>. tangle \<alpha> U" proof cases
-      case old with new_tangles_Y show ?thesis by blast
+      case old with tangles_Y show ?thesis by blast
     next
       case new
       from new have U_in_Z: "U \<subseteq> Z" by blast

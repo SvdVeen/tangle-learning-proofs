@@ -12,9 +12,10 @@ abbreviation "winning_opponent xs \<equiv> \<not>winningP (pr_list xs)"
     closed, and where every cycle reachable from every node in that region is won by that
     player *)
 definition player_winning_region :: "'v set \<Rightarrow> bool" where
-  "player_winning_region W \<equiv> W\<subseteq>V \<and> (\<exists>\<sigma>.
-    strategy_of V\<^sub>\<alpha> \<sigma> \<and> dom \<sigma> = V\<^sub>\<alpha> \<inter> W \<and> ran \<sigma> \<subseteq> W \<and> E `` (W \<inter> V\<^sub>\<beta>) \<subseteq> W \<and>
-    (\<forall>v\<in>W. \<forall>xs. reachable_cycle (induced_subgraph \<sigma>) v xs \<longrightarrow> winning_player xs))"
+  "player_winning_region W \<equiv> W \<subseteq> V \<and> E `` (W \<inter> V\<^sub>\<beta>) \<subseteq> W \<and>
+    (\<exists>\<sigma>. strategy_of V\<^sub>\<alpha> \<sigma> \<and> dom \<sigma> = V\<^sub>\<alpha> \<inter> W \<and> ran \<sigma> \<subseteq> W \<and>
+      (\<forall>v\<in>W. \<forall>xs. reachable_cycle (induced_subgraph \<sigma>) v xs
+        \<longrightarrow> winning_player xs))"
 
 lemma player_winning_region_empty[simp]: "player_winning_region {}"
   unfolding player_winning_region_def strategy_of_def E_of_strat_def
@@ -100,14 +101,11 @@ corollary "\<not>(won_by_player v \<and> won_by_opponent v)"
 lemma nonempty_player_winning_region_exclusive:
   assumes "W \<noteq> {}"
   shows "player_winning_region W \<Longrightarrow> \<not>losing_region W"
-proof -
-  assume "player_winning_region W"
-  with \<open>W\<noteq>{}\<close> obtain w where "w \<in> W" "won_by_player w"
-    using player_winning_region_won_by_player by fast
-  hence "\<not>won_by_opponent w" using winning_v_exclusive by simp
-  from \<open>w\<in>W\<close> \<open>\<not>won_by_opponent w\<close> show "\<not>losing_region W"
-    using losing_region_won_by_opponent by blast
-qed
+  using assms
+    player_winning_region_won_by_player
+    losing_region_won_by_opponent
+    winning_v_exclusive
+  by blast
 
 lemma disjoint_player_winning_region_union:
   assumes W\<^sub>1_winning: "player_winning_region W\<^sub>1"
@@ -240,9 +238,11 @@ lemma winning_region_in_V: "winning_region \<alpha> W \<Longrightarrow> W\<subse
 
 (** The player has a strategy under which their winning region is closed and all cycles reachable
     from nodes in the region are won by the player *)
-lemma winning_region_strat: "winning_region \<alpha> W = (W\<subseteq>V \<and> (\<exists>\<sigma>.
-  strategy_of_player \<alpha> \<sigma> \<and> dom \<sigma> = V_player \<alpha> \<inter> W \<and> ran \<sigma> \<subseteq> W \<and> E `` (W \<inter> V_opponent \<alpha>) \<subseteq> W \<and>
-  (\<forall>w\<in>W. \<forall>xs. reachable_cycle (induced_subgraph \<sigma>) w xs \<longrightarrow> player_wins_list \<alpha> xs)))"
+lemma winning_region_strat:
+  "winning_region \<alpha> W = (W\<subseteq>V \<and> E `` (W \<inter> V_opponent \<alpha>) \<subseteq> W \<and>
+    (\<exists>\<sigma>. strategy_of_player \<alpha> \<sigma> \<and> dom \<sigma> = V_player \<alpha> \<inter> W \<and> ran \<sigma> \<subseteq> W \<and>
+      (\<forall>w\<in>W. \<forall>xs. reachable_cycle (induced_subgraph \<sigma>) w xs
+        \<longrightarrow> player_wins_list \<alpha> xs)))"
   unfolding strategy_of_player_def
   using P0.player_winning_region_def P1.player_winning_region_def V\<^sub>1_def V\<^sub>0_opposite_V\<^sub>1
   by (cases \<alpha>; simp)
@@ -286,7 +286,9 @@ lemma winning_region_won_by: "\<lbrakk>winning_region \<alpha> W; v\<in>W\<rbrak
 lemma nonempty_winning_region_not_winning_for_opponent:
   assumes "W \<noteq> {}"
   shows "winning_region \<alpha> W \<Longrightarrow> \<not>winning_region (opponent \<alpha>) W"
-  using assms P0.nonempty_player_winning_region_exclusive P1.nonempty_player_winning_region_exclusive
+  using assms
+    P0.nonempty_player_winning_region_exclusive
+    P1.nonempty_player_winning_region_exclusive
   by (cases \<alpha>) auto
 
 (** A node cannot be won by a player and their opponent at the same time. *)

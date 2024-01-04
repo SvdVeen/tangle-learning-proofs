@@ -206,6 +206,10 @@ lemma cycle_intermediate_node:
   "\<lbrakk>cycle v vs; x \<in> set vs\<rbrakk> \<Longrightarrow> \<exists>vs'. set vs' = set vs \<and> cycle x vs'"
   using cycle_iff_loop loop_intermediate_node[of v vs x] by fastforce
 
+(** If a cycle intersects with a closed region, then the whole cycle is in that region. *)
+lemma cycle_intersects_closed_region:
+  "\<lbrakk>cycle y ys; set ys \<inter> X \<noteq> {}; E `` X \<subseteq> X\<rbrakk> \<Longrightarrow> set ys \<subseteq> X"
+  using cycle_intermediate_node[of y ys] cycle_closed_set[of _ X] by blast
 
 section \<open>Reachable cycles\<close>
  (** A cycle reachable from a node. *)

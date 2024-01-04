@@ -390,6 +390,7 @@ proof -
     with set_xs'_eq show "set xs \<inter> A \<noteq> {}" by simp
   qed
 qed
+
 end (** End of context player_paritygame. *)
 
 
@@ -435,7 +436,14 @@ lemma attractor_attracts: "\<exists>\<sigma>. strategy_of (V_player \<alpha>) \<
     dom \<sigma> = (attractor \<alpha> A - A) \<inter> V_player \<alpha> \<and> ran \<sigma> \<subseteq> attractor \<alpha> A \<and>
     (\<forall>v\<in>attractor \<alpha> A - A. \<forall>v'. (v,v') \<in> induced_subgraph \<sigma> \<longrightarrow> v' \<in> attractor \<alpha> A) \<and>
     (\<forall>v\<in>attractor \<alpha> A. \<forall>xs. lasso' (induced_subgraph \<sigma>) v xs \<longrightarrow> set xs \<inter> A \<noteq> {})"
-    using P0.player_attractor_attracts P1.player_attractor_attracts by (cases \<alpha>) auto
+  using P0.player_attractor_attracts P1.player_attractor_attracts by (cases \<alpha>) auto
+
+lemma remove_attractor_valid_subgame[simp]:
+  "valid_subgame (V-attractor \<alpha> A)"
+  apply simp
+  apply (unfold_locales; clarsimp)
+  using notin_attractor_succ E_in_V by blast
+
 end (** End of context paritygame. *)
 
 end
