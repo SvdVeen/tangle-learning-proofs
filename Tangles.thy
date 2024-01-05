@@ -33,7 +33,7 @@ lemma player_tangle_subgraph_is_restricted_ind_subgraph:
   assumes "U \<subseteq> V"
   assumes "dom \<sigma> = U \<inter> V\<^sub>\<alpha>"
   assumes "ran \<sigma> \<subseteq> U"
-  shows "player_tangle_subgraph U \<sigma> = induced_subgraph \<sigma> \<inter> (U\<times>U)"
+  shows "player_tangle_subgraph U \<sigma> = Restr (induced_subgraph \<sigma>) U"
   unfolding player_tangle_subgraph_def induced_subgraph_def E_of_strat_def
   using assms by (auto simp: ranI)
 
@@ -43,18 +43,20 @@ subsection \<open>Tangle Strategies\<close>
     Player \<alpha>'s strategy \<sigma>:U\<^sub>\<alpha>\<rightarrow>U such that its tangle subgraph E' is strongly connected and \<alpha> wins
     all cycles in (U,E') *)
 definition player_tangle_strat :: "'v set \<Rightarrow> 'v strat \<Rightarrow> bool" where
-  "player_tangle_strat U \<sigma> \<equiv> strategy_of V\<^sub>\<alpha> \<sigma> \<and> dom \<sigma> = U \<inter> V\<^sub>\<alpha> \<and> ran \<sigma> \<subseteq> U \<and>
-   (let E' = player_tangle_subgraph U \<sigma> in (
-      strongly_connected E' U \<and>
-      (\<forall>v \<in> U. \<forall>xs. cycle E' v xs \<longrightarrow> winning_player xs)
-   ))"
+  "player_tangle_strat U \<sigma> \<equiv>
+    strategy_of V\<^sub>\<alpha> \<sigma> \<and> dom \<sigma> = U \<inter> V\<^sub>\<alpha> \<and> ran \<sigma> \<subseteq> U \<and>
+    (let E' = player_tangle_subgraph U \<sigma> in (
+        strongly_connected E' U \<and>
+        (\<forall>v \<in> U. \<forall>xs. cycle E' v xs \<longrightarrow> winning_player xs)
+    ))"
 
 
 subsection \<open>Tangles\<close>
 (** We say that a tangle for a player is a nonempty set of vertices U in V, where the player wins
     pr(U), and there exists a strategy \<sigma> that is a tangle strategy for the player. *)
 definition player_tangle :: "'v set \<Rightarrow> bool" where
-  "player_tangle U \<equiv> U \<noteq> {} \<and> U \<subseteq> V \<and> winningP (pr_set U) \<and> (\<exists>\<sigma>. player_tangle_strat U \<sigma>)"
+  "player_tangle U \<equiv>
+    U \<noteq> {} \<and> U \<subseteq> V \<and> winningP (pr_set U) \<and> (\<exists>\<sigma>. player_tangle_strat U \<sigma>)"
 
 lemma player_tangle_nonempty[simp]: "\<not>player_tangle {}"
   unfolding player_tangle_def by simp
@@ -249,7 +251,7 @@ lemma tangle_subgraph_is_restricted_ind_subgraph:
   assumes "U \<subseteq> V"
   assumes "dom \<sigma> = U \<inter> V_player \<alpha>"
   assumes "ran \<sigma> \<subseteq> U"
-  shows "tangle_subgraph \<alpha> U \<sigma> = induced_subgraph \<sigma> \<inter> (U\<times>U)"
+  shows "tangle_subgraph \<alpha> U \<sigma> = Restr (induced_subgraph \<sigma>) U"
   using P0.player_tangle_subgraph_is_restricted_ind_subgraph[OF assms(1) _ assms(3)]
   using P1.player_tangle_subgraph_is_restricted_ind_subgraph[OF assms(1) _ assms(3)]
   using assms(2) by (cases \<alpha>; simp add: V\<^sub>1_def)

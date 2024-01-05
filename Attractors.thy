@@ -1,5 +1,5 @@
 theory Attractors
-  imports Main ParityGames
+  imports Main ParityGames WinningRegions
 begin
 
 chapter \<open>Attractors\<close>
@@ -11,7 +11,7 @@ context player_paritygame begin
 inductive_set player_attractor :: "'v set \<Rightarrow> 'v set" for A where
   base: "x \<in> A \<Longrightarrow> x \<in> player_attractor A"
 | player: "\<lbrakk> x \<in> V\<^sub>\<alpha>-A; (x,y)\<in>E; y\<in>player_attractor A \<rbrakk> \<Longrightarrow> x \<in> player_attractor A"
-| opponent: "\<lbrakk> x\<in>V\<^sub>\<beta>-A; \<forall>y. (x,y)\<in>E \<longrightarrow> y\<in>player_attractor A \<rbrakk> \<Longrightarrow> x \<in> player_attractor A"
+| opponent: "\<lbrakk> x \<in> V\<^sub>\<beta>-A; \<forall>y. (x,y)\<in>E \<longrightarrow> y\<in>player_attractor A \<rbrakk> \<Longrightarrow> x \<in> player_attractor A"
 
 (** The target set A is a subset of its maximal attractor. *)
 lemma player_attractor_subset[simp]: "A \<subseteq> player_attractor A"
@@ -32,257 +32,252 @@ lemma player_attractor_max_opponent:
   "\<lbrakk>v\<in>V\<^sub>\<beta>; v \<notin> player_attractor A\<rbrakk> \<Longrightarrow> \<exists>w \<in> E `` {v}. w \<notin> player_attractor A"
   using player_attractor.simps by fast
 
+
 context
   fixes A :: "'v set"
 begin
 (** To prove important properties of attractors, we need to reason with ranks. *)
-  fun nodes_in_rank :: "nat \<Rightarrow> 'v set" where
-    "nodes_in_rank 0 = A"
-  | "nodes_in_rank (Suc n) =
-     nodes_in_rank n
-     \<union> { x | x y. x\<in>V\<^sub>\<alpha> \<and> (x,y)\<in>E \<and> y\<in>nodes_in_rank n }
-     \<union> { x. x\<in>V\<^sub>\<beta> \<and> (\<forall>y. (x,y)\<in>E \<longrightarrow> y\<in>nodes_in_rank n) }"
+fun nodes_in_rank :: "nat \<Rightarrow> 'v set" where
+  "nodes_in_rank 0 = A"
+| "nodes_in_rank (Suc n) =
+   nodes_in_rank n
+   \<union> { x | x y. x\<in>V\<^sub>\<alpha> \<and> (x,y)\<in>E \<and> y\<in>nodes_in_rank n }
+   \<union> { x. x\<in>V\<^sub>\<beta> \<and> (\<forall>y. (x,y)\<in>E \<longrightarrow> y\<in>nodes_in_rank n) }"
 
-  (** nodes_in_rank is monotonous. *)
-  lemma nodes_in_rank_mono: "n\<le>m \<Longrightarrow> nodes_in_rank n \<subseteq> nodes_in_rank m"
-    apply (induction m)
-    by (auto simp: le_Suc_eq)
+(** nodes_in_rank is monotonous. *)
+lemma nodes_in_rank_mono: "n\<le>m \<Longrightarrow> nodes_in_rank n \<subseteq> nodes_in_rank m"
+  apply (induction m)
+  by (auto simp: le_Suc_eq)
 
-  (** A is a subset of nodes_in_rank. *)
-  lemma nodes_in_rank_subset: "A \<subseteq> nodes_in_rank n"
-    using nodes_in_rank.simps(1) nodes_in_rank_mono by blast
+(** A is a subset of nodes_in_rank. *)
+lemma nodes_in_rank_subset: "A \<subseteq> nodes_in_rank n"
+  using nodes_in_rank.simps(1) nodes_in_rank_mono by blast
 
-  (** nodes_in_rank is a subset of the maximal attractor. *)
-  lemma nodes_in_rank_ss_player_attractor: "nodes_in_rank n \<subseteq> player_attractor A"
-    apply (induction n)
-    by (auto intro: player_attractor.intros)
+(** All edges in a rank n lead to a lower rank. *)
+lemma nodes_in_rank_edges_lower:
+  "\<lbrakk>x \<in> nodes_in_rank (Suc n); x \<notin> A; (x,y) \<in> E; x \<notin> V\<^sub>\<alpha>\<rbrakk> \<Longrightarrow> y \<in> nodes_in_rank n"
+  by (induction n) auto
 
-  (** There is a rank that contains all nodes in the maximal attractor. *)
-lemma player_attractor_ss_nodes_in_rank:
-  "x\<in>player_attractor A \<Longrightarrow> (\<exists>n. x\<in>nodes_in_rank n)"
-  proof (induction rule: player_attractor.induct)
-    case (base x) thus ?case using nodes_in_rank.simps(1) by fast
-  next
-    case (player x y) thus ?case using nodes_in_rank.simps(2) by blast
-  next
-    case (opponent x)
-    define n_of_y where "n_of_y \<equiv> \<lambda>y. SOME n. y \<in> nodes_in_rank n"
-    define n_max where "n_max \<equiv> MAX y\<in>E``{x}. n_of_y y"
-    have FIN: "finite (n_of_y ` E `` {x})" by auto
+(** All edges in a rank n lead to at most the same rank. *)
+lemma nodes_in_rank_edges_same:
+  "\<lbrakk>x \<in> nodes_in_rank n; x \<notin> A; (x, y) \<in> E; x \<notin> V\<^sub>\<alpha>\<rbrakk> \<Longrightarrow> y \<in> nodes_in_rank n"
+  by (induction n) auto
 
-    have n_of_y: "(x,y)\<in>E \<Longrightarrow> y\<in>nodes_in_rank (n_of_y y)" for y
-      unfolding n_of_y_def using opponent.IH by (auto intro: someI)
+(** There exists a strategy for nodes_in_rank that forces all plays in the rank to go to A. *)
+lemma nodes_in_rank_forces_A: "\<exists>\<sigma>.
+  strategy_of V\<^sub>\<alpha> \<sigma> \<and> dom \<sigma> = (nodes_in_rank n - A) \<inter> V\<^sub>\<alpha> \<and> ran \<sigma> \<subseteq> nodes_in_rank n
+  \<and> (\<forall>n'. n' \<le> n \<longrightarrow>
+      (\<forall>x' \<in> nodes_in_rank n' - A. (\<forall>y' \<in> (induced_subgraph \<sigma>) `` {x'}. y' \<in> nodes_in_rank (n'))))
+  \<and> (\<forall>x\<in>nodes_in_rank n. \<forall>xs z. path (induced_subgraph \<sigma>) x xs z \<and> n<length xs \<longrightarrow> set xs \<inter> A \<noteq> {})"
+proof (induction n)
+  case 0 thus ?case
+    apply (rule exI[where x=Map.empty])
+    using origin_in_path by fastforce
 
-    have "(x,y)\<in>E \<Longrightarrow> (\<exists>i\<le>n_max. y\<in>nodes_in_rank i)" for y
-      using Max_ge[OF FIN] n_of_y unfolding n_max_def by blast
-    hence "(x,y)\<in>E \<Longrightarrow> y\<in>nodes_in_rank n_max" for y
-      using nodes_in_rank_mono by auto
-    thus ?case
-      apply (rule_tac exI[where x="Suc n_max"])
-      using opponent.hyps by simp
-  qed
+next
+  case (Suc n)
+  from Suc.IH obtain \<sigma> where
+    strat_\<sigma>: "strategy_of V\<^sub>\<alpha> \<sigma>" and
+    dom_\<sigma>: "dom \<sigma> = (nodes_in_rank n - A) \<inter> V\<^sub>\<alpha>" and
+    ran_\<sigma>: "ran \<sigma> \<subseteq> nodes_in_rank n" and
+    closed_\<sigma>: "(\<forall>n'. n' \<le> n \<longrightarrow> (\<forall>x' \<in> nodes_in_rank n' - A. (\<forall>y' \<in> (induced_subgraph \<sigma>) `` {x'}. y' \<in> nodes_in_rank (n'))))" and
+    forces_\<sigma>: "\<And>x xs z. \<lbrakk>x\<in>nodes_in_rank n; path (induced_subgraph \<sigma>) x xs z; n < length xs\<rbrakk> \<Longrightarrow> set xs \<inter> A \<noteq> {}"
+    by blast
 
-  (** The maximal attractor is the union of all ranks. *)
-  lemma player_attractor_eq_nodes_in_rank: "player_attractor A = \<Union>(nodes_in_rank`UNIV)"
-    using player_attractor_ss_nodes_in_rank nodes_in_rank_ss_player_attractor by auto
+  define new_player_nodes where "new_player_nodes = (nodes_in_rank (Suc n) - nodes_in_rank n) \<inter> V\<^sub>\<alpha>"
+  define target where "target = (\<lambda>x. SOME x'. x'\<in>nodes_in_rank n \<and> (x,x')\<in>E)"
 
-  (** All edges in a rank n lead to at most the same rank. *)
-  lemma nodes_in_rank_edges_same:
-    "\<lbrakk>x \<in> nodes_in_rank n; x \<notin> A; (x, y) \<in> E; x \<notin> V\<^sub>\<alpha>\<rbrakk> \<Longrightarrow> y \<in> nodes_in_rank n"
-    apply (induction n) by auto
-
-  (** All edges in a rank n lead to a lower rank. *)
-  lemma nodes_in_rank_edges_lower:
-    "\<lbrakk>x \<in> nodes_in_rank (Suc n); x \<notin> A; (x,y) \<in> E; x \<notin> V\<^sub>\<alpha>\<rbrakk> \<Longrightarrow> y \<in> nodes_in_rank n"
-    apply (induction n arbitrary: x) by auto
-
-  (** There exists a strategy for nodes_in_rank that forces all plays in the rank to go to A. *)
-  lemma nodes_in_rank_forces_A: "\<exists>\<sigma>.
-    strategy_of V\<^sub>\<alpha> \<sigma> \<and> dom \<sigma> = (nodes_in_rank n - A) \<inter> V\<^sub>\<alpha> \<and> ran \<sigma> \<subseteq> nodes_in_rank n
-    \<and> (\<forall>n'. n' \<le> n \<longrightarrow> (\<forall>x' \<in> nodes_in_rank n' - A. (\<forall>y' \<in> (induced_subgraph \<sigma>) `` {x'}. y' \<in> nodes_in_rank (n'))))
-    \<and> (\<forall>x\<in>nodes_in_rank n. \<forall>xs z. path (induced_subgraph \<sigma>) x xs z \<and> n<length xs \<longrightarrow> set xs \<inter> A \<noteq> {})"
-  proof (induction n)
-    case 0 thus ?case
-      apply (rule exI[where x=Map.empty])
-      using origin_in_path by fastforce
-
-  next
-    case (Suc n)
-    from Suc.IH obtain \<sigma> where
-      strat_\<sigma>: "strategy_of V\<^sub>\<alpha> \<sigma>" and
-      dom_\<sigma>: "dom \<sigma> = (nodes_in_rank n - A) \<inter> V\<^sub>\<alpha>" and
-      ran_\<sigma>: "ran \<sigma> \<subseteq> nodes_in_rank n" and
-      closed_\<sigma>: "(\<forall>n'. n' \<le> n \<longrightarrow> (\<forall>x' \<in> nodes_in_rank n' - A. (\<forall>y' \<in> (induced_subgraph \<sigma>) `` {x'}. y' \<in> nodes_in_rank (n'))))" and
-      forces_\<sigma>: "\<And>x xs z. \<lbrakk>x\<in>nodes_in_rank n; path (induced_subgraph \<sigma>) x xs z; n < length xs\<rbrakk> \<Longrightarrow> set xs \<inter> A \<noteq> {}"
-      by blast
-
-    define new_player_nodes where "new_player_nodes = (nodes_in_rank (Suc n) - nodes_in_rank n) \<inter> V\<^sub>\<alpha>"
-    define target where "target = (\<lambda>x. SOME x'. x'\<in>nodes_in_rank n \<and> (x,x')\<in>E)"
-
-    {
-      fix x
-      assume "x\<in>new_player_nodes"
-      hence "target x\<in>nodes_in_rank n" "(x,target x)\<in>E"
-        unfolding new_player_nodes_def
-        apply simp_all
-        using some_eq_imp[of _ "target x"]
-        unfolding target_def by blast+
-    } note target=this
-
-    have target_eq: "x\<in>new_player_nodes \<longleftrightarrow>
-      (x\<in>nodes_in_rank (Suc n) \<and> x\<in>V\<^sub>\<alpha> \<and> x\<notin>nodes_in_rank n \<and> target x\<in>nodes_in_rank n\<and> (x,target x)\<in>E)" for x
+  {
+    fix x assume "x\<in>new_player_nodes"
+    hence "target x\<in>nodes_in_rank n" "(x,target x)\<in>E"
       unfolding new_player_nodes_def
-      apply (rule iffI; simp)
+      apply simp_all
       using some_eq_imp[of _ "target x"]
       unfolding target_def by blast+
+  } note target=this
 
-    define \<sigma>' where "\<sigma>' = (\<lambda>x. if x \<in> new_player_nodes then Some (target x) else \<sigma> x)"
-    show ?case
-    proof (intro exI[where x=\<sigma>'] conjI allI ballI impI; (elim conjE)?)
-      show \<sigma>'_strat: "strategy_of V\<^sub>\<alpha> \<sigma>'"
-        using strat_\<sigma>
-        unfolding \<sigma>'_def strategy_of_def E_of_strat_def
-        apply (safe; simp split: if_splits)
-        using target_eq by blast+
+  have target_eq: "x\<in>new_player_nodes \<longleftrightarrow>
+    (x\<in>nodes_in_rank (Suc n) \<and> x\<in>V\<^sub>\<alpha> \<and> x\<notin>nodes_in_rank n \<and> target x\<in>nodes_in_rank n\<and> (x,target x)\<in>E)"
+    for x
+    unfolding new_player_nodes_def
+    apply (rule iffI; simp)
+    using some_eq_imp[of _ "target x"]
+    unfolding target_def by blast+
 
-      show \<sigma>'_dom: "dom \<sigma>' = (nodes_in_rank (Suc n) - A) \<inter> V\<^sub>\<alpha>"
-        unfolding \<sigma>'_def
-        using dom_\<sigma>
-        apply (safe; simp add: new_player_nodes_def split: if_splits)
-        using nodes_in_rank_subset by fastforce+
+  define \<sigma>' where "\<sigma>' = (\<lambda>x. if x \<in> new_player_nodes then Some (target x) else \<sigma> x)"
+  show ?case
+  proof (intro exI[where x=\<sigma>'] conjI allI ballI impI; (elim conjE)?)
+    show \<sigma>'_strat: "strategy_of V\<^sub>\<alpha> \<sigma>'"
+      using strat_\<sigma>
+      unfolding \<sigma>'_def strategy_of_def E_of_strat_def
+      apply (safe; simp split: if_splits)
+      using target_eq by blast+
 
-      have \<sigma>'_succs_in_Suc_n: "\<forall>x y. \<sigma>' x = Some y \<longrightarrow> y \<in> nodes_in_rank (Suc n)"
-      proof (intro allI; rule impI)
-        fix x y
-        assume \<sigma>'_x_to_y: "\<sigma>' x = Some y"
-        consider "x \<in> new_player_nodes" | "x \<notin> new_player_nodes" by blast
-        thus "y \<in> nodes_in_rank (Suc n)" proof cases
-          case 1 with \<sigma>'_x_to_y show ?thesis
-            unfolding \<sigma>'_def
-            apply (simp split: if_splits)
-            using target by blast
-        next
-          case 2 with \<sigma>'_x_to_y ran_\<sigma> show ?thesis
-            unfolding \<sigma>'_def
-            by (simp add: ranI subsetD split: if_splits)
+    show \<sigma>'_dom: "dom \<sigma>' = (nodes_in_rank (Suc n) - A) \<inter> V\<^sub>\<alpha>"
+      unfolding \<sigma>'_def
+      using dom_\<sigma>
+      apply (safe; clarsimp simp: new_player_nodes_def split: if_splits)
+      using nodes_in_rank_subset by blast+
+
+    have \<sigma>'_succs_in_Suc_n: "\<forall>x y. \<sigma>' x = Some y \<longrightarrow> y \<in> nodes_in_rank (Suc n)"
+      unfolding \<sigma>'_def
+      apply (intro allI; rule impI)
+      subgoal for x
+        apply (cases "x \<in> new_player_nodes"; simp split: if_splits)
+        subgoal using target by blast
+        subgoal using ran_\<sigma> by (simp add: ranI subsetD)
+        done
+      done
+    thus \<sigma>'_ran: "ran \<sigma>' \<subseteq> nodes_in_rank (Suc n)"
+      unfolding ran_def by blast
+
+    {
+      fix n' x' y'
+      assume n'_lte_Suc_n: "n' \<le> Suc n" and
+        x'_in_n'_min_A: "x' \<in> nodes_in_rank n' - A" and
+        y'_succ_x': "y' \<in> induced_subgraph \<sigma>' `` {x'}"
+
+      from n'_lte_Suc_n consider (n'_lte_n) "n' \<le> n" | (n'_Suc_n) "n' = Suc n" by linarith
+      thus "y' \<in> nodes_in_rank n'" proof cases
+        case n'_lte_n
+        with nodes_in_rank_mono closed_\<sigma> x'_in_n'_min_A y'_succ_x'
+        show ?thesis
+          unfolding induced_subgraph_def E_of_strat_def \<sigma>'_def
+          apply (clarsimp split: if_splits)
+          subgoal apply (simp add: target_eq) by (meson in_mono)
+          subgoal apply (safe; clarsimp) by blast
+          done
+      next
+        case n'_Suc_n
+        with x'_in_n'_min_A have "x' \<in> nodes_in_rank (Suc n) - A" by blast
+        with x'_in_n'_min_A y'_succ_x' \<sigma>'_dom \<sigma>'_ran
+        show ?thesis
+          unfolding induced_subgraph_def E_of_strat_def
+          apply (safe; clarsimp)
+          subgoal using nodes_in_rank_edges_same[of x' n' y'] by blast
+          subgoal using \<sigma>'_succs_in_Suc_n n'_Suc_n by blast
+          done
+      qed
+    } note closed_\<sigma>'=this
+
+    {
+      fix x xs z
+      assume "x\<in>nodes_in_rank n" and
+        "path (induced_subgraph \<sigma>') x xs z" and
+        "A \<inter> set xs = {}"
+      hence "path (induced_subgraph \<sigma>) x xs z"
+      proof (induction xs arbitrary: x)
+        case Nil thus ?case by fastforce
+      next
+        case (Cons a xs')
+
+        from Cons(3) have a_is_x[simp]: "a=x" by simp
+        with Cons obtain x' where x'_edge: "(x,x') \<in> induced_subgraph \<sigma>'"
+          and x'_path_\<sigma>': "path (induced_subgraph \<sigma>')  x' xs' z" by auto
+
+        from x'_edge closed_\<sigma>' have "x' \<in> nodes_in_rank n"
+          using Cons.prems(1) Cons.prems(3) by auto
+        from Cons.IH[OF this x'_path_\<sigma>'] Cons.prems have x'_path_\<sigma>:
+          "path (induced_subgraph \<sigma>) x' xs' z" by simp
+
+        from Cons.prems(1) x'_edge have "(x,x') \<in> induced_subgraph \<sigma>"
+          unfolding \<sigma>'_def new_player_nodes_def induced_subgraph_def E_of_strat_def
+          by auto
+        thus ?case using x'_path_\<sigma> by auto
+      qed
+    } note xfer_lower_rank_path = this
+
+    {
+      fix x xs z
+      assume
+        X_IN_SUCN: "x \<in> nodes_in_rank (Suc n)"
+        and PATH': "path (induced_subgraph \<sigma>') x xs z"
+        and LEN: "Suc n < length xs"
+
+      from X_IN_SUCN consider
+        (already_in) "x\<in>nodes_in_rank n"
+        | (our_node) "x\<notin>nodes_in_rank n" "x\<in>V\<^sub>\<alpha>" "(x,target x)\<in>E" "target x\<in>nodes_in_rank n"
+        | (opponent_node) "x\<notin>nodes_in_rank n" "x\<in>V\<^sub>\<beta>" "\<forall>y\<in>E``{x}. y\<in>nodes_in_rank n"
+        apply simp
+        using IntI X_IN_SUCN new_player_nodes_def target_eq by blast
+      thus "set xs \<inter> A \<noteq> {}"
+      proof cases
+        case already_in thus ?thesis
+          using Suc_lessD PATH' LEN forces_\<sigma> xfer_lower_rank_path by fast
+
+      next
+        case our_node
+        hence "(x,x')\<in>induced_subgraph \<sigma>' \<Longrightarrow> x'=target x" for x'
+          unfolding induced_subgraph_def E_of_strat_def \<sigma>'_def
+          using X_IN_SUCN
+          by (auto split: if_splits simp: target_eq)
+        then obtain xs' where xs': "xs=x#xs'" "path (induced_subgraph \<sigma>') (target x) xs' z"
+          using LEN PATH'
+          by (cases xs) auto
+
+        show "set xs \<inter> A \<noteq> {}"
+        proof
+          assume XS_dj_A: "set xs \<inter> A = {}"
+          from xfer_lower_rank_path[OF _ xs'(2)] XS_dj_A xs'(1) \<open>target x \<in> nodes_in_rank n\<close>
+          have "path (induced_subgraph \<sigma>) (target x) xs' z" by auto
+          from forces_\<sigma>[OF _ this] LEN \<open>target x \<in> nodes_in_rank n\<close> xs'(1) XS_dj_A
+          show False by auto
+        qed
+      next
+        case opponent_node
+
+        then obtain xs' y where
+          xs': "xs=x#xs'" "path (induced_subgraph \<sigma>') y xs' z" "y\<in>nodes_in_rank n"
+          using LEN PATH'
+          by (cases xs) auto
+
+        show "set xs \<inter> A \<noteq> {}"
+        proof
+          assume XS_dj_A: "set xs \<inter> A = {}"
+          from xfer_lower_rank_path[OF _ xs'(2)] XS_dj_A xs'(1,3)
+          have "path (induced_subgraph \<sigma>) y xs' z" by auto
+          from forces_\<sigma>[OF _ this] LEN \<open>y \<in> nodes_in_rank n\<close> xs'(1) XS_dj_A
+          show False by auto
         qed
       qed
-      thus \<sigma>'_ran: "ran \<sigma>' \<subseteq> nodes_in_rank (Suc n)"
-        unfolding ran_def by blast
-
-      {
-        fix n' x' y'
-        assume n'_lte_Suc_n: "n' \<le> Suc n" and
-          x'_in_n'_min_A: "x' \<in> nodes_in_rank n' - A" and
-          y'_succ_x': "y' \<in> induced_subgraph \<sigma>' `` {x'}"
-
-        from n'_lte_Suc_n consider (n'_lte_n) "n' \<le> n" | (n'_Suc_n) "n' = Suc n" by linarith
-        thus "y' \<in> nodes_in_rank n'" proof cases
-          case n'_lte_n
-          with nodes_in_rank_mono closed_\<sigma> x'_in_n'_min_A y'_succ_x'
-          show ?thesis
-            unfolding induced_subgraph_def E_of_strat_def \<sigma>'_def
-            apply (clarsimp split: if_splits)
-            subgoal apply (simp add: target_eq) by (meson in_mono)
-            subgoal apply (safe; clarsimp) by blast
-            done
-        next
-          case n'_Suc_n
-          with x'_in_n'_min_A have "x' \<in> nodes_in_rank (Suc n) - A" by blast
-          with x'_in_n'_min_A y'_succ_x' \<sigma>'_dom \<sigma>'_ran
-          show ?thesis
-            unfolding induced_subgraph_def E_of_strat_def
-            apply (safe; clarsimp)
-            subgoal using nodes_in_rank_edges_same[of x' n' y'] by blast
-            subgoal using \<sigma>'_succs_in_Suc_n n'_Suc_n by blast
-            done
-        qed
-      } note closed_\<sigma>'=this
-
-      {
-        fix x xs z
-        assume "x\<in>nodes_in_rank n"
-          and "path (induced_subgraph \<sigma>') x xs z"
-          and "A \<inter> set xs = {}"
-        hence "path (induced_subgraph \<sigma>) x xs z"
-        proof (induction xs arbitrary: x)
-          case Nil thus ?case by fastforce
-        next
-          case (Cons a xs')
-
-          from Cons(3) have a_is_x[simp]: "a=x" by simp
-          with Cons obtain x' where x'_edge: "(x,x') \<in> induced_subgraph \<sigma>'"
-            and x'_path_\<sigma>': "path (induced_subgraph \<sigma>')  x' xs' z" by auto
-
-          from x'_edge closed_\<sigma>' have "x' \<in> nodes_in_rank n"
-            using Cons.prems(1) Cons.prems(3) by auto
-          from Cons.IH[OF this x'_path_\<sigma>'] Cons.prems have x'_path_\<sigma>:
-            "path (induced_subgraph \<sigma>) x' xs' z" by simp
-
-          from Cons.prems(1) x'_edge have "(x,x') \<in> induced_subgraph \<sigma>"
-            unfolding \<sigma>'_def new_player_nodes_def induced_subgraph_def E_of_strat_def
-            by auto
-          thus ?case using x'_path_\<sigma> by auto
-        qed
-      } note xfer_lower_rank_path = this
-
-      {
-        fix x xs z
-        assume
-          X_IN_SUCN: "x \<in> nodes_in_rank (Suc n)"
-          and PATH': "path (induced_subgraph \<sigma>') x xs z"
-          and LEN: "Suc n < length xs"
-
-        from X_IN_SUCN consider
-          (already_in) "x\<in>nodes_in_rank n"
-          | (our_node) "x\<notin>nodes_in_rank n" "x\<in>V\<^sub>\<alpha>" "(x,target x)\<in>E" "target x\<in>nodes_in_rank n"
-          | (opponent_node) "x\<notin>nodes_in_rank n" "x\<in>V\<^sub>\<beta>" "\<forall>y\<in>E``{x}. y\<in>nodes_in_rank n"
-          apply simp
-          using IntI X_IN_SUCN new_player_nodes_def target_eq by blast
-        thus "set xs \<inter> A \<noteq> {}"
-        proof cases
-          case already_in thus ?thesis
-            using Suc_lessD PATH' LEN forces_\<sigma> xfer_lower_rank_path by fast
-
-        next
-          case our_node
-          hence "(x,x')\<in>induced_subgraph \<sigma>' \<Longrightarrow> x'=target x" for x'
-            unfolding induced_subgraph_def E_of_strat_def \<sigma>'_def
-            using X_IN_SUCN
-            by (auto split: if_splits simp: target_eq)
-          then obtain xs' where xs': "xs=x#xs'" "path (induced_subgraph \<sigma>') (target x) xs' z"
-            using LEN PATH'
-            by (cases xs) auto
-
-          show "set xs \<inter> A \<noteq> {}"
-          proof
-            assume XS_dj_A: "set xs \<inter> A = {}"
-            from xfer_lower_rank_path[OF _ xs'(2)] XS_dj_A xs'(1) \<open>target x \<in> nodes_in_rank n\<close>
-            have "path (induced_subgraph \<sigma>) (target x) xs' z" by auto
-            from forces_\<sigma>[OF _ this] LEN \<open>target x \<in> nodes_in_rank n\<close> xs'(1) XS_dj_A
-            show False by auto
-          qed
-        next
-          case opponent_node
-
-          then obtain xs' y where
-            xs': "xs=x#xs'" "path (induced_subgraph \<sigma>') y xs' z" "y\<in>nodes_in_rank n"
-            using LEN PATH'
-            by (cases xs) auto
-
-          show "set xs \<inter> A \<noteq> {}"
-          proof
-            assume XS_dj_A: "set xs \<inter> A = {}"
-            from xfer_lower_rank_path[OF _ xs'(2)] XS_dj_A xs'(1,3)
-            have "path (induced_subgraph \<sigma>) y xs' z" by auto
-            from forces_\<sigma>[OF _ this] LEN \<open>y \<in> nodes_in_rank n\<close> xs'(1) XS_dj_A
-            show False by auto
-          qed
-        qed
-      }
-    qed
-  qed (** End of proof nodes_in_rank_forces_A. *)
+    }
+  qed
+qed (** End of proof nodes_in_rank_forces_A. *)
 end (** End of context with fixed A. *)
+
+(** nodes_in_rank is a subset of the maximal attractor. *)
+lemma nodes_in_rank_ss_player_attractor: "nodes_in_rank A n \<subseteq> player_attractor A"
+  apply (induction n)
+  by (auto intro: player_attractor.intros)
+
+(** There is a rank that contains all nodes in the maximal attractor. *)
+lemma player_attractor_ss_nodes_in_rank:
+  "x\<in>player_attractor A \<Longrightarrow> (\<exists>n. x\<in>nodes_in_rank A n)"
+proof (induction rule: player_attractor.induct)
+  case (base x) thus ?case using nodes_in_rank.simps(1) by fast
+next
+  case (player x y) thus ?case using nodes_in_rank.simps(2) by blast
+next
+  case (opponent x)
+  define n_of_y where "n_of_y \<equiv> \<lambda>y. SOME n. y \<in> nodes_in_rank A n"
+  have FIN: "finite (n_of_y ` E `` {x})" by auto
+  have n_of_y: "(x,y)\<in>E \<Longrightarrow> y\<in>nodes_in_rank A (n_of_y y)" for y
+    unfolding n_of_y_def using opponent.IH by (auto intro: someI)
+
+  define n_max where "n_max \<equiv> MAX y\<in>E``{x}. n_of_y y"
+  have "(x,y)\<in>E \<Longrightarrow> (\<exists>i\<le>n_max. y\<in>nodes_in_rank A i)" for y
+    using Max_ge[OF FIN] n_of_y unfolding n_max_def by blast
+  hence y_in_n_max: "(x,y)\<in>E \<Longrightarrow> y\<in>nodes_in_rank A n_max" for y
+    using nodes_in_rank_mono[of _ _ A] by auto
+  show ?case
+    apply (rule exI[where x="Suc n_max"])
+    using y_in_n_max opponent.hyps by simp
+qed
+
+(** The maximal attractor is the union of all ranks. *)
+lemma player_attractor_eq_nodes_in_rank: "player_attractor A = \<Union>((nodes_in_rank A)`UNIV)"
+  using player_attractor_ss_nodes_in_rank[of _ A] nodes_in_rank_ss_player_attractor[of A]
+  by auto
 
 (** nodes_in_rank is a subset of all of the target set in V. *)
 lemma nodes_in_rank_ss: "nodes_in_rank A n \<subseteq> A \<union> V"
@@ -320,7 +315,8 @@ qed
 
 (** The attractor minus its target set is always finite. *)
 lemma finite_player_attractor: "finite (player_attractor A - A)"
-  using player_attractor_ss[of A] Diff_subset_conv[of "player_attractor A" A V] rev_finite_subset[OF fin_V]
+  using player_attractor_ss[of A] Diff_subset_conv[of "player_attractor A" A V]
+    rev_finite_subset[OF fin_V]
   by simp
 
 (** There exists a maximum rank that is equal to the maximal attractor. *)
@@ -391,6 +387,105 @@ proof -
   qed
 qed
 
+(** We can extend a winning region with an attractor. *)
+lemma player_attractor_extends_winning_region:
+  "player_winning_region W \<Longrightarrow> player_winning_region (player_attractor W)"
+proof -
+  let ?attr = "player_attractor W"
+
+  assume winning_W: "player_winning_region W"
+  hence "W \<subseteq> V" and W_closed_opp: "E `` (W \<inter> V\<^sub>\<beta>) \<subseteq> W"
+    unfolding player_winning_region_def by auto
+  from winning_W obtain \<sigma> where
+    \<sigma>_strat: "strategy_of V\<^sub>\<alpha> \<sigma>" and
+    \<sigma>_dom: "dom \<sigma> = V\<^sub>\<alpha> \<inter> W" and
+    \<sigma>_ran: "ran \<sigma> \<subseteq> W" and
+    \<sigma>_winning: "\<forall>v\<in>W. \<forall>ys. reachable_cycle (induced_subgraph \<sigma>) v ys \<longrightarrow> winning_player ys"
+    unfolding player_winning_region_def by auto
+  let ?G\<sigma> = "induced_subgraph \<sigma>"
+  from W_closed_opp \<sigma>_dom \<sigma>_ran
+  have \<sigma>_closed: "?G\<sigma> `` W \<subseteq> W"
+    using ind_subgraph_closed_region[OF \<open>W\<subseteq>V\<close>] by blast
+
+  obtain \<sigma>' where
+    \<sigma>'_strat: "strategy_of V\<^sub>\<alpha> \<sigma>'" and
+    \<sigma>'_dom: "dom \<sigma>' = (?attr - W) \<inter> V\<^sub>\<alpha>" and
+    \<sigma>'_ran: "ran \<sigma>' \<subseteq> ?attr" and
+    \<sigma>'_closed: "\<forall>v\<in>?attr - W. \<forall>v'. (v,v') \<in> induced_subgraph \<sigma>' \<longrightarrow> v'\<in>?attr" and
+    \<sigma>'_forces_W: "\<forall>v\<in>?attr. \<forall>xs. lasso' (induced_subgraph \<sigma>') v xs \<longrightarrow> set xs \<inter> W \<noteq> {}"
+    using player_attractor_attracts[of W] by auto
+  let ?G\<sigma>' = "induced_subgraph \<sigma>'"
+  from \<sigma>'_closed have \<sigma>'_closed': "?G\<sigma>' `` (?attr - W) \<subseteq> ?attr"
+    by blast
+
+  define \<tau> where "\<tau> = \<sigma> ++ \<sigma>'"
+  let ?G\<tau> = "induced_subgraph \<tau>"
+  from \<sigma>_dom \<sigma>'_dom have doms_disj: "dom \<sigma> \<inter> dom \<sigma>' = {}" by auto
+  from \<sigma>'_forces_W have \<tau>_forces_W:
+    "\<forall>v\<in>?attr. \<forall>xs. lasso' ?G\<tau> v xs \<longrightarrow> set xs \<inter> W \<noteq> {}"
+    unfolding \<tau>_def using ind_subgraph_add_disjoint(2)[OF doms_disj]
+    by (simp add: subgraph_lasso')
+  from \<sigma>_closed have \<tau>_closed_W: "?G\<tau> `` W \<subseteq> W"
+    unfolding \<tau>_def using ind_subgraph_add_disjoint(1)[OF doms_disj]
+    by blast
+
+  from \<open>W \<subseteq> V\<close> have attr_in_V: "?attr \<subseteq> V"
+    using player_attractor_ss[of W] by blast
+
+  moreover from \<sigma>_strat \<sigma>'_strat have \<tau>_strat: "strategy_of V\<^sub>\<alpha> \<tau>"
+    unfolding \<tau>_def by auto
+
+  moreover from \<sigma>_dom \<sigma>'_dom have \<tau>_dom: "dom \<tau> = V\<^sub>\<alpha> \<inter> ?attr"
+    unfolding \<tau>_def by (auto simp: player_attractor.base)
+
+  moreover from doms_disj \<sigma>_ran \<sigma>'_ran have \<tau>_ran: "ran \<tau> \<subseteq> ?attr"
+    unfolding \<tau>_def using ran_map_add[of \<sigma> \<sigma>']
+    by (auto simp: player_attractor.base)
+
+  moreover from \<sigma>_closed \<sigma>'_closed' have \<tau>_closed:
+    "?G\<tau> `` ?attr \<subseteq> ?attr"
+    unfolding \<tau>_def
+    using ind_subgraph_add_disjoint[OF doms_disj] player_attractor_subset[of W]
+    by blast
+  with \<tau>_dom have attr_closed_opp: "E `` (?attr \<inter> V\<^sub>\<beta>) \<subseteq> ?attr"
+    using ind_subgraph_notin_dom[of _ _ \<tau>] by fast
+
+  moreover have \<tau>_winning:
+    "\<forall>v\<in>?attr. \<forall>ys. reachable_cycle ?G\<tau> v ys \<longrightarrow> winning_player ys"
+  proof (rule ballI; rule allI; rule impI)
+    fix v ys
+    assume v_in_attr: "v \<in> ?attr" and reachable_cycle: "reachable_cycle ?G\<tau> v ys"
+    hence ys_notempty: "ys \<noteq> []" by auto
+    from reachable_cycle_closed_set[OF v_in_attr \<tau>_closed reachable_cycle]
+    have ys_in_attr: "set ys \<subseteq> ?attr" .
+
+    with reachable_cycle obtain y where
+      cycle: "cycle ?G\<tau> y ys" and
+      y_in_attr: "y \<in> ?attr"
+      unfolding reachable_cycle_def
+      using origin_in_cycle by fast
+
+    with \<tau>_forces_W have W_in_ys: "set ys \<inter> W \<noteq> {}"
+      using cycle_impl_lasso' by fast
+
+    from cycle_intersects_closed_region[OF cycle this \<tau>_closed_W]
+    have ys_in_W: "set ys \<subseteq> W" and y_in_W: "y \<in> W"
+      using origin_in_cycle[OF cycle] by auto
+
+    have subset: "Restr ?G\<tau> W \<subseteq> ?G\<sigma>"
+      unfolding \<tau>_def
+      using ind_subgraph_add_disjoint(1)[OF doms_disj] by blast
+    from subgraph_cycle[OF subset cycle_restr_V[OF cycle ys_in_W]]
+    have "reachable_cycle ?G\<sigma> y ys"
+      using cycle_impl_reachable_cycle by fast
+
+    with \<sigma>_winning y_in_W show "winning_player ys" by blast
+  qed
+
+  ultimately show ?thesis
+    unfolding player_winning_region_def by blast
+qed
+
 end (** End of context player_paritygame. *)
 
 
@@ -438,12 +533,18 @@ lemma attractor_attracts: "\<exists>\<sigma>. strategy_of (V_player \<alpha>) \<
     (\<forall>v\<in>attractor \<alpha> A. \<forall>xs. lasso' (induced_subgraph \<sigma>) v xs \<longrightarrow> set xs \<inter> A \<noteq> {})"
   using P0.player_attractor_attracts P1.player_attractor_attracts by (cases \<alpha>) auto
 
+(** We can extend a winning region with an attractor. *)
+lemma attractor_extends_winning_region:
+  "winning_region \<alpha> W \<Longrightarrow> winning_region \<alpha> (attractor \<alpha> W)"
+  using P0.player_attractor_extends_winning_region P1.player_attractor_extends_winning_region
+  by (cases \<alpha>; simp)
+
 lemma remove_attractor_valid_subgame[simp]:
   "valid_subgame (V-attractor \<alpha> A)"
   apply simp
   apply (unfold_locales; clarsimp)
   using notin_attractor_succ E_in_V by blast
 
-end (** End of context paritygame. *)
 
+end (** End of context paritygame. *)
 end

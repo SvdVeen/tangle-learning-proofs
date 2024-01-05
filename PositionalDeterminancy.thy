@@ -5,124 +5,7 @@ begin
 (** We use a proof for positional determinancy to check our definitions. *)
 chapter \<open>Positional Determinancy\<close>
 section \<open>Auxiliary Lemmas\<close>
-
 context paritygame begin
-(** We can extend a winning region with a maximal attractor. *)
-lemma attractor_extends_winning_region:
-  assumes "winning_region \<alpha> W"
-  shows "winning_region \<alpha> (attractor \<alpha> W)"
-proof -
-  let ?V\<^sub>\<alpha> = "V_player \<alpha>"
-  define X where "X = attractor \<alpha> W"
-  have W_in_X: "W \<subseteq> X" unfolding X_def using attractor_subset by simp
-  have X_in_V: "X \<subseteq> V" unfolding X_def
-    using attractor_subset_graph[OF winning_region_in_V[OF assms]] by simp
-
-  obtain \<sigma> where
-      \<sigma>_strat: "strategy_of_player \<alpha> \<sigma>"
-  and \<sigma>_dom: "dom \<sigma> = (X-W) \<inter> ?V\<^sub>\<alpha>"
-  and \<sigma>_ran: "ran \<sigma> \<subseteq> X"
-  and \<sigma>_closed: "\<forall>v\<in>X-W. \<forall>v'. (v,v') \<in> induced_subgraph \<sigma> \<longrightarrow> v'\<in>X"
-  and \<sigma>_forces_W: "\<forall>v\<in>X. \<forall>vs. lasso' (induced_subgraph \<sigma>) v vs \<longrightarrow> set vs \<inter> W \<noteq> {}"
-    unfolding X_def strategy_of_player_def using attractor_attracts[of \<alpha> W] by blast
-
-  from assms obtain \<sigma>' where
-      \<sigma>'_strat: "strategy_of_player \<alpha> \<sigma>'"
-  and \<sigma>'_dom: "dom \<sigma>' = ?V\<^sub>\<alpha> \<inter> W"
-  and \<sigma>'_ran: "ran \<sigma>' \<subseteq> W"
-  and \<sigma>'_winning: "\<forall>w\<in>W. \<forall>ys. reachable_cycle (induced_subgraph \<sigma>') w ys \<longrightarrow> player_wins_list \<alpha> ys"
-  and \<sigma>'_closed_opp: "E `` (W\<inter>V_opponent \<alpha>) \<subseteq> W"
-    using winning_region_strat by force
-
-  from \<sigma>'_closed_opp \<sigma>'_dom have \<sigma>'_closed: "induced_subgraph \<sigma>' `` W \<subseteq> W"
-    apply (cases \<alpha>; simp add: V\<^sub>1_def)
-    using ind_subgraph_closed_region[OF winning_region_in_V[OF assms] _ \<sigma>'_ran] by blast+
-
-  (** We combine the two strategies, which forms a winning strategy for the new region. *)
-  let ?\<tau> = "\<sigma> ++ \<sigma>'"
-  let ?\<tau>_subgame = "induced_subgraph ?\<tau>"
-  from \<sigma>_dom \<sigma>'_dom have \<tau>_doms_disj: "dom \<sigma> \<inter> dom \<sigma>' = {}" by auto
-
-  (** \<tau> is a strategy of the player. *)
-  from \<sigma>_strat \<sigma>'_strat have \<tau>_strat: "strategy_of_player \<alpha> ?\<tau>"
-    unfolding strategy_of_player_def by simp
-
-  (** The domain of \<tau> is all of the player's vertices in X. *)
-  from \<sigma>_dom \<sigma>'_dom W_in_X have \<tau>_dom: "dom ?\<tau> = ?V\<^sub>\<alpha> \<inter> X" by auto
-
-  (** The range of \<tau> is in X. *)
-  from \<sigma>_ran \<sigma>'_ran W_in_X have \<tau>_ran: "ran ?\<tau> \<subseteq> X"
-    using ran_map_add[OF \<tau>_doms_disj] by simp
-
-  (** The subgame of \<tau> is closed in W. *)
-  from \<sigma>'_closed have \<tau>_closed_W: "?\<tau>_subgame `` W \<subseteq> W"
-    unfolding induced_subgraph_def E_of_strat_def by auto
-
-  (** The subgame of \<tau> is closed in X. *)
-  have \<tau>_closed_X: "?\<tau>_subgame `` X \<subseteq> X"
-    apply clarsimp
-    subgoal for y x apply (cases "x \<in> W")
-      subgoal using W_in_X \<tau>_closed_W  by auto
-      subgoal using \<sigma>_closed ind_subgraph_add_disjoint(1)[OF \<tau>_doms_disj] by blast
-      done
-    done
-
-  (** X is closed for the opponent, regardless of \<tau>. *)
-  from \<tau>_closed_X \<tau>_dom have X_closed_opp: "E `` (X\<inter>V_opponent \<alpha>) \<subseteq> X"
-    using ind_subgraph_notin_dom
-    by (cases \<alpha>; simp add: V\<^sub>1_def) blast+
-
-  (** All cycles reachable from X are won by the player under \<tau>. *)
-  have \<tau>_winning: "\<forall>v\<in>X. \<forall>ys. reachable_cycle ?\<tau>_subgame v ys \<longrightarrow> player_wins_list \<alpha> ys"
-  proof (rule ballI; rule allI; rule impI)
-    fix v ys
-    assume v_in_X: "v\<in>X" and reachable_cycle: "reachable_cycle ?\<tau>_subgame v ys"
-    hence ys_notempty: "ys\<noteq>[]" by auto
-
-    from reachable_cycle_closed_set[OF v_in_X \<tau>_closed_X reachable_cycle]
-    have ys_in_X: "set ys \<subseteq> X" .
-
-    from reachable_cycle obtain y where
-      cycle: "cycle ?\<tau>_subgame y ys"
-      unfolding reachable_cycle_def by blast
-    with ys_in_X have y_in_X: "y \<in> X"
-      using origin_in_cycle by fast
-
-    have W_in_ys: "set ys \<inter> W \<noteq> {}"
-    proof (rule ccontr; simp)
-      assume no_W_in_ys: "set ys \<inter> W = {}"
-      with ys_in_X have ys_in_X_min_W: "set ys \<subseteq> X-W" by blast
-
-      from \<sigma>_dom \<sigma>'_dom have "Restr ?\<tau>_subgame (X-W) \<subseteq> induced_subgraph \<sigma>"
-        unfolding induced_subgraph_def E_of_strat_def by auto
-      from subgraph_cycle[OF this cycle_restr_V[OF cycle ys_in_X_min_W]]
-      have "lasso' (induced_subgraph \<sigma>) y ys"
-        using cycle_impl_lasso' by fast
-
-      with \<sigma>_forces_W y_in_X no_W_in_ys show "False" by blast
-    qed
-
-    from cycle_intersects_closed_region[OF cycle W_in_ys \<tau>_closed_W]
-    have ys_in_W: "set ys \<subseteq> W" .
-    hence y_in_W: "y\<in>W"
-      using origin_in_cycle[OF cycle] by blast
-
-    have "Restr ?\<tau>_subgame W \<subseteq> induced_subgraph \<sigma>'"
-      unfolding induced_subgraph_def E_of_strat_def by auto
-    from subgraph_cycle[OF this cycle_restr_V[OF cycle ys_in_W]]
-    have "reachable_cycle (induced_subgraph \<sigma>') y ys"
-      using cycle_impl_reachable_cycle ys_notempty by fast
-
-    with \<sigma>'_winning y_in_W
-    show "player_wins_list \<alpha> ys" by blast
-  qed
-
-  (** Using the prior properties, we can show that B is won by the opponent. *)
-  show "winning_region \<alpha> X"
-    using winning_region_strat
-    using X_in_V \<tau>_strat \<tau>_dom \<tau>_ran \<tau>_winning X_closed_opp by blast
-qed
-
 (** If we remove a maximal attractor from a game, the remainder is a valid parity game. *)
 lemma attractor_subgame:
   assumes X: "X = attractor \<alpha> T"
@@ -264,24 +147,23 @@ proof -
   have \<sigma>_winning: "\<forall>w\<in>W. \<forall>ys. reachable_cycle ?\<sigma>_subgraph w ys \<longrightarrow> player_wins_list \<alpha> ys"
   proof (rule ballI; rule allI; rule impI)
     fix w ys
-    assume w_in_W: "w\<in>W" and cycle_w_ys: "reachable_cycle ?\<sigma>_subgraph w ys"
+    assume w_in_W: "w\<in>W" and reachable_cycle:
+      "reachable_cycle ?\<sigma>_subgraph w ys"
     hence ys_notempty: "ys\<noteq>[]" by auto
 
-    from \<sigma>_closed have "?\<sigma>_subgraph `` W \<subseteq> W" by blast
-    from reachable_cycle_closed_set[OF w_in_W this cycle_w_ys]
+    from reachable_cycle_closed_set[OF w_in_W \<sigma>_closed reachable_cycle]
     have ys_in_W: "set ys \<subseteq> W" .
-
-    from cycle_w_ys ys_in_W obtain w' where
-      path_w'_ys_w': "path ?\<sigma>_subgraph w' ys w'" and
-      w'_in_W: "w'\<in>W"
-      using reachable_cycle_paths[of ?\<sigma>_subgraph] origin_in_path by fastforce
+    with reachable_cycle ys_in_W obtain w' where
+      cycle: "cycle ?\<sigma>_subgraph w' ys" and w'_in_W: "w' \<in> W"
+      unfolding reachable_cycle_def
+      using origin_in_cycle by fast
 
     have "Restr ?\<sigma>_subgraph W \<subseteq> subgame.induced_subgraph \<sigma>"
       using ind_subgraph_restr_subarena[OF subgame.arena_axioms, of \<sigma>]
       using W_in_V' unfolding V'_def E'_def by auto
-    from subgraph_path[OF this path_restr_V[OF path_w'_ys_w' ys_in_W w'_in_W]] ys_notempty
+    from subgraph_cycle[OF this cycle_restr_V[OF cycle ys_in_W]]
     have "reachable_cycle (subgame.induced_subgraph \<sigma>) w' ys"
-      using loop_impl_reachable_cycle by fast
+      using cycle_impl_reachable_cycle by fast
 
     with \<sigma>_winning_subgame w'_in_W
     show "player_wins_list \<alpha> ys" by blast
@@ -847,11 +729,11 @@ lemma all_v_won:
 lemma v_won_by_one_player: "\<not>(won_by EVEN v \<and> won_by ODD v)"
   using won_by_player_not_won_by_opponent by fastforce
 
-(** Nodes are always won won exclusively by one of the two players. *)
-theorem v_won_by_disjoint:
+(** Nodes are always won exclusively by one of the two players. *)
+theorem v_positionally_determined:
   assumes "v\<in>V"
   shows "won_by EVEN v \<noteq> won_by ODD v"
-  using all_v_won[OF assms] v_won_by_one_player by blast
+  using all_v_won[OF \<open>v\<in>V\<close>] v_won_by_one_player by blast
 end (** End of context paritygame. *)
 
 end
