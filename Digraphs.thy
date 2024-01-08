@@ -10,7 +10,6 @@ type_synonym 'v dgraph = "'v rel"
 abbreviation EV :: "'v dgraph \<Rightarrow> 'v set" where
   "EV E \<equiv> fst ` E \<union> snd ` E"
 
-
 context
   fixes E :: "'v dgraph"
 begin
@@ -210,6 +209,25 @@ lemma cycle_intermediate_node:
 lemma cycle_intersects_closed_region:
   "\<lbrakk>cycle y ys; set ys \<inter> X \<noteq> {}; E `` X \<subseteq> X\<rbrakk> \<Longrightarrow> set ys \<subseteq> X"
   using cycle_intermediate_node[of y ys] cycle_closed_set[of _ X] by blast
+
+lemma cycle_intersects_partially_closed_region:
+  "\<lbrakk>cycle y ys; set ys \<inter> Y \<noteq> {}; set ys \<inter> X = {}; E `` (Y-X) \<subseteq> Y\<rbrakk> \<Longrightarrow> set ys \<subseteq> Y - X"
+proof -
+  assume cycle: "cycle y ys" and
+    Y_in_ys: "set ys \<inter> Y \<noteq> {}" and
+    X_notin_ys: "set ys \<inter> X = {}" and
+    partially_closed: "E `` (Y-X) \<subseteq> Y"
+  from Y_in_ys X_notin_ys
+  obtain x xs where
+    sets_eq[simp]: "set xs = set ys" and
+    X_notin_xs: "set xs \<inter> X = {}" and
+    x_in_Y_min_X: "x \<in> Y-X" and
+    cycle': "cycle x xs"
+    using cycle_intermediate_node[OF cycle] origin_in_cycle[OF cycle]
+    using disjoint_iff[of "set ys" X] by force
+  from cycle_partially_closed_set[OF x_in_Y_min_X partially_closed cycle' X_notin_xs]
+  show "set ys \<subseteq> Y-X" by auto
+qed
 
 section \<open>Reachable cycles\<close>
  (** A cycle reachable from a node. *)
