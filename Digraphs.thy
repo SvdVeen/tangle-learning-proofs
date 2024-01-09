@@ -63,6 +63,9 @@ lemma path_closed_set: "\<lbrakk>v\<in>V; E``V\<subseteq>V; path v xs v'\<rbrakk
 lemma path_closed_dest: "\<lbrakk>v\<in>V; E``V\<subseteq>V; path v xs v'\<rbrakk> \<Longrightarrow> v'\<in>V"
   apply (induction xs arbitrary: v) by auto
 
+lemmas path_closed =
+  path_closed_set path_closed_dest
+
 (** If a path is in a partially closed region of a graph, and it does not move through the area
     excluded in closedness, its nodes are entirely in the region minus that area. *)
 lemma path_partially_closed_set: "\<lbrakk>v\<in>V-R; E``(V-R)\<subseteq>V; path v xs v'; set xs \<inter> R = {}\<rbrakk>
@@ -77,6 +80,9 @@ lemma path_partially_closed_dest: "\<lbrakk>v\<in>V-R; E``(V-R)\<subseteq>V; pat
   apply (induction xs arbitrary: v; simp)
   subgoal for x xs by (cases xs) auto
   done
+
+lemmas path_partially_closed =
+  path_partially_closed_set path_partially_closed_dest
 
 (** If you have an intermediate node in a path, you can split it into two paths with the
     intermediate node in the middle. *)
@@ -140,6 +146,7 @@ lemma shortest_subpath_to_target_region:
   subgoal using shortest_subpath_to_intersecting_region[of v xs w X] by blast
   done
 
+
 section \<open>Cycles\<close>
 (** A cycle from a node to itself. *)
 definition cycle :: "'v \<Rightarrow> 'v list \<Rightarrow> bool" where
@@ -161,7 +168,8 @@ lemma origin_in_cycle: "cycle x xs \<Longrightarrow> x \<in> set xs"
   unfolding cycle_def using origin_in_path by blast
 
 (** A cycle can be deconstructed into its first edge and a cycle from that edge's target. *)
-lemma cycle_D: "cycle x xs \<Longrightarrow> \<exists>y ys. xs=x#ys \<and> set (ys@[x]) = set xs \<and> (x,y)\<in>E \<and> y\<in>set xs \<and> cycle y (ys@[x])"
+lemma cycle_D:
+  "cycle x xs \<Longrightarrow> \<exists>y ys. xs=x#ys \<and> set (ys@[x]) = set xs \<and> (x,y)\<in>E \<and> y\<in>set xs \<and> cycle y (ys@[x])"
   unfolding cycle_def
   using origin_in_path
   by (induction xs; simp) force
@@ -547,32 +555,38 @@ lemma subgraph_lasso': "E' \<subseteq> E \<Longrightarrow> lasso' E' v vs \<Long
   using lassos_equiv[of E'] subgraph_lasso[of E' E] lassos_equiv[of E] by blast
 
 (** If all nodes in a path exists in a region V, then it exists in the whole graph restricted to V. *)
-lemma path_restr_V: "path E v vs v' \<Longrightarrow> set vs \<subseteq> V \<Longrightarrow> v' \<in> V \<Longrightarrow> path (E \<inter> V\<times>V) v vs v'"
+lemma path_restr_V:
+  "\<lbrakk>path E v vs v'; set vs \<subseteq> V; v' \<in> V\<rbrakk> \<Longrightarrow> path (E \<inter> V\<times>V) v vs v'"
   apply (induction vs arbitrary: v; simp)
   using origin_in_path by fastforce
 
 lemma restr_V_path:
-  "path (E \<inter> V\<times>V) v xs v' \<Longrightarrow> xs \<noteq> [] \<Longrightarrow> v \<in> V \<and> set xs \<subseteq> V \<and> v' \<in> V \<and> path E v xs v'"
+  "\<lbrakk>path (Restr E V) v xs v'; xs \<noteq> []\<rbrakk> \<Longrightarrow> v \<in> V \<and> set xs \<subseteq> V \<and> v' \<in> V \<and> path E v xs v'"
   apply (induction xs arbitrary: v; simp)
   using subgraph_path by force
 
 (** If all nodes in a cycle exist in a region V, then it exists in the whole graph restricted to V. *)
-lemma cycle_restr_V: "cycle E v xs \<Longrightarrow> set xs \<subseteq> V \<Longrightarrow> cycle (E \<inter> V\<times>V) v xs"
+lemma cycle_restr_V:
+  "\<lbrakk>cycle E v xs; set xs \<subseteq> V\<rbrakk> \<Longrightarrow> cycle (Restr E V) v xs"
   unfolding cycle_def using path_restr_V[of E v xs v V] origin_in_path[of E v xs v] by fast
 
-lemma restr_V_cycle: "cycle (E \<inter> V\<times>V) v xs \<Longrightarrow> set xs \<subseteq> V \<and> cycle E v xs"
+lemma restr_V_cycle:
+  "cycle (Restr E V) v xs \<Longrightarrow> set xs \<subseteq> V \<and> cycle E v xs"
   unfolding cycle_def using restr_V_path[of E V v xs v] by simp
 
 (** If all nodes in a lasso exist in a region V, then it exists in the whole graph restricted to V. *)
-lemma lasso_restr_V: "lasso E v xs ys \<Longrightarrow> set xs \<subseteq> V \<Longrightarrow> set ys \<subseteq> V \<Longrightarrow> lasso (E \<inter> V\<times>V) v xs ys"
+lemma lasso_restr_V:
+  "\<lbrakk>lasso E v xs ys; set xs \<subseteq> V; set ys \<subseteq> V\<rbrakk> \<Longrightarrow> lasso (Restr E V) v xs ys"
   unfolding lasso_def cycle_def
   using path_restr_V[of E _ _ _ V] origin_in_path[of E] by blast
 
-lemma restr_V_lasso: "lasso (E \<inter> V\<times>V) v xs ys \<Longrightarrow> set xs \<subseteq> V \<and> set ys \<subseteq> V \<and> lasso E v xs ys"
+lemma restr_V_lasso:
+  "lasso (Restr E V) v xs ys \<Longrightarrow> set xs \<subseteq> V \<and> set ys \<subseteq> V \<and> lasso E v xs ys"
   unfolding lasso_def cycle_def
-  using restr_V_path[of E V] set_append[of xs ys] set_empty[of xs] path.simps(1) empty_subsetI by metis
+  using restr_V_path[of E V] set_append[of xs ys] set_empty[of xs] path.simps(1) empty_subsetI
+  by metis
 
-lemma lasso'_restr_V: "lasso' E v vs \<Longrightarrow> set vs \<subseteq> V \<Longrightarrow> lasso' (E \<inter> V\<times>V) v vs"
+lemma lasso'_restr_V: "\<lbrakk>lasso' E v vs; set vs \<subseteq> V\<rbrakk> \<Longrightarrow> lasso' (Restr E V) v vs"
 proof -
   assume lasso_v_vs: "lasso' E v vs" and
          vs_in_V: "set vs \<subseteq> V"
@@ -589,10 +603,10 @@ proof -
     using origin_in_path by fastforce
 
   from path_restr_V[OF path_v_xs_v' xs_in_V v'_in_V]
-  have path_v_xs_v'_restr_V: "path (E \<inter> V\<times>V) v xs v'" .
+  have path_v_xs_v'_restr_V: "path (Restr E V) v xs v'" .
 
   from path_restr_V[OF path_v'_ys_v' ys_in_V v'_in_V]
-  have path_v'_ys_v'_restr_V: "path (E \<inter> V\<times>V) v' ys v'" .
+  have path_v'_ys_v'_restr_V: "path (Restr E V) v' ys v'" .
 
   from path_v_xs_v'_restr_V path_v'_ys_v'_restr_V vs_concat ys_notempty
   show ?thesis

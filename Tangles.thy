@@ -229,6 +229,12 @@ lemma player_tangle_escapes: "player_tangle U
 lemma no_escapes_closed_opponent: "opponent_escapes t = {} \<longleftrightarrow> E `` (t \<inter> V\<^sub>\<beta>) \<subseteq> t"
   unfolding opponent_escapes_def
   using E_closed_V by blast
+
+lemma opponent_escapes_pre:
+  "y \<in> opponent_escapes t \<longleftrightarrow> (\<exists>x. (x,y) \<in> E \<and> x \<notin> V\<^sub>\<alpha> \<and> x \<in> t \<and> y \<notin> t)"
+  apply (simp add: opponent_escapes_def)
+  using E_in_V by blast
+
 end (** End of context player_paritygame. *)
 
 

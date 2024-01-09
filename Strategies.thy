@@ -143,11 +143,10 @@ lemma strategy_to_ind_subgraph: "\<lbrakk>\<sigma> v = Some w; (v,w) \<in> E \<r
 (** If you add two disjoint strategies, their combined induced subgraph is a subset of either of
     their induced subgraphs *)
 lemma ind_subgraph_add_disjoint:
-  "dom \<sigma> \<inter> dom \<sigma>' = {} \<Longrightarrow> induced_subgraph (\<sigma> ++ \<sigma>') \<subseteq>
-    induced_subgraph \<sigma>"
-  "dom \<sigma> \<inter> dom \<sigma>' = {} \<Longrightarrow> induced_subgraph (\<sigma> ++ \<sigma>') \<subseteq>
-    induced_subgraph \<sigma>'"
-  unfolding induced_subgraph_def E_of_strat_def by auto
+  assumes "dom \<sigma> \<inter> dom \<sigma>' = {}"
+  shows "induced_subgraph (\<sigma> ++ \<sigma>') \<subseteq> induced_subgraph \<sigma>"
+    and "induced_subgraph (\<sigma> ++ \<sigma>') \<subseteq> induced_subgraph \<sigma>'"
+  using assms unfolding induced_subgraph_def E_of_strat_def by auto
 
 (** If you add two strategies, any edge that does not start in one of their domains exists in
     the induced subgraph of the other strategy *)
@@ -259,7 +258,6 @@ lemma restricted_strat_subgraph_V_same_in_region:
   using assms
   unfolding induced_subgraph_V_def induced_subgraph_def E_of_strat_def
   by auto
-
 end (** End of locale arena *)
 
 end
