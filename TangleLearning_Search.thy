@@ -18,9 +18,9 @@ abbreviation (input) subgraph_tattr
 
 context
   fixes T :: "'v set set"
-  assumes tangles_T: "\<forall>t\<in>T. tangle EVEN t \<or> tangle ODD t"
-  assumes open_tangles_T: "\<forall>t\<in>T. tangle \<alpha> t \<longrightarrow> E `` (t \<inter> V_opponent \<alpha>) - U \<noteq> {}"
   assumes fin_T: "finite T"
+  assumes tangles_T: "\<forall>t\<in>T. tangle EVEN t \<or> tangle ODD t"
+  assumes open_tangles_T: "\<forall>t\<in>T. tangle \<alpha> t \<longrightarrow> E `` (t \<inter> V_opponent \<alpha>) - t \<noteq> {}"
 begin
 
 (** search_step represents a single iteration of the while-loop in the search algorithm. *)
@@ -296,45 +296,20 @@ lemma valid_subgame_search_correct:
 
 section \<open>Termination\<close>
 
+lemma search_step_R_decreasing:
+  "\<lbrakk>search_step (R,Y) (R',Y'); valid_subgame R\<rbrakk> \<Longrightarrow> R' \<subset> R"
+  apply (induction rule: search_step_induct)
+  subgoal for R
+  using pr_set_exists[OF finite_subset[OF _ fin_V, of R]]
+        paritygame.target_in_tangle_attractor[OF _ fin_T]
+  by blast
+  done
+
+
 lemma search_step_wfP: "wfP (search_step\<inverse>\<inverse>)"
   sorry
 
 (*
-(** search_step is inversely monotonous on R: R strictly decreases with every step. *)
-lemma search_step_R_anti_mono: "search_step S S' \<Longrightarrow> fst S' \<subset> fst S"
-proof (induction rule: search_step.induct)
-  case (step R p \<alpha> A T\<^sub>\<alpha> Z \<sigma> V\<^sub>\<alpha> V\<^sub>\<beta> Ov Y' Y R')
-  (** We know that every t in T\<^sub>\<alpha> is a tangle in the subgame of R, and that T\<^sub>\<alpha> is finite. We need
-      these properties for showing the next two properties. *)
-  from step(7) have tangles_T\<^sub>\<alpha>: "\<forall>t\<in>T\<^sub>\<alpha>. paritygame.tangle (Restr E R) (V \<inter> R) (V\<^sub>0 \<inter> R) pr \<alpha> t"
-    by blast
-  from step(7) have fin_T\<^sub>\<alpha>: "finite T\<^sub>\<alpha>"
-    using finite_subset[OF _ fin_T] by simp
-  (** We show that Z is not empty. *)
-  have "Z \<noteq> {}" proof -
-    (** R is finite *)
-    from finite_subset[OF step(2) fin_V] have fin_R: "finite R" .
-    (** A is part of the finite non-empty set R, therefore, it must contain at least one node
-        with priority p, and thus it is not empty. *)
-    from step(6) step(4) have "A \<noteq> {}"
-      using pr_set_exists[OF fin_R step(1)] by blast
-    (** Since the target A is part of the tangle-attracted region Z, Z must also be non-empty. *)
-    with paritygame.target_in_tangle_attractor[OF step(3) tangles_T\<^sub>\<alpha> fin_T\<^sub>\<alpha> step(8)]
-    show ?thesis by auto
-  qed
-  (** Furthermore, Z is a subset of of R. *)
-  moreover have "Z \<subseteq> R" proof -
-    from step(6) have A_in_R: "A \<subseteq> R" by simp
-    (** Since the tangle-attracted Z region is a subset of the graph restricted to R  and the target
-        set A, we can show that it is a subset R. *)
-    with paritygame.tangle_attractor_ss[OF step(3) tangles_T\<^sub>\<alpha> fin_T\<^sub>\<alpha> step(8)] step(2)
-    show ?thesis by blast
-  qed
-  (** Since R' is obtained by removing Z from R, and we know that Z is a non-empty a subset of R,
-      R decreases monotonically with every step. *)
-  ultimately show ?case using step(13) by auto
-qed
-
 (** Because R is finite and decreases with every step, search_step is a well-founded relation. *)
 lemma search_step_wellfounded: "wfP (search_step\<inverse>\<inverse>)"
   unfolding wfP_def

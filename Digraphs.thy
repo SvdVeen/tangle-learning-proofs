@@ -95,7 +95,7 @@ lemma path_intermediate_node: "\<lbrakk>path v xs v'; x \<in> set xs\<rbrakk>
 
 (** If a path intersects with some region, we can get the shortest subpath that leads to that
     region. *)
-lemma shortest_subpath_to_intersecting_region:
+lemma shortest_subpath_to_region:
   "\<lbrakk>path v xs w; set xs \<inter> X \<noteq> {}\<rbrakk> \<Longrightarrow> \<exists>w' \<in> X. \<exists>xs'. set xs' \<inter> X = {} \<and> path v xs' w'"
 proof (induction xs arbitrary: v)
   (** For an empty path, we have a clear contradiction. *)
@@ -143,7 +143,7 @@ lemma shortest_subpath_to_target_region:
   "\<lbrakk>path v xs w; w \<in> X\<rbrakk> \<Longrightarrow> \<exists>w'\<in>X. \<exists>xs'. set xs' \<inter> X = {} \<and> path v xs' w'"
   apply (cases "set xs \<inter> X = {}")
   subgoal by blast
-  subgoal using shortest_subpath_to_intersecting_region[of v xs w X] by blast
+  subgoal using shortest_subpath_to_region[of v xs w X] by blast
   done
 
 
