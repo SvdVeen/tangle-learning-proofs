@@ -136,9 +136,9 @@ lemma tangle_attractor_step_ran:
   apply (induction rule: tangle_attractor_step_induct)
   subgoal by fastforce
   subgoal by blast
-  subgoal for t
-    using ran_restrictD[of _ _ "t-A"]
-    unfolding player_tangle_strat_def ran_def by fast
+  subgoal for t X \<tau>
+    using ran_restrictD[of _ \<tau> "t-A"]
+    by (clarsimp simp: player_tangle_strat_def ran_def) blast
   done
 
 (** After each step, X is partially closed in X-A under \<sigma>'. *)
@@ -148,12 +148,12 @@ lemma tangle_attractor_step_closed_X:
   unfolding tangle_attractor_step_I_def split
   apply (induction rule: tangle_attractor_step_induct)
   subgoal for x X y \<sigma>
-    using ind_subgraph_add_disjoint[of \<sigma> "[x\<mapsto>y]"]
+    using ind_subgraph_add_disjoint(1)[of \<sigma> "[x\<mapsto>y]"]
     by simp blast
   subgoal by blast
   subgoal
     unfolding induced_subgraph_def E_of_strat_def
-    using ind_subgraph_notin_dom by simp blast
+    by simp blast
   done
 
 (** After each step, X' is partially closed in X'-A under \<sigma>'. *)
@@ -247,8 +247,7 @@ proof -
   (** This auxiliary lemma shows that if we add only a single node to X, the property holds.
       it is used for both the player and opponent cases. *)
   {
-    fix X :: "'v set" and x :: 'v
-    fix \<sigma> v xs ys
+    fix X :: "'v set" and x :: 'v and \<sigma> v xs ys
     let ?X' = "insert x X"
     let ?G\<sigma> = "induced_subgraph \<sigma>"
     assume x_succs_X: "\<forall>y. (x,y) \<in> ?G\<sigma> \<longrightarrow> y\<in>X"
@@ -293,12 +292,12 @@ proof -
     qed
 
     (** ys exists entirely in X'-A because X' is partially closed in X'-A under \<sigma>. *)
-    from \<open>v\<in>?X'-A\<close> \<sigma>_closed_X' xs_no_A ys_no_A lasso
+    moreover from \<open>v\<in>?X'-A\<close> \<sigma>_closed_X' xs_no_A ys_no_A lasso
     have "set ys \<subseteq> ?X'-A"
       using lasso_partially_closed_sets[of v] by simp
 
     (** Since x is not part of ys, this means it exists entirely in X. *)
-    with \<open>x\<notin>set ys\<close> have "set ys \<subseteq> X" by blast
+    ultimately have "set ys \<subseteq> X" by blast
     hence "v' \<in> X"  using origin_in_cycle[OF cycle] by blast
 
     (** Our cycle starts in X, and it does not intersect with A, so the cycle is won by the
