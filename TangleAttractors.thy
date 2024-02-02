@@ -115,13 +115,9 @@ lemma tangle_attractor_step_strat_of_V\<^sub>\<alpha>:
     \<Longrightarrow> strategy_of V\<^sub>\<alpha> \<sigma>'"
   unfolding tangle_attractor_step_I_def split
   apply (induction rule: tangle_attractor_step_induct)
-  subgoal
-    unfolding strategy_of_def E_of_strat_def
-    by (auto split: if_splits)
+  subgoal by (simp add: strategy_of_overwrite)
   subgoal by fast
-  subgoal
-    unfolding player_tangle_strat_def strategy_of_def E_of_strat_def
-    by (safe; simp add: restrict_map_def split: if_splits) blast+
+  subgoal by (simp add: strategy_of_restrict player_tangle_strat_def)
   done
 
 (** After each step, \<sigma>' has in its domain all player-nodes in X', except for those in A. *)
@@ -835,13 +831,6 @@ definition player_tangle_attractor :: "'v set \<Rightarrow> 'v strat \<Rightarro
   "player_tangle_attractor X \<sigma> \<equiv> \<exists>\<sigma>'. tangle_attractor_step\<^sup>*\<^sup>* (A,Map.empty) (X,\<sigma>') \<and>
     \<not>Domainp tangle_attractor_step (X,\<sigma>') \<and> \<sigma> = \<sigma>' ++ A_target X"
 
-(** The attracted region always contains A due to the monotonicity of the steps. *)
-lemma player_tangle_attractor_contains_A:
-  "player_tangle_attractor X \<sigma> \<Longrightarrow> A \<subseteq> X"
-  unfolding player_tangle_attractor_def
-  using tangle_attractor_step_rtranclp_mono
-  by fastforce
-
 (** This auxiliary lemma is used to show that the invariant has been preserved for \<sigma>, and that
     \<sigma> is constructed from \<sigma>' and A_target. *)
 lemma player_tangle_attractor_I_aux:
@@ -850,73 +839,59 @@ lemma player_tangle_attractor_I_aux:
   using tangle_attractor_step_rtranclp_preserves_I tangle_attractor_step_I_base
   by blast
 
+(** The attracted region always contains A. *)
+lemma target_in_player_tangle_attractor:
+  "player_tangle_attractor X \<sigma> \<Longrightarrow> A \<subseteq> X"
+  using player_tangle_attractor_I_aux[of X \<sigma>]
+  unfolding tangle_attractor_step_I_def split
+  by fast
+
 (** If we have a tangle-attracted region X and witness strategy \<sigma>, then that is a strategy for the
     player. *)
 lemma player_tangle_attractor_strat_of_V\<^sub>\<alpha>:
   "player_tangle_attractor X \<sigma> \<Longrightarrow> strategy_of V\<^sub>\<alpha> \<sigma>"
   using player_tangle_attractor_I_aux[of X \<sigma>] A_target_strat[of X]
-  unfolding tangle_attractor_step_I_def
+  unfolding tangle_attractor_step_I_def split
   by fastforce
 
 (** If we have a tangle-attracted region X and witness strategy \<sigma>, then the domain of \<sigma> is some
     subset of all player-owned nodes in X. *)
 lemma player_tangle_attractor_strat_dom:
   "player_tangle_attractor X \<sigma> \<Longrightarrow> dom \<sigma> \<subseteq> V\<^sub>\<alpha> \<inter> X"
-  using player_tangle_attractor_I_aux[of X \<sigma>] player_tangle_attractor_contains_A[of X \<sigma>]
-        A_target_dom[of X]
-  unfolding tangle_attractor_step_I_def
+  using player_tangle_attractor_I_aux[of X \<sigma>] A_target_dom[of X]
+  unfolding tangle_attractor_step_I_def split
   by auto
 
 (** If we have a tangle-attracted region X and a witness strategy \<sigma>, then the range of \<sigma> is in X.*)
 lemma player_tangle_attractor_strat_ran:
   "player_tangle_attractor X \<sigma> \<Longrightarrow> ran \<sigma> \<subseteq> X"
   using player_tangle_attractor_I_aux[of X \<sigma>] A_target_ran[of X]
-  unfolding tangle_attractor_step_I_def
+  unfolding tangle_attractor_step_I_def split
   by (auto simp: ran_def)
 
 (** If we have a tangle-attracted region X and a witness strategy \<sigma>, then the induced subgraph of \<sigma>
     is partially closed in X, excluding A. *)
 lemma player_tangle_attractor_strat_partially_closed:
   "player_tangle_attractor X \<sigma> \<Longrightarrow> induced_subgraph \<sigma> `` (X-A) \<subseteq> X"
-proof -
-  assume attr: "player_tangle_attractor X \<sigma>"
-  from player_tangle_attractor_I_aux[OF attr] obtain \<sigma>' where
-    \<sigma>'_dom: "dom \<sigma>' = V\<^sub>\<alpha> \<inter> (X-A)" and
-    \<sigma>'_closed: "induced_subgraph \<sigma>' `` (X-A) \<subseteq> X" and
-    \<sigma>_comp: "\<sigma> = \<sigma>' ++ A_target X"
-    unfolding tangle_attractor_step_I_def
-    by blast
-  thus ?thesis
-    using add_A_target_A_notin_dom[of \<sigma>' X] by blast
-qed
-
-(** If we have a tangle-attracted region X and a witness strategy \<sigma>, and X is a closed region, then
-    the induced subgraph of \<sigma> is also closed in X. This is a somewhat trivial property, but nice to
-    have. *)
-lemma closed_player_tangle_attractor_strat_closed:
-  "\<lbrakk>player_tangle_attractor X \<sigma>; E `` X \<subseteq> X\<rbrakk> \<Longrightarrow> induced_subgraph \<sigma> `` X \<subseteq> X"
-  using player_tangle_attractor_I_aux[of X \<sigma>] ind_subgraph[of \<sigma>]
-  unfolding tangle_attractor_step_I_def
-  by fast
+  using player_tangle_attractor_I_aux[of X \<sigma>]
+  unfolding tangle_attractor_step_I_def split
+  apply clarsimp
+  subgoal for y x \<sigma>
+    using add_A_target_A_notin_dom(1)[of \<sigma> X] by blast
+  done
 
 (** If we have a tangle-attracted region X and a witness strategy \<sigma>, then all plays in X restricted
     by \<sigma> either lead to A or are won by the player. *)
 lemma player_tangle_attractor_strat_forces_A_or_wins:
   "player_tangle_attractor X \<sigma> \<Longrightarrow> \<forall>x\<in>X. \<forall>xs ys. lasso (induced_subgraph \<sigma>) x xs ys
     \<longrightarrow> set (xs@ys) \<inter> A \<noteq> {} \<or> winning_player ys"
-proof -
-  assume attr: "player_tangle_attractor X \<sigma>"
-  from player_tangle_attractor_I_aux[OF attr] obtain \<sigma>' :: "'v strat" where
-    \<sigma>'_dom: "dom \<sigma>' = V\<^sub>\<alpha> \<inter> (X-A)" and
-    \<sigma>'_forces_A_or_wins: "\<forall>x\<in>X. \<forall>xs ys. lasso (induced_subgraph \<sigma>') x xs ys
-      \<longrightarrow> set (xs@ys) \<inter> A \<noteq> {} \<or> winning_player ys" and
-    \<sigma>_comp: "\<sigma> = \<sigma>' ++ A_target X"
-    unfolding tangle_attractor_step_I_def
-    by blast
-  thus ?thesis
+  using player_tangle_attractor_I_aux[of X \<sigma>]
+  unfolding tangle_attractor_step_I_def split
+  apply clarsimp
+  subgoal for x xs ys \<sigma>'
     using subgraph_lasso[OF add_A_target_A_notin_dom(1)[of \<sigma>' X]]
     by blast
-qed
+  done
 
 (** If we have a tangle-attracted region X and a witness strategy \<sigma>, there always exists a path from
     any node in X to A. *)
@@ -929,7 +904,7 @@ proof (rule ballI)
     \<sigma>'_dom: "dom \<sigma>' = V\<^sub>\<alpha> \<inter> (X-A)" and
     \<sigma>'_path_to_A: "\<forall>x\<in>X. \<exists>y\<in>A. \<exists>xs. path (induced_subgraph \<sigma>') x xs y" and
     \<sigma>_comp: "\<sigma> = \<sigma>' ++ A_target X"
-    unfolding tangle_attractor_step_I_def
+    unfolding tangle_attractor_step_I_def split
     by blast
   let ?G\<sigma> = "induced_subgraph \<sigma>"
   let ?G\<sigma>' = "induced_subgraph \<sigma>'"
@@ -1000,15 +975,15 @@ lemma player_tangle_attractor_strat:
 lemma player_tangle_attractor_strat_in_dom_A:
   "\<lbrakk>player_tangle_attractor X \<sigma>; x\<in>V\<^sub>\<alpha> \<inter> A; E `` {x} \<inter> X \<noteq> {}\<rbrakk> \<Longrightarrow> x \<in> dom \<sigma>"
   using player_tangle_attractor_I_aux[of X \<sigma>] A_target_in_dom[of x X]
-  unfolding tangle_attractor_step_I_def
-  by auto
+  unfolding tangle_attractor_step_I_def split
+  by fastforce
 
 (** If we have an attracted region X and a witness strategy \<sigma>, and a player-owned node in X minus A,
     then that x is in the domain of \<sigma>. This is due to the invariant on \<sigma>'. *)
 lemma player_tangle_attractor_strat_in_dom_not_A:
   "\<lbrakk>player_tangle_attractor X \<sigma>; x \<in> V\<^sub>\<alpha> \<inter> (X-A)\<rbrakk> \<Longrightarrow> x \<in> dom \<sigma>"
   using player_tangle_attractor_I_aux[of X \<sigma>]
-  unfolding tangle_attractor_step_I_def
+  unfolding tangle_attractor_step_I_def split
   by (clarsimp simp: domD)
 
 (** The (inverse) reflexive transitive closure of the tangle attractor step is a well-founded
@@ -1077,16 +1052,16 @@ proof
     done
 qed
 
-(** The target of a tangle attractor is part of the attracted region. *)
-lemma target_in_player_tangle_attractor: "player_tangle_attractor X \<sigma> \<Longrightarrow> A \<subseteq> X"
-  unfolding player_tangle_attractor_def
-  using tangle_attractor_step_rtranclp_mono by fastforce
-
 (** An attracted region is a subset of the union of its target and V. This means that if the target
     is in V, the attracted region is entirely in V. *)
 lemma player_tangle_attractor_ss: "player_tangle_attractor X \<sigma> \<Longrightarrow> X \<subseteq> A \<union> V"
   unfolding player_tangle_attractor_def
   using tangle_attractor_step_rtranclp_ss by fastforce
+
+(** If A is part of V, then so is its tangle attracted region X *)
+lemma player_tangle_attractor_in_V:
+  "\<lbrakk>player_tangle_attractor X \<sigma>; A \<subseteq> V\<rbrakk> \<Longrightarrow> X \<subseteq> V"
+  using player_tangle_attractor_ss by blast
 
 (** If the target of the attractor is finite, so is the attracted region. *)
 lemma player_tangle_attractor_finite: "\<lbrakk>player_tangle_attractor X \<sigma>; finite A\<rbrakk> \<Longrightarrow> finite X"

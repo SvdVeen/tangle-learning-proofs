@@ -95,6 +95,15 @@ lemma strategy_of_add_same[simp]: "\<lbrakk>strategy_of S \<sigma>; strategy_of 
 lemma strategy_of_own_dom: "E_of_strat \<sigma> \<subseteq> E \<Longrightarrow>  strategy_of (dom \<sigma>) \<sigma>"
   unfolding strategy_of_def by blast
 
+(** If we overwrite a valid strategy with a valid move, the new strategy is also valid. *)
+lemma strategy_of_overwrite: "\<lbrakk>strategy_of S \<sigma>; (x,y)\<in>E; x\<in>S\<rbrakk> \<Longrightarrow> strategy_of S (\<sigma>(x\<mapsto>y))"
+  using strategy_of_map_assign[of x S y] strategy_of_add_same[of S \<sigma> "[x\<mapsto>y]"]
+  by force
+
+(** If we restrict a valid strategy, the new strategy remains valid. *)
+lemma strategy_of_restrict: "strategy_of S \<sigma> \<Longrightarrow> strategy_of S (\<sigma> |` R)"
+  unfolding strategy_of_def E_of_strat_def
+  by (auto simp add: restrict_map_def split: if_splits)
 
 subsection \<open>Induced Subgraphs\<close>
 (** The induced subgraph of a strategy *)
