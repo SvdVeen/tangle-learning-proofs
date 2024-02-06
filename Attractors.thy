@@ -118,7 +118,7 @@ next
 
     {
       fix n' x' y'
-      assume n'_lte_Suc_n: "n' \<le> Suc n"
+      assume n'_leq_Suc_n: "n' \<le> Suc n"
          and x'_in_n'_min_A: "x' \<in> nodes_in_rank n'-A"
          and y'_succ_x': "y' \<in> induced_subgraph \<sigma>' `` {x'}"
 
@@ -142,9 +142,8 @@ next
           edge: "(x',y') \<in> E " by auto
         with y'_succ_x' \<sigma>'_dom \<sigma>'_ran show ?thesis
           unfolding induced_subgraph_def E_of_strat_def
-          apply (cases "x' \<in> V\<^sub>\<alpha>"; simp)
-          apply (cases "x'\<in>new_player_nodes"; simp add: \<open>n'=Suc n\<close> target_eq ran_def)
-          using nodes_in_rank_edges_same[OF x'_in_suc \<open>x'\<notin>A\<close> edge] \<open>n'=Suc n\<close> by blast+
+          apply (cases "x' \<in> V\<^sub>\<alpha>"; simp add: \<open>n'=Suc n\<close> target_eq ran_def)
+          using nodes_in_rank_edges_same[OF x'_in_suc \<open>x'\<notin>A\<close> edge] by auto
       qed
     } note closed_\<sigma>'=this
 
