@@ -711,26 +711,25 @@ proof -
           show ?thesis using append_path_to_A by blast
         next
           case X_notin_xs
-          consider (xs_empty) "xs = []" | (xs_notempty) "xs \<noteq> []" by blast
-          thus ?thesis proof cases
-            case xs_empty
+          show ?thesis proof (cases xs)
+            case Nil
             with path_x_y y_z_edge_G\<sigma>'
             have x_z_edge_G\<sigma>': "path ?G\<sigma>' x [x] z" by auto
             with z_in_X X_path_to_A show ?thesis
               using append_path_to_A by blast
           next
-            case xs_notempty
+            case (Cons a list)
             consider (y_in_X) "y \<in> X" | (y_notin_X) "y \<notin> X" by blast
             thus ?thesis proof cases
               case y_in_X
-              with path_no_X[OF this xs_notempty X_notin_xs path_x_y]
-                X_path_to_A
+              with path_no_X[OF this _ X_notin_xs path_x_y] 
+                   X_path_to_A Cons
               show ?thesis using append_path_to_A by blast
             next
               case y_notin_X
               with y_opp_in_t have "y \<in> t-X" by blast
 
-              from restr_V_path[OF path_x_y xs_notempty] X_notin_xs
+              from restr_V_path[OF path_x_y] Cons X_notin_xs
               have "set xs \<subseteq> t-X" by blast
 
               from path_x_y have "path ?G\<tau> x xs y"

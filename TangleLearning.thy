@@ -151,7 +151,7 @@ proof (rule conjI)
 		R_closed_opponent: "E `` (R\<inter>V\<^sub>\<beta>) \<subseteq> R"
 		unfolding player_winning_region_def by fastforce
 
-	have "(induced_subgraph (dom \<sigma>) \<sigma>) \<inter> U\<times>U \<subseteq> E \<inter> U\<times>U"
+	have "Restr (induced_subgraph \<sigma>) U \<subseteq> Restr E U"
 		by auto
 
 	have pr_list_winning: "winningP (pr_set U)"

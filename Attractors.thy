@@ -66,8 +66,8 @@ lemma nodes_in_rank_edges_same:
 (** There exists a strategy for nodes_in_rank that forces all plays in the rank to go to A. *)
 lemma nodes_in_rank_forces_A: "\<exists>\<sigma>.
   strategy_of V\<^sub>\<alpha> \<sigma> \<and> dom \<sigma> = (nodes_in_rank n - A) \<inter> V\<^sub>\<alpha> \<and> ran \<sigma> \<subseteq> nodes_in_rank n
-  \<and> (\<forall>n'. n' \<le> n \<longrightarrow>
-      (\<forall>x' \<in> nodes_in_rank n' - A. (\<forall>y' \<in> (induced_subgraph \<sigma>) `` {x'}. y' \<in> nodes_in_rank (n'))))
+  \<and> (\<forall>n'. n' \<le> n \<longrightarrow> (\<forall>x' \<in> nodes_in_rank n' - A. \<forall>y' \<in> (induced_subgraph \<sigma>) `` {x'}.
+      y' \<in> nodes_in_rank n'))
   \<and> (\<forall>x\<in>nodes_in_rank n. \<forall>xs z. path (induced_subgraph \<sigma>) x xs z \<and> n<length xs \<longrightarrow> set xs \<inter> A \<noteq> {})"
 proof (induction n)
   case 0 thus ?case
@@ -78,74 +78,59 @@ next
   case (Suc n)
   from Suc.IH obtain \<sigma> where
     strat_\<sigma>: "strategy_of V\<^sub>\<alpha> \<sigma>" and
-    dom_\<sigma>: "dom \<sigma> = (nodes_in_rank n - A) \<inter> V\<^sub>\<alpha>" and
+    dom_\<sigma>: "dom \<sigma> = (nodes_in_rank n-A) \<inter> V\<^sub>\<alpha>" and
     ran_\<sigma>: "ran \<sigma> \<subseteq> nodes_in_rank n" and
-    closed_\<sigma>: "(\<forall>n'. n' \<le> n \<longrightarrow> (\<forall>x' \<in> nodes_in_rank n' - A. (\<forall>y' \<in> (induced_subgraph \<sigma>) `` {x'}. y' \<in> nodes_in_rank (n'))))" and
-    forces_\<sigma>: "\<And>x xs z. \<lbrakk>x\<in>nodes_in_rank n; path (induced_subgraph \<sigma>) x xs z; n < length xs\<rbrakk> \<Longrightarrow> set xs \<inter> A \<noteq> {}"
+    closed_\<sigma>: "\<forall>n'. n'\<le>n \<longrightarrow> (\<forall>x' \<in> nodes_in_rank n'-A. \<forall>y' \<in> (induced_subgraph \<sigma>) `` {x'}.
+      y' \<in> nodes_in_rank n')" and
+    forces_\<sigma>: "\<forall>x\<in>nodes_in_rank n. \<forall>xs z. path (induced_subgraph \<sigma>) x xs z \<and> n<length xs
+      \<longrightarrow> set xs \<inter> A \<noteq> {}"
     by blast
 
-  define new_player_nodes where "new_player_nodes = (nodes_in_rank (Suc n) - nodes_in_rank n) \<inter> V\<^sub>\<alpha>"
-  define target where "target = (\<lambda>x. SOME x'. x'\<in>nodes_in_rank n \<and> (x,x')\<in>E)"
+  define new_player_nodes where
+    "new_player_nodes = (nodes_in_rank (Suc n) - nodes_in_rank n) \<inter> V\<^sub>\<alpha>"
+  define target where
+    "target \<equiv> \<lambda>x. SOME x'. x' \<in> nodes_in_rank n \<and> (x,x') \<in> E"
 
-  {
-    fix x assume "x\<in>new_player_nodes"
-    hence "target x\<in>nodes_in_rank n" "(x,target x)\<in>E"
-      unfolding new_player_nodes_def
-      apply simp_all
-      using some_eq_imp[of _ "target x"]
-      unfolding target_def by blast+
-  } note target=this
-
-  have target_eq: "x\<in>new_player_nodes \<longleftrightarrow>
-    (x\<in>nodes_in_rank (Suc n) \<and> x\<in>V\<^sub>\<alpha> \<and> x\<notin>nodes_in_rank n \<and> target x\<in>nodes_in_rank n\<and> (x,target x)\<in>E)"
-    for x
-    unfolding new_player_nodes_def
-    apply (rule iffI; simp)
+  have target_eq: "x \<in> new_player_nodes \<longleftrightarrow>
+    (x \<in> nodes_in_rank (Suc n) \<and>
+     x \<in> V\<^sub>\<alpha> \<and>
+     x \<notin> nodes_in_rank n \<and>
+     target x \<in> nodes_in_rank n \<and>
+     (x,target x) \<in> E)" for x
+    apply (rule iffI; simp add: new_player_nodes_def)
     using some_eq_imp[of _ "target x"]
     unfolding target_def by blast+
 
-  define \<sigma>' where "\<sigma>' = (\<lambda>x. if x \<in> new_player_nodes then Some (target x) else \<sigma> x)"
+  define \<sigma>' where "\<sigma>' \<equiv> \<lambda>x. if x \<in> new_player_nodes then Some (target x) else \<sigma> x"
   show ?case
-  proof (intro exI[where x=\<sigma>'] conjI allI ballI impI; (elim conjE)?)
-    show \<sigma>'_strat: "strategy_of V\<^sub>\<alpha> \<sigma>'"
-      using strat_\<sigma>
+  proof (rule exI[where x=\<sigma>']; intro conjI allI ballI impI; (elim conjE)?)
+    from strat_\<sigma> show \<sigma>'_strat: "strategy_of V\<^sub>\<alpha> \<sigma>'"
       unfolding \<sigma>'_def strategy_of_def E_of_strat_def
-      apply (safe; simp split: if_splits)
-      using target_eq by blast+
+      by (safe; simp add: target_eq split: if_splits) blast+
 
-    show \<sigma>'_dom: "dom \<sigma>' = (nodes_in_rank (Suc n) - A) \<inter> V\<^sub>\<alpha>"
-      unfolding \<sigma>'_def
-      using dom_\<sigma>
-      apply (safe; clarsimp simp: new_player_nodes_def split: if_splits)
+    from dom_\<sigma> show \<sigma>'_dom: "dom \<sigma>' = (nodes_in_rank (Suc n)-A) \<inter> V\<^sub>\<alpha>"
+      unfolding \<sigma>'_def new_player_nodes_def
+      apply (safe; simp split: if_splits)
       using nodes_in_rank_subset by blast+
 
-    have \<sigma>'_succs_in_Suc_n: "\<forall>x y. \<sigma>' x = Some y \<longrightarrow> y \<in> nodes_in_rank (Suc n)"
-      unfolding \<sigma>'_def
-      apply (intro allI; rule impI)
-      subgoal for x
-        apply (cases "x \<in> new_player_nodes"; simp split: if_splits)
-        subgoal using target by blast
-        subgoal using ran_\<sigma> by (simp add: ranI subsetD)
-        done
-      done
-    thus \<sigma>'_ran: "ran \<sigma>' \<subseteq> nodes_in_rank (Suc n)"
-      unfolding ran_def by blast
+    from ran_\<sigma> show \<sigma>'_ran: "ran \<sigma>' \<subseteq> nodes_in_rank (Suc n)"
+      unfolding \<sigma>'_def by (clarsimp simp: ran_def target_eq) blast
 
     {
       fix n' x' y'
-      assume n'_lte_Suc_n: "n' \<le> Suc n" and
-        x'_in_n'_min_A: "x' \<in> nodes_in_rank n' - A" and
-        y'_succ_x': "y' \<in> induced_subgraph \<sigma>' `` {x'}"
+      assume n'_lte_Suc_n: "n' \<le> Suc n"
+         and x'_in_n'_min_A: "x' \<in> nodes_in_rank n' - A"
+         and y'_succ_x': "y' \<in> induced_subgraph \<sigma>' `` {x'}"
 
-      from n'_lte_Suc_n consider (n'_lte_n) "n' \<le> n" | (n'_Suc_n) "n' = Suc n" by linarith
+      then consider (n'_lte_n) "n' \<le> n" | (n'_Suc_n) "n' = Suc n" by linarith
       thus "y' \<in> nodes_in_rank n'" proof cases
         case n'_lte_n
-        with nodes_in_rank_mono closed_\<sigma> x'_in_n'_min_A y'_succ_x'
+        with nodes_in_rank_mono[OF this] closed_\<sigma> x'_in_n'_min_A y'_succ_x'
         show ?thesis
-          unfolding induced_subgraph_def E_of_strat_def \<sigma>'_def
-          apply (clarsimp split: if_splits)
-          subgoal apply (simp add: target_eq) by (meson in_mono)
-          subgoal apply (safe; clarsimp) by blast
+          unfolding \<sigma>'_def induced_subgraph_def E_of_strat_def
+          apply (simp split: if_splits)
+          subgoal by (simp add: target_eq) blast
+          subgoal by (safe; clarsimp) blast
           done
       next
         case n'_Suc_n
@@ -155,88 +140,85 @@ next
           unfolding induced_subgraph_def E_of_strat_def
           apply (safe; clarsimp)
           subgoal using nodes_in_rank_edges_same[of x' n' y'] by blast
-          subgoal using \<sigma>'_succs_in_Suc_n n'_Suc_n by blast
+          subgoal using \<sigma>'_ran n'_Suc_n by (auto simp: ran_def)
           done
       qed
     } note closed_\<sigma>'=this
 
     {
       fix x xs z
-      assume "x\<in>nodes_in_rank n" and
-        "path (induced_subgraph \<sigma>') x xs z" and
-        "A \<inter> set xs = {}"
-      hence "path (induced_subgraph \<sigma>) x xs z"
-      proof (induction xs arbitrary: x)
-        case Nil thus ?case by fastforce
+      assume x_in_n: "x\<in>nodes_in_rank n"
+         and path: "path (induced_subgraph \<sigma>') x xs z"
+         and xs_no_A: "A \<inter> set xs = {}"
+
+      have "path (induced_subgraph \<sigma>) x xs z"
+      proof (cases xs)
+        case Nil thus ?thesis using path by auto
       next
-        case (Cons a xs')
+        case (Cons a list)
+        with xs_no_A have "x \<notin> A"
+          using origin_in_path[OF path] by blast
+        with x_in_n have x_in_n_min_A: "x \<in> nodes_in_rank n - A" by blast
 
-        from Cons(3) have a_is_x[simp]: "a=x" by simp
-        with Cons obtain x' where x'_edge: "(x,x') \<in> induced_subgraph \<sigma>'"
-          and x'_path_\<sigma>': "path (induced_subgraph \<sigma>')  x' xs' z" by auto
+        have subgraph: "Restr (induced_subgraph \<sigma>') (nodes_in_rank n) \<subseteq>
+            induced_subgraph \<sigma>"
+        unfolding \<sigma>'_def induced_subgraph_def E_of_strat_def
+        by (auto split: if_splits simp: target_eq)
 
-        from x'_edge closed_\<sigma>' have "x' \<in> nodes_in_rank n"
-          using Cons.prems(1) Cons.prems(3) by auto
-        from Cons.IH[OF this x'_path_\<sigma>'] Cons.prems have x'_path_\<sigma>:
-          "path (induced_subgraph \<sigma>) x' xs' z" by simp
+        from closed_\<sigma>'[of n]
+        have "induced_subgraph \<sigma>' `` (nodes_in_rank n-A) \<subseteq> nodes_in_rank n" by clarsimp
 
-        from Cons.prems(1) x'_edge have "(x,x') \<in> induced_subgraph \<sigma>"
-          unfolding \<sigma>'_def new_player_nodes_def induced_subgraph_def E_of_strat_def
-          by auto
-        thus ?case using x'_path_\<sigma> by auto
+        from path_partially_closed[OF x_in_n_min_A this path] xs_no_A have
+          "set xs \<subseteq> nodes_in_rank n" "z \<in> nodes_in_rank n" by blast+
+        from subgraph_path[OF subgraph path_restr_V[OF path this]]
+        show ?thesis .
       qed
     } note xfer_lower_rank_path = this
 
     {
       fix x xs z
-      assume
-        X_IN_SUCN: "x \<in> nodes_in_rank (Suc n)"
-        and PATH': "path (induced_subgraph \<sigma>') x xs z"
-        and LEN: "Suc n < length xs"
+      assume x_in_suc: "x \<in> nodes_in_rank (Suc n)"
+         and path: "path (induced_subgraph \<sigma>') x xs z"
+         and len: "Suc n < length xs"
 
-      from X_IN_SUCN consider
+      from x_in_suc consider
         (already_in) "x\<in>nodes_in_rank n"
-        | (our_node) "x\<notin>nodes_in_rank n" "x\<in>V\<^sub>\<alpha>" "(x,target x)\<in>E" "target x\<in>nodes_in_rank n"
-        | (opponent_node) "x\<notin>nodes_in_rank n" "x\<in>V\<^sub>\<beta>" "\<forall>y\<in>E``{x}. y\<in>nodes_in_rank n"
-        apply simp
-        using IntI X_IN_SUCN new_player_nodes_def target_eq by blast
-      thus "set xs \<inter> A \<noteq> {}"
-      proof cases
-        case already_in thus ?thesis
-          using Suc_lessD PATH' LEN forces_\<sigma> xfer_lower_rank_path by fast
+      | (our_node) "x\<notin>nodes_in_rank n" "x\<in>V\<^sub>\<alpha>" "(x,target x)\<in>E" "target x\<in>nodes_in_rank n"
+      | (opponent_node) "x\<notin>nodes_in_rank n" "x\<in>V\<^sub>\<beta>" "\<forall>y\<in>E``{x}. y\<in>nodes_in_rank n"
+        using new_player_nodes_def target_eq x_in_suc by simp blast
+      thus "set xs \<inter> A \<noteq> {}" proof cases
+        case already_in with path len forces_\<sigma> show ?thesis
+          using Suc_lessD xfer_lower_rank_path by fast
 
       next
         case our_node
-        hence "(x,x')\<in>induced_subgraph \<sigma>' \<Longrightarrow> x'=target x" for x'
-          unfolding induced_subgraph_def E_of_strat_def \<sigma>'_def
-          using X_IN_SUCN
-          by (auto split: if_splits simp: target_eq)
-        then obtain xs' where xs': "xs=x#xs'" "path (induced_subgraph \<sigma>') (target x) xs' z"
-          using LEN PATH'
-          by (cases xs) auto
+        with x_in_suc have "(x,x')\<in>induced_subgraph \<sigma>' \<Longrightarrow> x'=target x" for x'
+          unfolding induced_subgraph_def E_of_strat_def \<sigma>'_def target_eq
+          by (auto split: if_splits)
+        then obtain xs' where
+          xs': "xs=x#xs'" "path (induced_subgraph \<sigma>') (target x) xs' z"
+          using len path by (cases xs) auto
 
         show "set xs \<inter> A \<noteq> {}"
         proof
-          assume XS_dj_A: "set xs \<inter> A = {}"
-          from xfer_lower_rank_path[OF _ xs'(2)] XS_dj_A xs'(1) \<open>target x \<in> nodes_in_rank n\<close>
+          assume xs_no_A: "set xs \<inter> A = {}"
+          with xfer_lower_rank_path[OF _ xs'(2)] xs'(1) \<open>target x \<in> nodes_in_rank n\<close>
           have "path (induced_subgraph \<sigma>) (target x) xs' z" by auto
-          from forces_\<sigma>[OF _ this] LEN \<open>target x \<in> nodes_in_rank n\<close> xs'(1) XS_dj_A
+          with xs_no_A len forces_\<sigma> \<open>target x \<in> nodes_in_rank n\<close> xs'(1)
           show False by auto
         qed
       next
         case opponent_node
-
-        then obtain xs' y where
+        with len path obtain xs' y where
           xs': "xs=x#xs'" "path (induced_subgraph \<sigma>') y xs' z" "y\<in>nodes_in_rank n"
-          using LEN PATH'
           by (cases xs) auto
 
         show "set xs \<inter> A \<noteq> {}"
         proof
-          assume XS_dj_A: "set xs \<inter> A = {}"
-          from xfer_lower_rank_path[OF _ xs'(2)] XS_dj_A xs'(1,3)
+          assume xs_no_A: "set xs \<inter> A = {}"
+          with xfer_lower_rank_path[OF _ xs'(2)] xs'(1,3)
           have "path (induced_subgraph \<sigma>) y xs' z" by auto
-          from forces_\<sigma>[OF _ this] LEN \<open>y \<in> nodes_in_rank n\<close> xs'(1) XS_dj_A
+          with xs_no_A len forces_\<sigma> \<open>y \<in> nodes_in_rank n\<close> xs'(1)
           show False by auto
         qed
       qed

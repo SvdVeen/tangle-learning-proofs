@@ -348,7 +348,6 @@ proof -
       subgoal using subgame_is_finite_graph_V by (simp add: finite_graph_V.fin_V)
       subgoal using subgame_is_finite_graph_V_succ by (simp add: finite_graph_V_succ.succ)
       subgoal using subgame_is_arena by (simp add: arena.V\<^sub>0_in_V)
-      subgoal by simp
       done
     from P0.subgame_player_tangle_is_player_tangle[OF subgame_is_player_paritygame assms(2,3,4) player_tangle]
     show "P0.player_tangle U" .
@@ -364,7 +363,6 @@ proof -
       subgoal using subgame_is_finite_graph_V_succ by (simp add: finite_graph_V_succ.succ)
       subgoal using subgame_is_arena by (simp add: arena.V\<^sub>0_in_V)
       subgoal unfolding arena.V\<^sub>1_def[OF subgame_is_arena] by simp
-      subgoal by simp
       done
     from assms(3,4) have "arena.V\<^sub>1 V' V\<^sub>0' = V\<^sub>1 \<inter> V'"
       unfolding arena.V\<^sub>1_def[OF subgame_is_arena] V\<^sub>1_def
