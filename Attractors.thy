@@ -119,7 +119,7 @@ next
     {
       fix n' x' y'
       assume n'_lte_Suc_n: "n' \<le> Suc n"
-         and x'_in_n'_min_A: "x' \<in> nodes_in_rank n' - A"
+         and x'_in_n'_min_A: "x' \<in> nodes_in_rank n'-A"
          and y'_succ_x': "y' \<in> induced_subgraph \<sigma>' `` {x'}"
 
       then consider (n'_lte_n) "n' \<le> n" | (n'_Suc_n) "n' = Suc n" by linarith
@@ -147,39 +147,39 @@ next
 
     {
       fix x xs z
-      assume x_in_n: "x\<in>nodes_in_rank n"
-         and path: "path (induced_subgraph \<sigma>') x xs z"
-         and xs_no_A: "A \<inter> set xs = {}"
-
-      have "path (induced_subgraph \<sigma>) x xs z"
-      proof (cases xs)
-        case Nil thus ?thesis using path by auto
-      next
-        case (Cons a list)
-        with xs_no_A have "x \<notin> A"
-          using origin_in_path[OF path] by blast
-        with x_in_n have x_in_n_min_A: "x \<in> nodes_in_rank n - A" by blast
-
-        have subgraph: "Restr (induced_subgraph \<sigma>') (nodes_in_rank n) \<subseteq>
-            induced_subgraph \<sigma>"
-        unfolding \<sigma>'_def induced_subgraph_def E_of_strat_def
-        by (auto split: if_splits simp: target_eq)
-
-        from closed_\<sigma>'[of n]
-        have "induced_subgraph \<sigma>' `` (nodes_in_rank n-A) \<subseteq> nodes_in_rank n" by clarsimp
-
-        from path_partially_closed[OF x_in_n_min_A this path] xs_no_A have
-          "set xs \<subseteq> nodes_in_rank n" "z \<in> nodes_in_rank n" by blast+
-        from subgraph_path[OF subgraph path_restr_V[OF path this]]
-        show ?thesis .
-      qed
-    } note xfer_lower_rank_path = this
-
-    {
-      fix x xs z
       assume x_in_suc: "x \<in> nodes_in_rank (Suc n)"
          and path: "path (induced_subgraph \<sigma>') x xs z"
          and len: "Suc n < length xs"
+
+      {
+        fix x xs z
+        assume x_in_n: "x\<in>nodes_in_rank n"
+           and path: "path (induced_subgraph \<sigma>') x xs z"
+           and xs_no_A: "A \<inter> set xs = {}"
+
+        have "path (induced_subgraph \<sigma>) x xs z"
+        proof (cases xs)
+          case Nil thus ?thesis using path by auto
+        next
+          case (Cons a list)
+          with xs_no_A have "x \<notin> A"
+            using origin_in_path[OF path] by blast
+          with x_in_n have x_in_n_min_A: "x \<in> nodes_in_rank n - A" by blast
+
+          have subgraph: "Restr (induced_subgraph \<sigma>') (nodes_in_rank n) \<subseteq>
+              induced_subgraph \<sigma>"
+          unfolding \<sigma>'_def induced_subgraph_def E_of_strat_def
+          by (auto split: if_splits simp: target_eq)
+
+          from closed_\<sigma>'[of n]
+          have "induced_subgraph \<sigma>' `` (nodes_in_rank n-A) \<subseteq> nodes_in_rank n" by clarsimp
+
+          from path_partially_closed[OF x_in_n_min_A this path] xs_no_A have
+            "set xs \<subseteq> nodes_in_rank n" "z \<in> nodes_in_rank n" by blast+
+          from subgraph_path[OF subgraph path_restr_V[OF path this]]
+          show ?thesis .
+        qed
+      } note xfer_lower_rank_path = this
 
       from x_in_suc consider
         (already_in) "x\<in>nodes_in_rank n"
