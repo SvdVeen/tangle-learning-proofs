@@ -122,26 +122,29 @@ next
          and x'_in_n'_min_A: "x' \<in> nodes_in_rank n'-A"
          and y'_succ_x': "y' \<in> induced_subgraph \<sigma>' `` {x'}"
 
-      then consider (n'_lte_n) "n' \<le> n" | (n'_Suc_n) "n' = Suc n" by linarith
+      then consider (n'_leq_n) "n' \<le> n" | (n'_Suc_n) "n' = Suc n" by linarith
       thus "y' \<in> nodes_in_rank n'" proof cases
-        case n'_lte_n
-        with nodes_in_rank_mono[OF this] closed_\<sigma> x'_in_n'_min_A y'_succ_x'
-        show ?thesis
+        case n'_leq_n
+        from nodes_in_rank_mono[OF this] x'_in_n'_min_A
+        have "x' \<notin> new_player_nodes"
+          unfolding new_player_nodes_def by blast
+
+        with y'_succ_x' have "(x',y') \<in> induced_subgraph \<sigma>"
           unfolding \<sigma>'_def induced_subgraph_def E_of_strat_def
-          apply (simp split: if_splits)
-          subgoal by (simp add: target_eq) blast
-          subgoal by (safe; clarsimp) blast
-          done
+          by auto
+
+        with x'_in_n'_min_A n'_leq_n closed_\<sigma> show ?thesis by blast
       next
         case n'_Suc_n
-        with x'_in_n'_min_A have "x' \<in> nodes_in_rank (Suc n) - A" by blast
-        with x'_in_n'_min_A y'_succ_x' \<sigma>'_dom \<sigma>'_ran
-        show ?thesis
+        with x'_in_n'_min_A y'_succ_x' have
+          x'_in_suc: "x' \<in> nodes_in_rank (Suc n)" and
+          x'_notin_A: "x' \<notin> A" and
+          edge: "(x',y') \<in> E " by auto
+        with y'_succ_x' \<sigma>'_dom \<sigma>'_ran show ?thesis
           unfolding induced_subgraph_def E_of_strat_def
-          apply (safe; clarsimp)
-          subgoal using nodes_in_rank_edges_same[of x' n' y'] by blast
-          subgoal using \<sigma>'_ran n'_Suc_n by (auto simp: ran_def)
-          done
+          apply (cases "x' \<in> V\<^sub>\<alpha>"; simp)
+          apply (cases "x'\<in>new_player_nodes"; simp add: \<open>n'=Suc n\<close> target_eq ran_def)
+          using nodes_in_rank_edges_same[OF x'_in_suc \<open>x'\<notin>A\<close> edge] \<open>n'=Suc n\<close> by blast+
       qed
     } note closed_\<sigma>'=this
 
@@ -166,13 +169,14 @@ next
             using origin_in_path[OF path] by blast
           with x_in_n have x_in_n_min_A: "x \<in> nodes_in_rank n - A" by blast
 
-          have subgraph: "Restr (induced_subgraph \<sigma>') (nodes_in_rank n) \<subseteq>
-              induced_subgraph \<sigma>"
-          unfolding \<sigma>'_def induced_subgraph_def E_of_strat_def
-          by (auto split: if_splits simp: target_eq)
+          have subgraph:
+            "Restr (induced_subgraph \<sigma>') (nodes_in_rank n) \<subseteq> induced_subgraph \<sigma>"
+            unfolding \<sigma>'_def induced_subgraph_def E_of_strat_def
+            by (auto split: if_splits simp: target_eq)
 
-          from closed_\<sigma>'[of n]
-          have "induced_subgraph \<sigma>' `` (nodes_in_rank n-A) \<subseteq> nodes_in_rank n" by clarsimp
+          from closed_\<sigma>'[of n] have
+            "induced_subgraph \<sigma>' `` (nodes_in_rank n-A) \<subseteq> nodes_in_rank n"
+            by auto
 
           from path_partially_closed[OF x_in_n_min_A this path] xs_no_A have
             "set xs \<subseteq> nodes_in_rank n" "z \<in> nodes_in_rank n" by blast+
@@ -202,7 +206,7 @@ next
         show "set xs \<inter> A \<noteq> {}"
         proof
           assume xs_no_A: "set xs \<inter> A = {}"
-          with xfer_lower_rank_path[OF _ xs'(2)] xs'(1) \<open>target x \<in> nodes_in_rank n\<close>
+          with xfer_lower_rank_path[OF \<open>target x \<in> nodes_in_rank n\<close> xs'(2)] xs'(1)
           have "path (induced_subgraph \<sigma>) (target x) xs' z" by auto
           with xs_no_A len forces_\<sigma> \<open>target x \<in> nodes_in_rank n\<close> xs'(1)
           show False by auto
@@ -216,9 +220,9 @@ next
         show "set xs \<inter> A \<noteq> {}"
         proof
           assume xs_no_A: "set xs \<inter> A = {}"
-          with xfer_lower_rank_path[OF _ xs'(2)] xs'(1,3)
+          with xfer_lower_rank_path[OF xs'(3,2)] xs'(1)
           have "path (induced_subgraph \<sigma>) y xs' z" by auto
-          with xs_no_A len forces_\<sigma> \<open>y \<in> nodes_in_rank n\<close> xs'(1)
+          with xs_no_A len forces_\<sigma> xs'(1,3)
           show False by auto
         qed
       qed
