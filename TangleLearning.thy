@@ -37,9 +37,9 @@ lemma van_dijk_2_player:
 	assumes A_def: "A = {v. v\<in>V \<and> pr v = pr_set V}"
 	assumes attr: "player_tangle_attractor T A Z \<sigma>"
 	shows "\<forall>v\<in>Z. \<forall>xs ys.
-					lasso (induced_subgraph \<sigma> \<inter> (Z \<times> Z)) v xs ys \<longrightarrow> winning_player ys"
+					lasso (Restr (induced_subgraph \<sigma>) Z) v xs ys \<longrightarrow> winning_player ys"
 proof (intro ballI allI impI)
-	let ?restr_subgraph = "induced_subgraph \<sigma> \<inter> (Z \<times> Z)"
+	let ?restr_subgraph = "Restr (induced_subgraph \<sigma>) Z"
 	fix v xs ys
 	assume v_in_Z: "v\<in>Z" and lasso_restr_v_xs_ys: "lasso ?restr_subgraph v xs ys"
 	from player_tangle_attractor_ss[OF tangles_T fin_T attr] A_def
@@ -86,7 +86,8 @@ lemma "x \<notin> dom \<sigma> \<Longrightarrow> induced_subgraph \<sigma> \<sub
 xxx, sorry
 
 (** From anywhere in the tangle-attracted region Z to A, the opponent can reach a node of priority
-		p (the top priority in the current region) *)
+		p (the top priority in the current region).
+    Now proven in the invariant of the tangle attractor! *)
 lemma van_dijk_3_player:
 	assumes tangles_T: "\<forall>t\<in>T. player_tangle t"
 	assumes fin_T: "finite T"
@@ -94,61 +95,7 @@ lemma van_dijk_3_player:
 	assumes attr: "player_tangle_attractor T A Z \<sigma>"
 	shows "\<forall>v\<in>Z. \<exists>v'. pr v' = pr_set V \<and> (\<exists>vs. path (induced_subgraph \<sigma>) v	vs v')"
 	using tangles_T fin_T attr
-proof (induction rule: player_tangle_attractor_induct)
-	case base thus ?case
-		apply (rule ballI)
-		subgoal for v
-			apply (rule exI[where x="v"]; rule conjI)
-			subgoal using A_def by simp
-			subgoal apply (rule exI[where x="[]"]) by simp
-			done
-		done
-next
-	case (own x S y \<sigma>)
-	show ?case proof (rule ballI)
-		fix v assume v_in_S': "v \<in> insert x S"
-		consider (x) "v=x" | (not_x) "v\<noteq>x" by blast
-		thus "\<exists>v'. pr v' = pr_set V \<and> (\<exists>vs. path (induced_subgraph (\<sigma>(x\<mapsto>y))) v vs v')"
-		proof cases
-			case x
-			then show ?thesis sorry
-		next
-			case not_x
-			then show ?thesis sorry
-		qed
-	qed
-next
-	case (opponent x S \<sigma>)
-	show ?case proof (rule ballI)
-		fix v assume v_in_S': "v \<in> insert x S"
-		consider (x) "v=x" | (not_x) "v\<noteq>x" by blast
-		thus "\<exists>v'. pr v' = pr_set V \<and> (\<exists>vs. path (induced_subgraph \<sigma>) v vs v')"
-		proof cases
-			case x with opponent obtain y where
-			edge_in_E: "(x,y) \<in> E" and
-			edge_in_subgraph: "(x,y) \<in> induced_subgraph \<sigma>"
-			using succ ind_subgraph_notin_dom
-			by blast
-
-		with opponent.IH opponent.hyps(2) obtain x' ys where
-			pr_x': "pr x' = pr_set V" and
-			path_y_ys_x': "path (induced_subgraph \<sigma>) y ys x'"
-			by blast
-		from path_y_ys_x' edge_in_subgraph x have path_v_x':
-			"path (induced_subgraph \<sigma>) v (x#ys) x'" by auto
-		show ?thesis
-			apply (rule exI[where x="x'"]; rule conjI)
-			subgoal using pr_x' .
-			subgoal apply (rule exI[where x="x#ys"]) using path_v_x' by blast
-			done
-		next
-			case not_x with v_in_S' opponent show ?thesis by blast
-		qed
-	qed
-next
-	case (escape t S \<sigma>' \<sigma>)
-	show ?case sorry
-qed
+	oops
 
 (** For each new tangle t, all successors of t are in higher \<alpha>-regions.
 		The regions no longer have an assigned \<alpha> in the updated algorithm, so this needs some rephrasing.
@@ -256,6 +203,7 @@ lemma van_dijk_2:
 	using P1.van_dijk_2_player[of "{t\<in>T. tangle ODD t}"]
 	by (cases \<alpha>) auto
 
+(** Superseded by paritygame.no_escapes_tangle_is_winning_region in tangles.thy*)
 lemma van_dijk_7:
 	assumes "tangle \<alpha> t"
 	shows "escapes \<alpha> t = {} \<longleftrightarrow> winning_region \<alpha> t"

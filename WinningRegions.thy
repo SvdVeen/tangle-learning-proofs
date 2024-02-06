@@ -287,8 +287,8 @@ lemma nonempty_winning_region_not_winning_for_opponent:
   assumes "W \<noteq> {}"
   shows "winning_region \<alpha> W \<Longrightarrow> \<not>winning_region (opponent \<alpha>) W"
   using assms
-    P0.nonempty_player_winning_region_exclusive
-    P1.nonempty_player_winning_region_exclusive
+  using P0.nonempty_player_winning_region_exclusive
+  using P1.nonempty_player_winning_region_exclusive
   by (cases \<alpha>) auto
 
 (** A node cannot be won by a player and their opponent at the same time. *)
@@ -300,7 +300,9 @@ lemma disjoint_winning_region_union:
   assumes "winning_region \<alpha> W\<^sub>2"
   assumes "W\<^sub>1 \<inter> W\<^sub>2 = {}"
   shows "winning_region \<alpha> (W\<^sub>1\<union>W\<^sub>2)"
-  using assms P0.disjoint_player_winning_region_union P1.disjoint_player_winning_region_union
+  using assms
+  using P0.disjoint_player_winning_region_union
+  using P1.disjoint_player_winning_region_union
   by (cases \<alpha>; simp add: V\<^sub>1_def)
 end (** End of context paritygame. *)
 

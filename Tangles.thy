@@ -235,6 +235,14 @@ lemma opponent_escapes_pre:
   apply (simp add: opponent_escapes_def)
   using E_in_V by blast
 
+lemma no_opponent_escapes_tangle_is_winning_region:
+  assumes "player_tangle t"
+  shows "opponent_escapes t = {} \<longleftrightarrow> player_winning_region t"
+  using assms
+  using no_escapes_closed_opponent[of t]
+  using closed_player_tangle_is_winning_region[of t]
+  by (auto simp: player_winning_region_def)
+
 end (** End of context player_paritygame. *)
 
 
@@ -323,10 +331,10 @@ proof -
 
   have subgame_is_arena: "arena E' V' V\<^sub>0'"
     using paritygame.axioms[OF assms(1)] .
-  have subgame_is_finite_graph_V_Succ:  "finite_graph_V_Succ E' V'"
+  have subgame_is_finite_graph_V_succ:  "finite_graph_V_succ E' V'"
     using arena.axioms[OF subgame_is_arena] by blast
   have subgame_is_finite_graph_V: "finite_graph_V E' V'"
-    using finite_graph_V_Succ.axioms[OF subgame_is_finite_graph_V_Succ] by blast
+    using finite_graph_V_succ.axioms[OF subgame_is_finite_graph_V_succ] by blast
 
   from subgame_tangle show "tangle \<alpha> U"
   proof (cases \<alpha>; simp add: paritygame.tangle.simps[OF assms(1)])
@@ -338,7 +346,7 @@ proof -
       apply (unfold_locales)
       subgoal using subgame_is_finite_graph_V by (simp add: finite_graph_V.E_in_V)
       subgoal using subgame_is_finite_graph_V by (simp add: finite_graph_V.fin_V)
-      subgoal using subgame_is_finite_graph_V_Succ by (simp add: finite_graph_V_Succ.succ)
+      subgoal using subgame_is_finite_graph_V_succ by (simp add: finite_graph_V_succ.succ)
       subgoal using subgame_is_arena by (simp add: arena.V\<^sub>0_in_V)
       subgoal by simp
       done
@@ -353,7 +361,7 @@ proof -
       apply (unfold_locales)
       subgoal using subgame_is_finite_graph_V by (simp add: finite_graph_V.E_in_V)
       subgoal using subgame_is_finite_graph_V by (simp add: finite_graph_V.fin_V)
-      subgoal using subgame_is_finite_graph_V_Succ by (simp add: finite_graph_V_Succ.succ)
+      subgoal using subgame_is_finite_graph_V_succ by (simp add: finite_graph_V_succ.succ)
       subgoal using subgame_is_arena by (simp add: arena.V\<^sub>0_in_V)
       subgoal unfolding arena.V\<^sub>1_def[OF subgame_is_arena] by simp
       subgoal by simp
@@ -394,6 +402,14 @@ lemma tangle_escapes: "tangle \<alpha> U
 lemma no_escapes_closed: "escapes \<alpha> t = {} \<longleftrightarrow> E `` (t \<inter> V_opponent \<alpha>) \<subseteq> t"
   using P0.no_escapes_closed_opponent P1.no_escapes_closed_opponent
   by (cases \<alpha>; simp add: V\<^sub>1_def V_diff_diff_V\<^sub>0)
+
+lemma no_escapes_tangle_is_winning_region:
+  assumes "tangle \<alpha> t"
+  shows "escapes \<alpha> t = {} \<longleftrightarrow> winning_region \<alpha> t"
+  using assms
+  using P0.no_opponent_escapes_tangle_is_winning_region[of t]
+  using P1.no_opponent_escapes_tangle_is_winning_region[of t]
+  by (cases \<alpha>; simp)
 end (** End of context paritygame. *)
 
 end

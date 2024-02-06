@@ -8,7 +8,7 @@ section \<open>Arenas\<close>
 (** An arena is a finite directed graph without dead ends, along with sets of vertices that belong
     to either player. We can get by with only specifying the even player's nodes, and getting the
     odd player's nodes by subtracting the even player's nodes from the set of all nodes *)
-locale arena = finite_graph_V_Succ +
+locale arena = finite_graph_V_succ +
   fixes V\<^sub>0 :: "'v set"
   assumes V\<^sub>0_in_V: "V\<^sub>0 \<subseteq> V"
 begin
@@ -226,7 +226,7 @@ lemma ind_subgraph_is_finite_graph[simp]:
 
 (** An induced subgraph is still a valid finite graph without dead ends *)
 lemma ind_subgraph_is_finite_graph_succ: "E_of_strat \<sigma> \<subseteq> E
-  \<Longrightarrow> finite_graph_V_Succ (induced_subgraph \<sigma>) (induced_subgraph_V \<sigma>)"
+  \<Longrightarrow> finite_graph_V_succ (induced_subgraph \<sigma>) (induced_subgraph_V \<sigma>)"
   apply (unfold_locales)
     subgoal unfolding induced_subgraph_V_def by force
     subgoal by simp

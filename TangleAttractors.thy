@@ -875,8 +875,8 @@ lemma player_tangle_attractor_strat_partially_closed:
   using player_tangle_attractor_I_aux[of X \<sigma>]
   unfolding tangle_attractor_step_I_def split
   apply clarsimp
-  subgoal for y x \<sigma>
-    using add_A_target_A_notin_dom(1)[of \<sigma> X] by blast
+  subgoal for y x \<sigma>'
+    using add_A_target_A_notin_dom(1)[of \<sigma>' X] by blast
   done
 
 (** If we have a tangle-attracted region X and a witness strategy \<sigma>, then all plays in X restricted
@@ -897,9 +897,8 @@ lemma player_tangle_attractor_strat_forces_A_or_wins:
 lemma player_tangle_attractor_strat_path_to_A:
   "player_tangle_attractor X \<sigma> \<Longrightarrow> \<forall>x\<in>X. \<exists>y\<in>A. \<exists>xs. path (induced_subgraph \<sigma>) x xs y"
 proof (rule ballI)
-  fix x
-  assume attr: "player_tangle_attractor X \<sigma>" and x_in_X: "x\<in>X"
-  from player_tangle_attractor_I_aux[OF attr] obtain \<sigma>' :: "'v strat" where
+  fix x assume attr: "player_tangle_attractor X \<sigma>" and x_in_X: "x \<in> X"
+  from player_tangle_attractor_I_aux[OF attr] obtain \<sigma>' where
     \<sigma>'_dom: "dom \<sigma>' = V\<^sub>\<alpha> \<inter> (X-A)" and
     \<sigma>'_path_to_A: "\<forall>x\<in>X. \<exists>y\<in>A. \<exists>xs. path (induced_subgraph \<sigma>') x xs y" and
     \<sigma>_comp: "\<sigma> = \<sigma>' ++ A_target X"
@@ -951,7 +950,7 @@ qed
     player, its domain is a subset of all player-owned nodes in X, its range is in X, the induced
     subgraph of \<sigma> is partially closed in X (excluding A), all plays starting in X restricted by
     \<sigma> either go to A or are won by the player, and there exists a path from all nodes in X to A. *)
-lemma player_tangle_attractor_strat:
+theorem player_tangle_attractor_strat:
   "player_tangle_attractor X \<sigma> \<Longrightarrow>
    strategy_of V\<^sub>\<alpha> \<sigma> \<and>
    dom \<sigma> \<subseteq> V\<^sub>\<alpha> \<inter> X \<and>
@@ -984,32 +983,6 @@ lemma player_tangle_attractor_strat_in_dom_not_A:
   using player_tangle_attractor_I_aux[of X \<sigma>]
   unfolding tangle_attractor_step_I_def split
   by (clarsimp simp: domD)
-
-(** The (inverse) reflexive transitive closure of the tangle attractor step is a well-founded
-    relation. *)
-lemma tangle_attractor_step_wf: "wfP (tangle_attractor_step\<inverse>\<inverse>)"
-  unfolding wfP_def
-  apply (rule wf_subset[of "inv_image (finite_psubset) (\<lambda>(s,\<sigma>). V - s)"]; clarsimp)
-  apply (erule tangle_attractor_step.cases)
-  subgoal using V\<^sub>\<alpha>_subset by blast
-  subgoal by auto
-  subgoal using player_tangle_in_V tangles_T by blast
-  done
-
-(** A wellfounded relation terminates. *)
-lemma wf_rel_terminates: "wfP R\<inverse>\<inverse> \<Longrightarrow> \<exists>X' \<sigma>'. R\<^sup>*\<^sup>* S (X',\<sigma>') \<and> \<not>Domainp R (X', \<sigma>')"
-  unfolding wfP_def
-  apply (induction S rule: wf_induct_rule)
-  subgoal for x apply (cases "Domainp R x"; clarsimp)
-    subgoal using converse_rtranclp_into_rtranclp[of R] by blast
-    subgoal using surj_pair[of x] by blast
-    done
-  done
-
-(** There always exists a tangle attractor. *)
-lemma player_tangle_attractor_exists: "\<exists>X \<sigma>. player_tangle_attractor X \<sigma>"
-  using wf_rel_terminates[OF tangle_attractor_step_wf]
-  unfolding player_tangle_attractor_def by simp
 
 (** Every node that is not in a tangle attractor still has successors outside of that attractor. *)
 lemma notin_player_tangle_attractor_succ:
@@ -1065,6 +1038,32 @@ lemma player_tangle_attractor_in_V:
 (** If the target of the attractor is finite, so is the attracted region. *)
 lemma player_tangle_attractor_finite: "\<lbrakk>player_tangle_attractor X \<sigma>; finite A\<rbrakk> \<Longrightarrow> finite X"
   using finite_subset[OF player_tangle_attractor_ss] by blast
+
+(** The (inverse) reflexive transitive closure of the tangle attractor step is a well-founded
+    relation. *)
+lemma tangle_attractor_step_wf: "wfP (tangle_attractor_step\<inverse>\<inverse>)"
+  unfolding wfP_def
+  apply (rule wf_subset[of "inv_image (finite_psubset) (\<lambda>(s,\<sigma>). V - s)"]; clarsimp)
+  apply (erule tangle_attractor_step.cases)
+  subgoal using V\<^sub>\<alpha>_subset by blast
+  subgoal by auto
+  subgoal using player_tangle_in_V tangles_T by blast
+  done
+
+(** A wellfounded relation terminates. *)
+lemma wf_rel_terminates: "wfP R\<inverse>\<inverse> \<Longrightarrow> \<exists>X' \<sigma>'. R\<^sup>*\<^sup>* S (X',\<sigma>') \<and> \<not>Domainp R (X', \<sigma>')"
+  unfolding wfP_def
+  apply (induction S rule: wf_induct_rule)
+  subgoal for x apply (cases "Domainp R x"; clarsimp)
+    subgoal using converse_rtranclp_into_rtranclp[of R] by blast
+    subgoal using surj_pair[of x] by blast
+    done
+  done
+
+(** There always exists a tangle attractor. *)
+lemma player_tangle_attractor_exists: "\<exists>X \<sigma>. player_tangle_attractor X \<sigma>"
+  using wf_rel_terminates[OF tangle_attractor_step_wf]
+  unfolding player_tangle_attractor_def by simp
 end (** End of context with fixed A *)
 
 
@@ -1120,7 +1119,7 @@ lemma tangle_attractor_ss:
   using P1.player_tangle_attractor_ss[of "{t\<in>T. tangle ODD t}" A X \<sigma>]
   by (cases \<alpha>; simp)
 
-lemma tangle_attractor_strat:
+theorem tangle_attractor_strat:
   assumes "finite T"
   shows "tangle_attractor \<alpha> T A X \<sigma> \<Longrightarrow>
     strategy_of_player \<alpha> \<sigma> \<and>
