@@ -5,7 +5,7 @@ chapter \<open>Parity Games\<close>
 section \<open>A General Parity Game\<close>
 (** We define a parity game as an arena with a priority function. *)
 locale paritygame = arena E V V\<^sub>0
-  for E V and V\<^sub>0 :: "'v set" +
+  for E :: "'v dgraph" and V V\<^sub>0 :: "'v set" +
   fixes pr :: "'v \<Rightarrow> nat"
 begin
   (** Gives the top priority in a list. Used to determine which player wins a cycle. *)
@@ -53,11 +53,10 @@ section \<open>A Parity Game Bound to an Arbitrary Player\<close>
 (** We define a parity game bound to an arbitrary player so we can prove properties for any non-
     specified player. *)
 locale player_paritygame = paritygame E V V\<^sub>0 pr
-  for E V and V\<^sub>0 :: "'v set" and pr +
+  for E :: "'v dgraph" and V V\<^sub>0 :: "'v set" and pr :: "'v \<Rightarrow> nat" +
   fixes V\<^sub>\<alpha> :: "'v set"
   fixes winningP :: "nat \<Rightarrow> bool"
   assumes V\<^sub>\<alpha>_subset: "V\<^sub>\<alpha> \<subseteq> V"
-  assumes V\<^sub>\<alpha>_player: "V\<^sub>\<alpha> = V\<^sub>0 \<or> V\<^sub>\<alpha> = V\<^sub>1"
 begin
 (** Shorthand for the opponent's vertices. *)
 abbreviation (input) V\<^sub>\<beta> :: "'v set" where

@@ -76,9 +76,9 @@ proof clarsimp
   define G\<sigma> where "G\<sigma> = induced_subgraph \<sigma>"
   define G\<sigma>' where "G\<sigma>' = induced_subgraph \<sigma>'"
   assume \<sigma>_player: "strategy_of V\<^sub>\<alpha> \<sigma>"
-    and \<sigma>_win: "\<forall>xs. reachable_cycle G\<sigma> v xs \<longrightarrow> winning_player xs"
-    and \<sigma>'_opp: "strategy_of V\<^sub>\<beta> \<sigma>'"
-    and "v\<in>V"
+     and \<sigma>_win: "\<forall>xs. reachable_cycle G\<sigma> v xs \<longrightarrow> winning_player xs"
+     and \<sigma>'_opp: "strategy_of V\<^sub>\<beta> \<sigma>'"
+     and "v\<in>V"
   interpret Ginter: paritygame "G\<sigma>\<inter>G\<sigma>'" V V\<^sub>0 pr
     using ind_subgraph_inter_opposed[OF G\<sigma>_def G\<sigma>'_def \<sigma>_player \<sigma>'_opp] .
 
