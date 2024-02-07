@@ -85,6 +85,7 @@ next
     forces_\<sigma>: "\<forall>x\<in>nodes_in_rank n. \<forall>xs z. path (induced_subgraph \<sigma>) x xs z \<and> n<length xs
       \<longrightarrow> set xs \<inter> A \<noteq> {}"
     by blast
+  let ?G\<sigma> = "induced_subgraph \<sigma>"
 
   define new_player_nodes where
     "new_player_nodes = (nodes_in_rank (Suc n) - nodes_in_rank n) \<inter> V\<^sub>\<alpha>"
@@ -102,6 +103,8 @@ next
     unfolding target_def by blast+
 
   define \<sigma>' where "\<sigma>' \<equiv> \<lambda>x. if x \<in> new_player_nodes then Some (target x) else \<sigma> x"
+  let ?G\<sigma>' = "induced_subgraph \<sigma>'"
+
   show ?case
   proof (rule exI[where x=\<sigma>']; intro conjI allI ballI impI; (elim conjE)?)
     from strat_\<sigma> show \<sigma>'_strat: "strategy_of V\<^sub>\<alpha> \<sigma>'"
@@ -120,7 +123,7 @@ next
       fix n' x' y'
       assume n'_leq_Suc_n: "n' \<le> Suc n"
          and x'_in_n'_min_A: "x' \<in> nodes_in_rank n'-A"
-         and y'_succ_x': "y' \<in> induced_subgraph \<sigma>' `` {x'}"
+         and y'_succ_x': "y' \<in> ?G\<sigma>' `` {x'}"
 
       then consider (n'_leq_n) "n' \<le> n" | (n'_Suc_n) "n' = Suc n" by linarith
       thus "y' \<in> nodes_in_rank n'" proof cases
@@ -129,7 +132,7 @@ next
         have "x' \<notin> new_player_nodes"
           unfolding new_player_nodes_def by blast
 
-        with y'_succ_x' have "(x',y') \<in> induced_subgraph \<sigma>"
+        with y'_succ_x' have "(x',y') \<in> ?G\<sigma>"
           unfolding \<sigma>'_def induced_subgraph_def E_of_strat_def
           by auto
 
@@ -148,84 +151,82 @@ next
     } note closed_\<sigma>'=this
 
     {
+      fix x xs y
+      assume x_in_n: "x\<in>nodes_in_rank n"
+         and path: "path ?G\<sigma>' x xs y"
+         and xs_no_A: "A \<inter> set xs = {}"
+
+      have "path ?G\<sigma> x xs y"
+      proof (cases xs)
+        case Nil thus ?thesis using path by auto
+      next
+        case (Cons a list)
+        with xs_no_A have "x \<notin> A"
+          using origin_in_path[OF path] by blast
+        with x_in_n have x_in_n_min_A: "x \<in> nodes_in_rank n - A" by blast
+
+        have subgraph: "Restr ?G\<sigma>' (nodes_in_rank n) \<subseteq> ?G\<sigma>"
+          unfolding \<sigma>'_def induced_subgraph_def E_of_strat_def
+          by (auto simp: target_eq)
+
+        from closed_\<sigma>'[of n] have
+          "?G\<sigma>' `` (nodes_in_rank n-A) \<subseteq> nodes_in_rank n"
+          by auto
+
+        from path_partially_closed[OF x_in_n_min_A this path] xs_no_A have
+          "set xs \<subseteq> nodes_in_rank n" "y \<in> nodes_in_rank n" by blast+
+        from subgraph_path[OF subgraph path_restr_V[OF path this]]
+        show ?thesis .
+      qed
+    } note xfer_lower_rank_path=this
+
+    {
       fix x xs z
       assume x_in_suc: "x \<in> nodes_in_rank (Suc n)"
-         and path: "path (induced_subgraph \<sigma>') x xs z"
+         and path: "path ?G\<sigma>' x xs z"
          and len: "Suc n < length xs"
-
-      {
-        fix x xs z
-        assume x_in_n: "x\<in>nodes_in_rank n"
-           and path: "path (induced_subgraph \<sigma>') x xs z"
-           and xs_no_A: "A \<inter> set xs = {}"
-
-        have "path (induced_subgraph \<sigma>) x xs z"
-        proof (cases xs)
-          case Nil thus ?thesis using path by auto
-        next
-          case (Cons a list)
-          with xs_no_A have "x \<notin> A"
-            using origin_in_path[OF path] by blast
-          with x_in_n have x_in_n_min_A: "x \<in> nodes_in_rank n - A" by blast
-
-          have subgraph:
-            "Restr (induced_subgraph \<sigma>') (nodes_in_rank n) \<subseteq> induced_subgraph \<sigma>"
-            unfolding \<sigma>'_def induced_subgraph_def E_of_strat_def
-            by (auto split: if_splits simp: target_eq)
-
-          from closed_\<sigma>'[of n] have
-            "induced_subgraph \<sigma>' `` (nodes_in_rank n-A) \<subseteq> nodes_in_rank n"
-            by auto
-
-          from path_partially_closed[OF x_in_n_min_A this path] xs_no_A have
-            "set xs \<subseteq> nodes_in_rank n" "z \<in> nodes_in_rank n" by blast+
-          from subgraph_path[OF subgraph path_restr_V[OF path this]]
-          show ?thesis .
-        qed
-      } note xfer_lower_rank_path = this
 
       from x_in_suc consider
         (already_in) "x\<in>nodes_in_rank n"
       | (our_node) "x\<notin>nodes_in_rank n" "x\<in>V\<^sub>\<alpha>" "(x,target x)\<in>E" "target x\<in>nodes_in_rank n"
       | (opponent_node) "x\<notin>nodes_in_rank n" "x\<in>V\<^sub>\<beta>" "\<forall>y\<in>E``{x}. y\<in>nodes_in_rank n"
-        using new_player_nodes_def target_eq x_in_suc by simp blast
+        using new_player_nodes_def target_eq by simp blast
       thus "set xs \<inter> A \<noteq> {}" proof cases
         case already_in with path len forces_\<sigma> show ?thesis
-          using Suc_lessD xfer_lower_rank_path by fast
+          using xfer_lower_rank_path Suc_lessD by fast
 
       next
         case our_node
-        with x_in_suc have "(x,x')\<in>induced_subgraph \<sigma>' \<Longrightarrow> x'=target x" for x'
-          unfolding induced_subgraph_def E_of_strat_def \<sigma>'_def target_eq
-          by (auto split: if_splits)
-        then obtain xs' where
-          xs': "xs=x#xs'" "path (induced_subgraph \<sigma>') (target x) xs' z"
-          using len path by (cases xs) auto
+        with x_in_suc have "(x,y)\<in>?G\<sigma>' \<Longrightarrow> y=target x" for y
+          unfolding \<sigma>'_def induced_subgraph_def E_of_strat_def
+          by (auto simp: target_eq split: if_splits)
+        with path len obtain xs' where
+          xs': "xs=x#xs'" "path ?G\<sigma>' (target x) xs' z"
+          by (cases xs) auto
 
-        show "set xs \<inter> A \<noteq> {}"
-        proof
+        show "set xs \<inter> A \<noteq> {}" proof
           assume xs_no_A: "set xs \<inter> A = {}"
-          with xfer_lower_rank_path[OF \<open>target x \<in> nodes_in_rank n\<close> xs'(2)] xs'(1)
-          have "path (induced_subgraph \<sigma>) (target x) xs' z" by auto
-          with xs_no_A len forces_\<sigma> \<open>target x \<in> nodes_in_rank n\<close> xs'(1)
+          with xfer_lower_rank_path[OF \<open>target x \<in> nodes_in_rank n\<close>] xs'
+          have "path ?G\<sigma> (target x) xs' z" by auto
+          with xs_no_A len forces_\<sigma> \<open>target x \<in> nodes_in_rank n\<close> xs'
           show False by auto
         qed
+
       next
         case opponent_node
         with len path obtain xs' y where
-          xs': "xs=x#xs'" "path (induced_subgraph \<sigma>') y xs' z" "y\<in>nodes_in_rank n"
+          xs': "xs=x#xs'" "path ?G\<sigma>' y xs' z" "y\<in>nodes_in_rank n"
           by (cases xs) auto
 
-        show "set xs \<inter> A \<noteq> {}"
-        proof
+        show "set xs \<inter> A \<noteq> {}" proof
           assume xs_no_A: "set xs \<inter> A = {}"
-          with xfer_lower_rank_path[OF xs'(3,2)] xs'(1)
-          have "path (induced_subgraph \<sigma>) y xs' z" by auto
-          with xs_no_A len forces_\<sigma> xs'(1,3)
+          with xfer_lower_rank_path xs'
+          have "path ?G\<sigma> y xs' z" by auto
+          with xs_no_A len forces_\<sigma> xs'
           show False by auto
         qed
       qed
-    }
+    } note \<sigma>'_forces_A=this
   qed
 qed (** End of proof nodes_in_rank_forces_A. *)
 end (** End of context with fixed A. *)
