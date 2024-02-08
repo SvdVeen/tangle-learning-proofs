@@ -28,6 +28,9 @@ begin
     unfolding pr_set_def
     using Max_in[of "pr ` S"] by fastforce
 
+  lemma pr_V_exists: "V \<noteq> {} \<Longrightarrow> \<exists>v\<in>V. pr v = pr_set V"
+    using pr_set_exists by simp
+
   lemma pr_list_eq_pr_set_set: "pr_list xs = pr_set (set xs)"
     unfolding pr_list_def pr_set_def by simp
 
@@ -69,8 +72,8 @@ lemma player_induced_succs:
   "\<lbrakk>v\<in>V\<^sub>\<alpha>; strategy_of V\<^sub>\<alpha> \<sigma>\<rbrakk> \<Longrightarrow> induced_subgraph \<sigma> `` {v} \<noteq> {}"
   "\<lbrakk>v\<in>V\<^sub>\<alpha>; strategy_of V\<^sub>\<beta> \<sigma>\<rbrakk> \<Longrightarrow> induced_subgraph \<sigma> `` {v} = E `` {v}"
   unfolding induced_subgraph_def E_of_strat_def strategy_of_def V\<^sub>1_def
-    subgoal using succ[of v] V\<^sub>\<alpha>_subset apply (cases "v\<in>dom \<sigma>") by blast+
-    subgoal by auto
+  subgoal using succ[of v] V\<^sub>\<alpha>_subset by (cases "v\<in>dom \<sigma>") blast+
+  subgoal by auto
   done
 
 (** If the opponent owns a node, it has successors in any strategy of the opponent's nondes,
@@ -80,9 +83,14 @@ lemma opponent_induced_succs:
   "\<lbrakk>v\<in>V\<^sub>\<beta>; strategy_of V\<^sub>\<beta> \<sigma>\<rbrakk> \<Longrightarrow> induced_subgraph \<sigma> `` {v} \<noteq> {}"
   "\<lbrakk>v\<in>V\<^sub>\<beta>; strategy_of V\<^sub>\<alpha> \<sigma>\<rbrakk> \<Longrightarrow> induced_subgraph \<sigma> `` {v} = E `` {v}"
   unfolding induced_subgraph_def E_of_strat_def strategy_of_def V\<^sub>1_def
-    subgoal using succ[of v] by (cases "v\<in>dom \<sigma>") auto
-    subgoal by auto
+  subgoal using succ[of v] by (cases "v\<in>dom \<sigma>") auto
+  subgoal by auto
   done
+
+lemma player_closed_ind_subgraph_opp:
+  "\<lbrakk>induced_subgraph \<sigma> `` R \<subseteq> R'; strategy_of V\<^sub>\<alpha> \<sigma>\<rbrakk> \<Longrightarrow> E `` (V\<^sub>\<beta> \<inter> R) \<subseteq> R'"
+  unfolding induced_subgraph_def E_of_strat_def strategy_of_def
+  by auto
 
 (** The intersection of two opposing players' induced subgraphs is a valid parity game. *)
 lemma ind_subgraph_inter_opposed:
@@ -91,33 +99,14 @@ lemma ind_subgraph_inter_opposed:
   assumes \<sigma>_player: "strategy_of V\<^sub>\<alpha> \<sigma>"
   assumes \<sigma>'_opp: "strategy_of V\<^sub>\<beta> \<sigma>'"
   shows "paritygame (G\<sigma> \<inter> G\<sigma>') V V\<^sub>0"
-proof (unfold_locales)
-  show "G\<sigma> \<inter> G\<sigma>' \<subseteq> V\<times>V"
-    unfolding G\<sigma> using ind_subgraph E_in_V by blast
-  show "finite V" by simp
-  show "V\<^sub>0\<subseteq>V" using V\<^sub>0_in_V by simp
-  show "\<And>v. v \<in> V \<Longrightarrow> (G\<sigma> \<inter> G\<sigma>') `` {v} \<noteq> {}"
-  proof (cases)
-    fix v
-    assume v_player: "v\<in>V\<^sub>\<alpha>"
-    with \<sigma>'_opp have "G\<sigma>' `` {v} = E `` {v}"
-      unfolding G\<sigma>' using player_induced_succs by simp
-    moreover from v_player \<sigma>_player have "G\<sigma> `` {v} \<noteq> {}"
-      unfolding G\<sigma> using player_induced_succs by blast
-    moreover have "G\<sigma> \<subseteq> E" unfolding G\<sigma> by simp
-    ultimately show "(G\<sigma> \<inter> G\<sigma>') `` {v} \<noteq> {}" by auto
-  next
-    fix v
-    assume "v\<in>V" "v\<notin>V\<^sub>\<alpha>"
-    hence v_opp: "v\<in>V-V\<^sub>\<alpha>" by auto
-    with \<sigma>_player have "G\<sigma> `` {v} = E `` {v}"
-      unfolding G\<sigma> using opponent_induced_succs by simp
-    moreover from v_opp \<sigma>'_opp have "G\<sigma>' `` {v} \<noteq> {}"
-      unfolding G\<sigma>' using opponent_induced_succs by simp
-    moreover have "G\<sigma>' \<subseteq> E" unfolding G\<sigma>' using ind_subgraph by simp
-    ultimately show "(G\<sigma> \<inter> G\<sigma>') `` {v} \<noteq> {}" using succ[of v] by blast
-  qed
-qed
+  using assms V\<^sub>0_in_V E_in_V
+  apply (unfold_locales; clarsimp)
+  subgoal using ind_subgraph by blast
+  subgoal for v apply (cases "v\<in>V\<^sub>\<alpha>")
+    subgoal using player_induced_succs[of v] by fastforce
+    subgoal using opponent_induced_succs[of v] by fastforce
+    done
+  done
 end (** End of locale player_paritygame. *)
 
 
@@ -228,6 +217,14 @@ lemma player_strat_dom: "strategy_of_player \<alpha> \<sigma> \<Longrightarrow> 
 
 lemma player_strat_in_E: "strategy_of_player \<alpha> \<sigma> \<Longrightarrow> E_of_strat \<sigma> \<subseteq> E"
   unfolding strategy_of_player_def strategy_of_def by simp
+
+lemma closed_ind_subgraph_opp:
+  "\<lbrakk>induced_subgraph \<sigma> `` R \<subseteq> R'; strategy_of_player \<alpha> \<sigma>\<rbrakk>
+    \<Longrightarrow> E `` (V_opponent \<alpha> \<inter> R) \<subseteq> R'"
+  unfolding strategy_of_player_def
+  using P0.player_closed_ind_subgraph_opp
+  using P1.player_closed_ind_subgraph_opp
+  by (cases \<alpha>; simp add: V\<^sub>1_def V_diff_diff_V\<^sub>0)
 
 lemma restr_subgraph_strategy_of_player:
   assumes "paritygame (Restr E R) (V\<inter>R) (V\<^sub>0\<inter>R)"
