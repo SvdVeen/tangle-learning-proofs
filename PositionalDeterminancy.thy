@@ -173,6 +173,7 @@ proof -
     interpret paritygame E V V\<^sub>0 by fact
     show ?thesis by blast
   qed
+
   (** We do an induction on the size of the game. *)
   thus ?thesis using assms
   proof (induction arbitrary: E V\<^sub>0 rule: finite_psubset_induct)
@@ -229,13 +230,11 @@ proof -
       thus ?thesis proof cases
         case W\<^sub>\<beta>_empty
         (** The whole game now consists of W\<^sub>\<alpha> and A. *)
-        from W_comp have V_comp: "V = W\<^sub>\<alpha> \<union> A"
-          using attractor_subset_graph[of "{v}"] \<open>v\<in>V\<close>
-          unfolding A_def W\<^sub>\<beta>_empty
-          by blast
+        with \<open>v\<in>V\<close> W_comp A_def have V_comp: "V = W\<^sub>\<alpha> \<union> A"
+          using attractor_subset_graph[of "{v}"] by blast
 
         (** The entire game should now be won by \<alpha>. *)
-        have "winning_region \<alpha> (W\<^sub>\<alpha>\<union>A)"
+        moreover have "winning_region \<alpha> (W\<^sub>\<alpha>\<union>A)"
         proof -
           (** We take the winning strategy for W\<^sub>\<alpha>. *)
           from W\<^sub>\<alpha>_win obtain \<sigma> where
@@ -435,7 +434,7 @@ proof -
         qed
 
         (** The whole game consists of only W\<^sub>\<alpha> \<union> A, so the winning region for \<beta> is the empty set. *)
-        with V_comp show ?thesis
+        ultimately show ?thesis
           using winning_region_empty[of ?\<beta>] by (cases \<alpha>; auto)
 
       next
@@ -443,7 +442,7 @@ proof -
 
         (** We attract to the region W\<^sub>\<beta> for \<beta>. *)
         define B where "B = attractor ?\<beta> W\<^sub>\<beta>"
-        with \<open>v\<in>A\<close> W\<^sub>\<beta>_notempty W_comp have "B\<noteq>{}" "B \<subseteq> V"
+        with W\<^sub>\<beta>_notempty W_comp have "B\<noteq>{}" "B \<subseteq> V"
           using attractor_subset attractor_subset_graph by blast+
 
         (** Since removing an attractor from the game gives a valid subgame, the game V-B is a
@@ -462,11 +461,11 @@ proof -
           using opponent.simps(2) apply (cases \<alpha>)
           by fastforce (metis Int_commute Un_commute)
 
-        (** Now, the whole graph consists of X\<^sub>\<alpha> and B\<union>X\<^sub>\<beta>. *)
-        from X_comp \<open>B\<subseteq>V\<close> have V_comp: "V = X\<^sub>\<alpha> \<union> (B\<union>X\<^sub>\<beta>)" by blast
+        (** Now, the whole graph consists of X\<^sub>\<alpha> and X\<^sub>\<beta> \<union> B. *)
+        from X_comp \<open>B\<subseteq>V\<close> have V_comp: "V = X\<^sub>\<alpha> \<union> (X\<^sub>\<beta>\<union>B)" by blast
 
         (** These two regions are disjoint. *)
-        moreover from X_comp X_disj have disj: "X\<^sub>\<alpha> \<inter> (B\<union>X\<^sub>\<beta>) = {}" by auto
+        moreover from X_comp X_disj have disj: "X\<^sub>\<alpha> \<inter> (X\<^sub>\<beta>\<union>B) = {}" by auto
 
         (** If a subgame is obtained by an attractor for a player, then a winning region for the
             opponent of that player in the subgame is still a winning region in the whole game. *)
@@ -474,8 +473,8 @@ proof -
           using attractor_subgame_winning_region[OF subgame'.paritygame_axioms]
           using subgame'.winning_region_in_V by force
 
-        (** The combined region B \<union> X\<^sub>\<beta> is a winning region for \<beta>. *)
-        moreover have "winning_region ?\<beta> (B\<union>X\<^sub>\<beta>)"
+        (** The combined region X\<^sub>\<beta> \<union> B is a winning region for \<beta>. *)
+        moreover have "winning_region ?\<beta> (X\<^sub>\<beta>\<union>B)"
         proof -
           (** We get the winning strategy for X\<^sub>\<beta>. *)
           from X\<^sub>\<beta>_win obtain \<sigma> where
@@ -537,7 +536,7 @@ proof -
             unfolding winning_region_strat
             using V_opponent_opponent V_player_opponent by auto
 
-          (** The winning strategy for B \<union> W\<^sub>\<beta> is the combination of \<sigma> and \<sigma>'. *)
+          (** The winning strategy for X\<^sub>\<beta> \<union> B is the combination of \<sigma> and \<sigma>'. *)
           let ?\<tau> = "\<sigma> ++ \<sigma>'"
           let ?G\<tau> = "induced_subgraph ?\<tau>"
           (** The domains of \<sigma> and \<sigma>' are disjoint, which is useful for future properties. *)
@@ -551,13 +550,13 @@ proof -
             using subgame_strategy_of_V_player[OF subgame'.paritygame_axioms]
             by simp
 
-          (** The two domains combined cover all \<beta>-nodes in B \<union> X\<^sub>\<beta>. *)
-          moreover from \<sigma>_dom \<sigma>'_dom have \<tau>_dom: "dom ?\<tau> = ?V\<^sub>\<beta> \<inter> (B\<union>X\<^sub>\<beta>)"
+          (** The two domains combined cover all \<beta>-nodes in X\<^sub>\<beta> \<union> B. *)
+          moreover from \<sigma>_dom \<sigma>'_dom have \<tau>_dom: "dom ?\<tau> = ?V\<^sub>\<beta> \<inter> (X\<^sub>\<beta>\<union>B)"
             by (cases \<alpha>; simp add: V\<^sub>1_def subgame'.V\<^sub>1_def) force+
 
           (** The range of \<sigma> lies in X\<^sub>\<beta>, and the range of \<sigma>' lies in B, so the combined strategy
               has its range in the union of the two regions. *)
-          moreover from \<sigma>_ran \<sigma>'_ran have \<tau>_ran: "ran ?\<tau> \<subseteq> (B\<union>X\<^sub>\<beta>)"
+          moreover from \<sigma>_ran \<sigma>'_ran have \<tau>_ran: "ran ?\<tau> \<subseteq> (X\<^sub>\<beta>\<union>B)"
             using ran_map_add[OF \<tau>_doms_disj] by blast
 
           (** The region B is closed in G[\<tau>] because it was closed in G[\<sigma>'], and the games are the
@@ -572,10 +571,10 @@ proof -
               done
             done
 
-          (** G[\<tau>] is closed in B \<union> X\<^sub>\<beta> because it is closed in B, and any edge from X\<^sub>\<beta> can only go
+          (** G[\<tau>] is closed in X\<^sub>\<beta> \<union> B because it is closed in B, and any edge from X\<^sub>\<beta> can only go
               to X\<^sub>\<beta> or to B. *)
           moreover from \<tau>_ran \<tau>_closed_B X\<^sub>\<beta>_succ V_comp
-          have \<tau>_closed: "?G\<tau> `` (B\<union>X\<^sub>\<beta>) \<subseteq> (B\<union>X\<^sub>\<beta>)"
+          have \<tau>_closed: "?G\<tau> `` (X\<^sub>\<beta>\<union>B) \<subseteq> (X\<^sub>\<beta>\<union>B)"
             using \<tau>_subgames(1) apply clarsimp
             subgoal for y x apply (cases "x \<in> dom ?\<tau>")
               subgoal using ind_subgraph_edge_dst[of x y ?\<tau>] by auto
@@ -587,7 +586,7 @@ proof -
           moreover
           {
             fix x ys
-            assume "x\<in>B\<union>X\<^sub>\<beta>"
+            assume "x\<in>X\<^sub>\<beta>\<union>B"
                and reachable_cycle: "reachable_cycle ?G\<tau> x ys"
             (** We get the origin y of our reachable cycle. *)
             then obtain y where
@@ -596,10 +595,10 @@ proof -
               unfolding reachable_cycle_def
               using origin_in_cycle by fast
 
-            (** This cycle is contained entirely within B \<union> X\<^sub>\<beta> because of the closedess of this
+            (** This cycle is contained entirely within X\<^sub>\<beta> \<union> B because of the closedess of this
                 region in G[\<tau>]. *)
-            from \<open>x\<in>B\<union>X\<^sub>\<beta>\<close> reachable_cycle \<tau>_closed
-            have ys_in_B_X\<^sub>\<beta>: "set ys \<subseteq> B \<union> X\<^sub>\<beta>"
+            from \<open>x\<in>X\<^sub>\<beta>\<union>B\<close> reachable_cycle \<tau>_closed
+            have ys_in_B_X\<^sub>\<beta>: "set ys \<subseteq> X\<^sub>\<beta> \<union> B"
               using reachable_cycle_closed_set by meson
 
             (** Now we look at a case where the cycle intersects with B, and a case where the
@@ -657,7 +656,7 @@ proof -
             qed
           } note \<tau>_winning=this
 
-          (** By the former properties, B \<union> X\<^sub>\<beta> is a winning region for \<beta> with the combined
+          (** By the former properties, X\<^sub>\<beta> \<union> B is a winning region for \<beta> with the combined
               strategy \<tau>. *)
           ultimately show ?thesis
             unfolding winning_region_strat
@@ -665,7 +664,7 @@ proof -
             by (intro conjI exI[where x="?\<tau>"]; simp) blast
         qed
 
-        (** We now have two disjoint maximal winning regions, X\<^sub>\<alpha> and B \<union> X\<^sub>\<beta>. *)
+        (** We now have two disjoint maximal winning regions, X\<^sub>\<alpha> and X\<^sub>\<beta>\<union>B. *)
         ultimately show ?thesis
           by (cases \<alpha>; simp) blast+
       qed
