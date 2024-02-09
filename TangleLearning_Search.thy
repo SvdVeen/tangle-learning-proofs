@@ -305,20 +305,79 @@ lemma search_step_R_decreasing:
   by blast
   done
 
+term search_step
+find_theorems search_I search_step
+  
+lemma "wfP (\<lambda>s' s. search_step s s' \<and> search_I s)" oops
 
+  
 lemma search_step_wfP: "wfP (search_step\<inverse>\<inverse>)"
   sorry
 
+find_theorems wfP  
+
+inductive trm for R where
+  "(\<forall>s'. R s s' \<longrightarrow> trm R s') \<Longrightarrow> trm R s"
+
+  
+(** A wellfounded relation terminates. *)
+lemma wf_rel_terminates: 
+  assumes "I s"
+  assumes "\<And>s s'. I s \<Longrightarrow> R s s' \<Longrightarrow> I s'"
+  assumes "wfP (\<lambda>s' s. R s s' \<and> I s)"
+  shows "trm R s"
+  using assms(3,1) apply induction
+  apply (blast intro: trm.intros assms(2))
+  done
+
+lemma 
+  assumes "search_I s"
+  assumes "wfP (\<lambda>s' s. search_step s s' \<and> search_I s)"
+  shows "trm search_step s"
+  apply (rule wf_rel_terminates[where I=search_I,OF assms(1)])
+  apply clarify apply (rule search_step_preserves_I; assumption)
+  by fact
+
+lemma
+  assumes "trm R s"  
+  shows "\<exists>s'. R\<^sup>*\<^sup>* s s' \<and> \<not>Domainp R s'"
+  using assms apply induction
+  by (metis Domainp.cases converse_rtranclp_into_rtranclp rtranclp.rtrancl_refl)
+  
+lemma 
+  defines "R \<equiv> \<lambda>x y. x\<noteq>0 \<and> (y=Suc x \<or> y=0)"
+  defines "s \<equiv> 1"
+  defines "s'\<equiv>0"
+  shows "R\<^sup>*\<^sup>* s s'" "\<not>Domainp R s'" "\<not>trm R s"
+  
+  oops
+  assumes "R\<^sup>*\<^sup>* s s'" "\<not>Domainp R s'"  
+  shows "trm R s"
+  
+  
+  
+  
+thm wf_subset  
+    
+thm wf_rel_terminates[where I=search_I, OF _  ]
+
+  
+  
+  
 (*
 (** Because R is finite and decreases with every step, search_step is a well-founded relation. *)
 lemma search_step_wellfounded: "wfP (search_step\<inverse>\<inverse>)"
   unfolding wfP_def
   apply (rule wf_subset[of "inv_image (finite_psubset) (\<lambda>(R,Y). R)"]; clarsimp)
   subgoal for R' Y' R Y
-    using search_step_R_anti_mono[of "(R,Y)" "(R',Y')"] search_step_R_finite[of "(R,Y)"]
+  
+    find_theorems name: Tangle name: mono 
+  
+    using search_step_mono[of "(R,Y)" "(R',Y')"] search_step_R_finite[of "(R,Y)"]
     by simp
   done
-
+*)  
+(*
 (** If R is a valid non-empty subgame, then search_step can always be applied.
     The specifics of Y are not relevant, as it has no preconditions in the step. *)
 lemma search_step_continues_on_valid_R:
