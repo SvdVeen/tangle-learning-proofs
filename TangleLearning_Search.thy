@@ -115,9 +115,10 @@ proof (induction rule: search_step_induct)
   from R_valid_game interpret R_game:
     paritygame "Restr E R" "V\<inter>R" "V\<^sub>0\<inter>R" by blast
 
-  from A_def R_game.target_in_tangle_attractor[OF fin_T attr]
-    R_game.tangle_attractor_ss[OF fin_T attr]
-  have A_in_Z: "A \<subseteq> Z" and Z_in_R: "Z \<subseteq> R" by blast+
+  from A_def \<open>R \<subseteq> V\<close>
+    R_game.target_in_tangle_attractor[OF fin_T attr]
+    R_game.tangle_attractor_in_V[OF fin_T attr]
+  have A_in_Z: "A \<subseteq> Z" and Z_in_R: "Z \<subseteq> R" by auto
   with R_in_V R_game.player_strat_in_E
     R_game.tangle_attractor_strat[OF fin_T attr] have
     \<sigma>_strat: "strategy_of (V_player \<alpha> \<inter> Z) \<sigma>" and
@@ -125,8 +126,10 @@ proof (induction rule: search_step_induct)
     \<sigma>_ran: "ran \<sigma> \<subseteq> Z" and
     \<sigma>_partially_closed: "(Restr (induced_subgraph \<sigma>) R) `` (Z-A) \<subseteq> Z" and
     \<sigma>_forces_A_or_wins:
-      "(\<forall>x\<in>Z. \<forall>xs ys. lasso (Restr (induced_subgraph \<sigma>) R) x xs ys
-        \<longrightarrow>set (xs @ ys) \<inter> A \<noteq> {} \<or> player_wins_list \<alpha> ys)"
+      "\<forall>x\<in>Z. \<forall>xs ys. lasso (Restr (induced_subgraph \<sigma>) R) x xs ys
+        \<longrightarrow>set (xs @ ys) \<inter> A \<noteq> {} \<or> player_wins_list \<alpha> ys" and
+    \<sigma>_path_to_A:
+      "\<forall>x\<in>Z. \<exists>y\<in>A. \<exists>xs. path (Restr (induced_subgraph \<sigma>) R) x xs y"
     unfolding restr_subgraph_V_player[OF R_valid_game]
       restr_ind_subgraph[OF paritygame.axioms[OF R_valid_game]]
     unfolding strategy_of_player_def strategy_of_def by auto
@@ -240,12 +243,43 @@ proof (induction rule: search_step_induct)
         subgoal using \<sigma>'_all_cycles_in_U_won .
         done
 
+
+      have winning_pr_U: "player_winningP \<alpha> (pr_set U)"
+      proof -
+        have U_has_A: "U \<inter> A \<noteq> {}"
+        proof -
+          (** From all nodes in Z, we have a path to some node in A.
+              This means that from all nodes in A, we also have a path to some
+              node in A. Therefore, any nontrivial bottom SCC in Z should contain
+              at least one node in A.
+
+              The last step in the former reasoning needs some more work. *)
+          have "\<forall>x\<in>U. \<exists>y\<in>A. \<exists>xs. path (Restr (induced_subgraph \<sigma>') U) x xs y"
+          proof (rule ballI)
+            fix x assume "x \<in> U"
+            show "\<exists>y\<in>A. \<exists>xs. path (Restr (induced_subgraph \<sigma>') U) x xs y" sorry
+          qed
+          show ?thesis sorry
+        qed
+        hence "pr_set U = pr_set R"
+          unfolding step
+          using pr_set_exists[OF fin_U U_notempty]
+          using pr_le_pr_set[OF fin_U]
+          using R_game.pr_le_pr_set_V
+          apply (safe; clarsimp simp: Int_absorb1[OF R_in_V])
+          using le_antisym[of "pr v" "pr_set U" for v]
+          using U_in_Z Z_in_R subset_eq
+          by metis
+        thus ?thesis
+          unfolding step player_wins_pr_def by simp
+      qed
+
       show ?thesis
         unfolding tangle_iff
         apply (rule exI[where x=\<alpha>]; intro conjI)
         subgoal using U_notempty .
         subgoal using U_in_V .
-        subgoal sorry
+        subgoal using winning_pr_U .
         subgoal using \<sigma>'_tangle_strat by blast
         done
     qed
@@ -289,7 +323,7 @@ lemma search_preserves_I:
 
 (** If the initial R is a valid subgame, then search gives us a finite, non-empty Y that contains
     new tangles that were not included in T before. *)
-lemma valid_subgame_search_correct:
+theorem valid_subgame_search_correct:
   "\<lbrakk>valid_subgame R; search R Y\<rbrakk> \<Longrightarrow> finite Y \<and> Y \<noteq> {} \<and> (\<forall>U \<in> Y. \<exists>\<alpha>. tangle \<alpha> U \<and> U \<notin> T)"
   using search_I_correct[OF search_preserves_I[OF _ I_base_valid_subgame]] by simp
 
@@ -307,21 +341,54 @@ lemma search_step_R_decreasing:
 
 term search_step
 find_theorems search_I search_step
-  
-lemma "wfP (\<lambda>s' s. search_step s s' \<and> search_I s)" oops
 
-  
-lemma search_step_wfP: "wfP (search_step\<inverse>\<inverse>)"
-  sorry
+lemma search_step_wfP_I: "wfP (\<lambda>s' s. search_step s s' \<and> search_I s)"
+  unfolding wfP_def
+  apply (rule wf_subset[of "inv_image (finite_psubset) (\<lambda>(R,Y). R)"]; clarsimp)
+  subgoal for R' Y' R Y
+    using search_step_R_decreasing[of R Y R' Y']
+    unfolding search_I_def by fast
+  done
 
-find_theorems wfP  
+lemma search_step_final_empty_R:
+  assumes I: "search_I (R,Y)"
+  assumes final: "\<not>Domainp search_step (R,Y)"
+  shows "R = {}"
+proof (rule ccontr)
+  assume "R \<noteq> {}"
+  with I have "valid_subgame R"
+    unfolding search_I_def split by blast
+  then interpret subgame: paritygame "Restr E R" "V\<inter>R" "V\<^sub>0\<inter>R"
+    by blast
+  obtain p \<alpha> A Z \<sigma> Ov Y' R' where
+    "p = pr_set R" and
+    "\<alpha> = player_wins_pr p" and
+    "A = {v. v \<in> R \<and> pr v = p}" and
+    "subgraph_tattr R \<alpha> T A Z \<sigma>" and
+    "Ov = {v \<in> V_player \<alpha> \<inter> A. E `` {v} \<inter> Z \<noteq> {}}
+        \<union> {v \<in> V_opponent \<alpha> \<inter> A. E `` {v} \<inter> R \<subseteq> Z}" and
+    "Y' = (if Ov \<noteq> {} then Y \<union> {S. bound_nt_bottom_SCC Z \<sigma> S} else Y)" and
+    "R' = R-Z"
+    using subgame.tangle_attractor_exists[OF fin_T] by presburger
+  with \<open>R\<noteq>{}\<close> have "search_step (R,Y) (R',Y')"
+    using search_step.step[of R p \<alpha> A Z \<sigma> Ov Y' Y R'] by fast
+  hence "Domainp search_step (R,Y)" by blast
+  with final show False by blast
+qed
 
 inductive trm for R where
   "(\<forall>s'. R s s' \<longrightarrow> trm R s') \<Longrightarrow> trm R s"
 
-  
+lemma "\<nexists>s'. R s s' \<Longrightarrow> trm R s"
+  by (simp add: trm.intros)
+
+lemma trm_has_final_state: "trm R s \<Longrightarrow> \<exists>s'. R\<^sup>*\<^sup>* s s' \<and> \<not>Domainp R s'"
+  apply (induction rule: trm.induct)
+  by (metis Domainp.cases converse_rtranclp_into_rtranclp rtranclp.rtrancl_refl)
+
+
 (** A wellfounded relation terminates. *)
-lemma wf_rel_terminates: 
+lemma wf_rel_terminates_I:
   assumes "I s"
   assumes "\<And>s s'. I s \<Longrightarrow> R s s' \<Longrightarrow> I s'"
   assumes "wfP (\<lambda>s' s. R s s' \<and> I s)"
@@ -330,53 +397,36 @@ lemma wf_rel_terminates:
   apply (blast intro: trm.intros assms(2))
   done
 
-lemma 
-  assumes "search_I s"
-  assumes "wfP (\<lambda>s' s. search_step s s' \<and> search_I s)"
-  shows "trm search_step s"
-  apply (rule wf_rel_terminates[where I=search_I,OF assms(1)])
-  apply clarify apply (rule search_step_preserves_I; assumption)
-  by fact
+lemma search_step_terminates:
+  assumes "valid_subgame R"
+  shows "trm search_step (R,{})"
+  apply (rule wf_rel_terminates_I[where I=search_I])
+  using I_base_valid_subgame[OF assms(1)]
+  using search_step_preserves_I
+  using search_step_wfP_I
+  unfolding search_I_def split by blast+
 
-lemma
-  assumes "trm R s"  
-  shows "\<exists>s'. R\<^sup>*\<^sup>* s s' \<and> \<not>Domainp R s'"
-  using assms apply induction
-  by (metis Domainp.cases converse_rtranclp_into_rtranclp rtranclp.rtrancl_refl)
-  
-lemma 
-  defines "R \<equiv> \<lambda>x y. x\<noteq>0 \<and> (y=Suc x \<or> y=0)"
-  defines "s \<equiv> 1"
-  defines "s'\<equiv>0"
-  shows "R\<^sup>*\<^sup>* s s'" "\<not>Domainp R s'" "\<not>trm R s"
-  
-  oops
-  assumes "R\<^sup>*\<^sup>* s s'" "\<not>Domainp R s'"  
-  shows "trm R s"
-  
-  
-  
-  
-thm wf_subset  
-    
-thm wf_rel_terminates[where I=search_I, OF _  ]
+lemma search_step_exists:
+  assumes "valid_subgame R"
+  shows "\<exists>Y. search R Y"
+  using trm_has_final_state[OF search_step_terminates[OF assms]]
+  using I_base_valid_subgame[OF assms]
+  using search_step_final_empty_R[OF search_step_rtranclp_preserves_I]
+  unfolding search_def by fast
 
-  
-  
-  
 (*
 (** Because R is finite and decreases with every step, search_step is a well-founded relation. *)
 lemma search_step_wellfounded: "wfP (search_step\<inverse>\<inverse>)"
   unfolding wfP_def
   apply (rule wf_subset[of "inv_image (finite_psubset) (\<lambda>(R,Y). R)"]; clarsimp)
   subgoal for R' Y' R Y
-  
-    find_theorems name: Tangle name: mono 
-  
+
+    find_theorems name: Tangle name: mono
+
     using search_step_mono[of "(R,Y)" "(R',Y')"] search_step_R_finite[of "(R,Y)"]
     by simp
   done
-*)  
+*)
 (*
 (** If R is a valid non-empty subgame, then search_step can always be applied.
     The specifics of Y are not relevant, as it has no preconditions in the step. *)
@@ -460,7 +510,6 @@ lemma search_terminates_on_empty_R: "\<not>Domainp search_step ({},Y)"
   by auto
 *)
 end (** End of context with fixed T. *)
-
 end (** End of context paritygame *)
 
 end
