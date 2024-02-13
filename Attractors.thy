@@ -525,7 +525,7 @@ lemma attractor_extends_winning_region:
   using P0.player_attractor_extends_winning_region P1.player_attractor_extends_winning_region
   by (cases \<alpha>; simp)
 
-lemma remove_attractor_valid_subgame[simp]:
+lemma remove_attractor_subgame[simp]:
   "valid_subgame (V-attractor \<alpha> A)"
   apply simp
   apply (unfold_locales; clarsimp)

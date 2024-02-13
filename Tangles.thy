@@ -259,7 +259,7 @@ fun tangle_subgraph :: "player \<Rightarrow> 'v set \<Rightarrow> 'v strat \<Rig
 lemma tangle_subgraph_eq:
   "tangle_subgraph \<alpha> U \<sigma> = E \<inter> (E_of_strat \<sigma> \<union> ((U \<inter> V_opponent \<alpha>)) \<times> U)"
   using P0.player_tangle_subgraph_def P1.player_tangle_subgraph_def
-  by (cases \<alpha>; simp add: V\<^sub>1_def V_diff_diff_V\<^sub>0)
+  using V\<^sub>0_opposite_V\<^sub>1 by (cases \<alpha>; simp add: V\<^sub>1_def)
 
 lemma tangle_subgraph_is_restricted_ind_subgraph:
   assumes "U \<subseteq> V"
@@ -317,7 +317,7 @@ lemma closed_tangle_is_winning_region:
   assumes "E `` (U \<inter> V_opponent \<alpha>) \<subseteq> U"
   shows "winning_region \<alpha> U"
   using P0.closed_player_tangle_is_winning_region P1.closed_player_tangle_is_winning_region
-  using assms by (cases \<alpha>; simp add: V\<^sub>1_def V_diff_diff_V\<^sub>0)
+  using assms V\<^sub>0_opposite_V\<^sub>1 by (cases \<alpha>; simp add: V\<^sub>1_def)
 
 (** TODO: cleanup of this proof *)
 lemma subgame_tangle_is_tangle:
@@ -383,7 +383,7 @@ fun escapes :: "player \<Rightarrow> 'v set \<Rightarrow> 'v set" where
     context. *)
 lemma escapes_eq: "escapes \<alpha> t = {v. \<exists>u. (u,v) \<in> E \<and> u \<in> t \<inter> V_opponent \<alpha> \<and> v \<in> V-t}"
   using P0.opponent_escapes_def P1.opponent_escapes_def
-  by (cases \<alpha>; simp add: V\<^sub>1_def V_diff_diff_V\<^sub>0)
+  using V\<^sub>0_opposite_V\<^sub>1 by (cases \<alpha>; simp add: V\<^sub>1_def)
 
 lemma escapes_in_V: "escapes \<alpha> t \<subseteq> V"
   using P0.opponent_escapes_in_V P1.opponent_escapes_in_V
@@ -395,11 +395,11 @@ lemma fin_escapes[simp]: "finite (escapes \<alpha> t)"
 lemma tangle_escapes: "tangle \<alpha> U
   \<Longrightarrow> (\<forall>v\<in>U \<inter> V_opponent \<alpha>. \<forall>w. (v,w) \<in> E \<longrightarrow> w \<in> U \<or> w \<in> escapes \<alpha> U)"
   using P0.player_tangle_escapes P1.player_tangle_escapes
-  by (cases \<alpha>; simp add: V\<^sub>1_def V_diff_diff_V\<^sub>0)
+  using V\<^sub>0_opposite_V\<^sub>1 by (cases \<alpha>; simp add: V\<^sub>1_def)
 
 lemma no_escapes_closed: "escapes \<alpha> t = {} \<longleftrightarrow> E `` (t \<inter> V_opponent \<alpha>) \<subseteq> t"
   using P0.no_escapes_closed_opponent P1.no_escapes_closed_opponent
-  by (cases \<alpha>; simp add: V\<^sub>1_def V_diff_diff_V\<^sub>0)
+  using V\<^sub>0_opposite_V\<^sub>1 by (cases \<alpha>; simp add: V\<^sub>1_def)
 
 lemma no_escapes_tangle_is_winning_region:
   assumes "tangle \<alpha> t"

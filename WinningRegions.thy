@@ -268,14 +268,14 @@ lemma losing_region_simps[simp]:
   "P0.losing_region = P1.player_winning_region"
   unfolding P0.losing_region_def P1.losing_region_def
   unfolding P0.player_winning_region_def P1.player_winning_region_def
-  by (auto simp: V\<^sub>1_def V_diff_diff_V\<^sub>0)
+  using V\<^sub>0_opposite_V\<^sub>1 by (auto simp: V\<^sub>1_def)
 
 lemma won_by_opponent_simps[simp]:
   "P1.won_by_opponent = P0.won_by_player"
   "P0.won_by_opponent = P1.won_by_player"
   unfolding P0.won_by_opponent_def P1.won_by_opponent_def
   unfolding  P0.won_by_player_def P1.won_by_player_def
-  by (auto simp: V\<^sub>1_def V_diff_diff_V\<^sub>0)
+  using V\<^sub>0_opposite_V\<^sub>1 by (auto simp: V\<^sub>1_def)
 
 (** If a node is in a player's winning region, it is won by that player *)
 lemma winning_region_won_by: "\<lbrakk>winning_region \<alpha> W; v\<in>W\<rbrakk> \<Longrightarrow> won_by \<alpha> v"

@@ -8,47 +8,47 @@ locale paritygame = arena E V V\<^sub>0
   for E :: "'v dgraph" and V V\<^sub>0 :: "'v set" +
   fixes pr :: "'v \<Rightarrow> nat"
 begin
-  (** Gives the top priority in a list. Used to determine which player wins a cycle. *)
-  definition pr_list :: "'v list \<Rightarrow> nat" where
-    "pr_list xs \<equiv> MAX v \<in> set xs. pr v"
 
-  (** Gives the top priority in a set of nodes. *)
-  definition pr_set :: "'v set \<Rightarrow> nat" where
-    "pr_set S \<equiv> Max (pr ` S)"
+(** Gives the top priority in a set of nodes. *)
+definition pr_set :: "'v set \<Rightarrow> nat" where
+  "pr_set S \<equiv> Max (pr ` S)"
 
-  lemma pr_le_pr_set: "\<lbrakk>finite S; v \<in> S\<rbrakk> \<Longrightarrow> pr v \<le> pr_set S"
-    unfolding pr_set_def by simp
+(** Gives the top priority in a list. Used to determine which player wins a cycle. *)
+definition pr_list :: "'v list \<Rightarrow> nat" where
+  "pr_list xs \<equiv> pr_set (set xs)"
 
-  (** The priority of any node in V is less than or equal to the top priority in V. *)
-  lemma pr_le_pr_set_V: "v \<in> V \<Longrightarrow> pr v \<le> pr_set V"
-    using pr_le_pr_set by simp
+lemma pr_le_pr_set: "\<lbrakk>finite S; v \<in> S\<rbrakk> \<Longrightarrow> pr v \<le> pr_set S"
+  unfolding pr_set_def by simp
 
-  (** In a nonempty finite set S, there always exists a v in S with its highest priority. *)
-  lemma pr_set_exists: "\<lbrakk>finite S; S\<noteq>{}\<rbrakk> \<Longrightarrow> \<exists>v\<in>S. pr v = pr_set S"
-    unfolding pr_set_def
-    using Max_in[of "pr ` S"] by fastforce
+(** The priority of any node in V is less than or equal to the top priority in V. *)
+lemma pr_le_pr_set_V: "v \<in> V \<Longrightarrow> pr v \<le> pr_set V"
+  using pr_le_pr_set by simp
 
-  lemma pr_V_exists: "V \<noteq> {} \<Longrightarrow> \<exists>v\<in>V. pr v = pr_set V"
-    using pr_set_exists by simp
+(** In a nonempty finite set S, there always exists a v in S with its highest priority. *)
+lemma pr_set_exists: "\<lbrakk>finite S; S\<noteq>{}\<rbrakk> \<Longrightarrow> \<exists>v\<in>S. pr v = pr_set S"
+  unfolding pr_set_def
+  using Max_in[of "pr ` S"] by fastforce
 
-  lemma pr_list_eq_pr_set_set: "pr_list xs = pr_set (set xs)"
-    unfolding pr_list_def pr_set_def by simp
+lemma pr_V_exists: "V \<noteq> {} \<Longrightarrow> \<exists>v\<in>V. pr v = pr_set V"
+  using pr_set_exists by simp
 
-  (** The top priority in a nonempty list that is a subset of V is less than or equal to the top
-      priority in V. *)
-  lemma pr_list_le_pr_set_V: "\<lbrakk>set xs \<subseteq> V; xs \<noteq> []\<rbrakk> \<Longrightarrow> pr_list xs \<le> pr_set V"
-    unfolding pr_list_def pr_set_def
-    using image_mono Max_mono by auto
+(** The top priority in a nonempty list that is a subset of V is less than or equal to the top
+    priority in V. *)
+lemma pr_list_le_pr_set_V:
+  "\<lbrakk>set xs \<subseteq> V; xs \<noteq> []\<rbrakk> \<Longrightarrow> pr_list xs \<le> pr_set V"
+  unfolding pr_list_def pr_set_def
+  using image_mono Max_mono by auto
 
-  (** If we have a node of the top priority in V in a list xs that is entirely in V, then the top
-      priority in the list is equal to the top priority in V. *)
-  lemma pr_V_in_list: "\<lbrakk>set xs \<subseteq> V; v \<in> set xs; pr v = pr_set V\<rbrakk> \<Longrightarrow> pr_list xs = pr_set V"
-    using pr_list_le_pr_set_V pr_le_pr_set
-    by (simp add: pr_list_eq_pr_set_set) fastforce
+(** If we have a node of the top priority in V in a list xs that is entirely in V, then the top
+    priority in the list is equal to the top priority in V. *)
+lemma pr_V_in_list:
+  "\<lbrakk>set xs \<subseteq> V; v \<in> set xs; pr v = pr_set V\<rbrakk> \<Longrightarrow> pr_list xs = pr_set V"
+  using pr_list_le_pr_set_V pr_le_pr_set[of "set xs"]
+  unfolding pr_list_def by force
 
-  (** A valid subgame is a region in V that is a valid parity game. *)
-  abbreviation (input) valid_subgame :: "'v set \<Rightarrow> bool" where
-    "valid_subgame R \<equiv> R \<subseteq> V \<and> paritygame (Restr E R) (V\<inter>R) (V\<^sub>0\<inter>R)"
+(** A valid subgame is a region in V that is a valid parity game. *)
+abbreviation (input) valid_subgame :: "'v set \<Rightarrow> bool" where
+  "valid_subgame R \<equiv> R \<subseteq> V \<and> paritygame (Restr E R) (V\<inter>R) (V\<^sub>0\<inter>R)"
 end
 
 
@@ -179,17 +179,11 @@ lemma V_player_opponent: "V_player (opponent \<alpha>) = V_opponent \<alpha>"
 lemma V_opponent_opponent: "V_opponent (opponent \<alpha>) = V_player \<alpha>"
   by (cases \<alpha>) auto
 
-lemma V_diff_diff_V\<^sub>0: "(V - (V - V\<^sub>0)) = V\<^sub>0"
-  by (simp add: V\<^sub>0_in_V double_diff)
-
 lemma V_player_opposite_V_opponent: "V_player \<alpha> = V - V_opponent \<alpha>"
-  using V_diff_diff_V\<^sub>0 by (cases \<alpha>; simp add: V\<^sub>1_def)
+  using V\<^sub>0_opposite_V\<^sub>1 by (cases \<alpha>; simp add: V\<^sub>1_def)
 
 lemma V_opponent_opposite_V_player: "V_opponent \<alpha> = V - V_player \<alpha>"
-    using V_diff_diff_V\<^sub>0 by (cases \<alpha>; simp add: V\<^sub>1_def)
-
-lemma V_opponent_player_int: "V' \<subseteq> V \<Longrightarrow> V' \<inter> V_opponent \<alpha> = V' - V_player \<alpha>"
-  using V\<^sub>1_def by (cases \<alpha>) auto
+    using V\<^sub>0_opposite_V\<^sub>1 by (cases \<alpha>; simp add: V\<^sub>1_def)
 
 lemma v_notin_V_player_in_V_opponent: "v\<in>V \<Longrightarrow> v \<notin> V_player \<alpha> \<longleftrightarrow> v \<in> V_opponent \<alpha>"
   using V_player_opposite_V_opponent by auto
@@ -224,7 +218,7 @@ lemma closed_ind_subgraph_opp:
   unfolding strategy_of_player_def
   using P0.player_closed_ind_subgraph_opp
   using P1.player_closed_ind_subgraph_opp
-  by (cases \<alpha>; simp add: V\<^sub>1_def V_diff_diff_V\<^sub>0)
+  using V\<^sub>0_opposite_V\<^sub>1 by (cases \<alpha>; simp add: V\<^sub>1_def)
 
 lemma restr_subgraph_strategy_of_player:
   assumes "paritygame (Restr E R) (V\<inter>R) (V\<^sub>0\<inter>R)"

@@ -13,8 +13,8 @@ lemma attractor_subgame:
   assumes "V' = V-X"
   assumes "V\<^sub>0' = V\<^sub>0-X"
   shows "paritygame E' V' V\<^sub>0'"
-  using assms E_in_V V\<^sub>0_in_V notin_attractor_succ
-  by unfold_locales blast+
+  using V\<^sub>0_in_V Int_Diff[of V\<^sub>0 V X] remove_attractor_subgame
+  by (simp add: assms Int_absorb1 Int_absorb2)
 
 (** If we remove some set from a game and the result is a valid subgame, then its player nodes
     are a subset of the player nodes in the whole game. *)
