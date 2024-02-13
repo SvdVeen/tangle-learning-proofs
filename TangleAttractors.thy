@@ -60,7 +60,8 @@ lemma tangle_attractor_step_rtranclp_mono:
 
 (** The tangle attractor step's result is always in the union of the original attractor set and V.
     This means that attractors to regions in V will be entirely in V. *)
-lemma tangle_attractor_step_ss: "tangle_attractor_step (X,\<sigma>) (X',\<sigma>') \<Longrightarrow> X' \<subseteq> X \<union> V"
+lemma tangle_attractor_step_ss:
+  "tangle_attractor_step (X,\<sigma>) (X',\<sigma>') \<Longrightarrow> X' \<subseteq> X \<union> V"
   apply (induction rule: tangle_attractor_step_induct)
   subgoal using V\<^sub>\<alpha>_subset by auto
   subgoal by simp
@@ -101,7 +102,8 @@ definition tangle_attractor_step_I :: "'v set \<times> 'v strat \<Rightarrow> bo
    (\<forall>x\<in>X. \<exists>x'\<in>A. \<exists>xs. path (induced_subgraph \<sigma>) x xs x')"
 
 (** The invariant holds for the initial state of the tangle attractor. *)
-lemma tangle_attractor_step_I_base: "tangle_attractor_step_I (A,Map.empty)"
+lemma tangle_attractor_step_I_base:
+  "tangle_attractor_step_I (A,Map.empty)"
   unfolding tangle_attractor_step_I_def split
   apply (clarsimp; intro conjI ballI)
   subgoal for x using origin_in_lasso[of _ x] by blast
@@ -161,8 +163,8 @@ lemma tangle_attractor_step_closed_X':
     "\<lbrakk>tangle_attractor_step (X,\<sigma>) (X',\<sigma>'); tangle_attractor_step_I (X,\<sigma>)\<rbrakk>
     \<Longrightarrow> induced_subgraph \<sigma>' `` (X'-A) \<subseteq> X'"
 proof -
-  assume step: "tangle_attractor_step (X,\<sigma>) (X',\<sigma>')" and
-    invar: "tangle_attractor_step_I (X,\<sigma>)"
+  assume step: "tangle_attractor_step (X,\<sigma>) (X',\<sigma>')"
+     and invar: "tangle_attractor_step_I (X,\<sigma>)"
   hence "dom \<sigma>' = V\<^sub>\<alpha> \<inter> (X'-A)" "ran \<sigma>' \<subseteq> X'"
     "induced_subgraph \<sigma>' `` (X-A) \<subseteq> X"
     using tangle_attractor_step_dom tangle_attractor_step_ran
@@ -229,8 +231,8 @@ lemma tangle_attractor_step_forces_A_or_wins:
     \<Longrightarrow> (\<forall>x\<in>X'. \<forall>xs ys. lasso (induced_subgraph \<sigma>') x xs ys
         \<longrightarrow> set (xs@ys) \<inter> A \<noteq> {} \<or> winning_player ys)"
 proof -
-  assume step: "tangle_attractor_step (X,\<sigma>) (X',\<sigma>')" and
-    invar: "tangle_attractor_step_I (X,\<sigma>)"
+  assume step: "tangle_attractor_step (X,\<sigma>) (X',\<sigma>')"
+     and invar: "tangle_attractor_step_I (X,\<sigma>)"
 
   hence props:
     "dom \<sigma>' = V\<^sub>\<alpha> \<inter> (X'-A)"
@@ -418,8 +420,8 @@ lemma tangle_attractor_step_path_X_to_A:
   "\<lbrakk>tangle_attractor_step (X,\<sigma>) (X',\<sigma>'); tangle_attractor_step_I (X,\<sigma>)\<rbrakk>
     \<Longrightarrow> \<forall>x\<in>X. \<exists>x'\<in>A. \<exists>xs. path (induced_subgraph \<sigma>') x xs x'"
 proof-
-  assume step: "tangle_attractor_step (X,\<sigma>) (X',\<sigma>')" and
-    invar: "tangle_attractor_step_I (X,\<sigma>)"
+  assume step: "tangle_attractor_step (X,\<sigma>) (X',\<sigma>')"
+     and invar: "tangle_attractor_step_I (X,\<sigma>)"
   hence dom: "dom \<sigma>' = V\<^sub>\<alpha> \<inter> (X'-A)"
     using tangle_attractor_step_dom by auto
 
@@ -527,8 +529,8 @@ lemma tangle_attractor_step_path_to_A:
   "\<lbrakk>tangle_attractor_step (X,\<sigma>) (X',\<sigma>'); tangle_attractor_step_I (X,\<sigma>)\<rbrakk>
     \<Longrightarrow> \<forall>x\<in>X'. \<exists>x'\<in>A. \<exists>xs. path (induced_subgraph \<sigma>') x xs x'"
 proof -
-  assume step: "tangle_attractor_step (X,\<sigma>) (X',\<sigma>')" and
-    invar: "tangle_attractor_step_I (X,\<sigma>)"
+  assume step: "tangle_attractor_step (X,\<sigma>) (X',\<sigma>')"
+     and invar: "tangle_attractor_step_I (X,\<sigma>)"
   hence props:
     "dom \<sigma>' = V\<^sub>\<alpha> \<inter> (X'-A)"
     "induced_subgraph \<sigma>' `` (X-A) \<subseteq> X"
@@ -722,7 +724,7 @@ proof -
             consider (y_in_X) "y \<in> X" | (y_notin_X) "y \<notin> X" by blast
             thus ?thesis proof cases
               case y_in_X
-              with path_no_X[OF this _ X_notin_xs path_x_y] 
+              with path_no_X[OF this _ X_notin_xs path_x_y]
                    X_path_to_A Cons
               show ?thesis using append_path_to_A by blast
             next
@@ -843,6 +845,23 @@ lemma target_in_player_tangle_attractor:
   using player_tangle_attractor_I_aux[of X \<sigma>]
   unfolding tangle_attractor_step_I_def split
   by fast
+
+(** An attracted region is a subset of the union of its target and V. This means that if the target
+    is in V, the attracted region is entirely in V. *)
+lemma player_tangle_attractor_ss:
+  "player_tangle_attractor X \<sigma> \<Longrightarrow> X \<subseteq> A \<union> V"
+  unfolding player_tangle_attractor_def
+  using tangle_attractor_step_rtranclp_ss by fastforce
+
+(** If A is part of V, then so is its tangle attracted region X *)
+lemma player_tangle_attractor_in_V:
+  "\<lbrakk>player_tangle_attractor X \<sigma>; A \<subseteq> V\<rbrakk> \<Longrightarrow> X \<subseteq> V"
+  using player_tangle_attractor_ss by blast
+
+(** If the target of the attractor is finite, so is the attracted region. *)
+lemma player_tangle_attractor_finite:
+  "\<lbrakk>player_tangle_attractor X \<sigma>; finite A\<rbrakk> \<Longrightarrow> finite X"
+  using finite_subset[OF player_tangle_attractor_ss] by blast
 
 (** If we have a tangle-attracted region X and witness strategy \<sigma>, then that is a strategy for the
     player. *)
@@ -986,61 +1005,14 @@ lemma player_tangle_attractor_strat_in_dom_not_A:
 (** Every node that is not in a tangle attractor still has successors outside of that attractor. *)
 lemma notin_player_tangle_attractor_succ:
   "\<lbrakk>player_tangle_attractor X \<sigma>; v \<in> V; v \<notin> X\<rbrakk> \<Longrightarrow> E `` {v} - X \<noteq> {}"
-proof
-  assume attr: "player_tangle_attractor X \<sigma>" and
-         v_in_V: "v \<in> V" and
-         v_notin_X: "v \<notin> X" and
-         no_succs_outside_X: "E `` {v} - X = {}"
-  (** We need to unfold the definition of the attractor so we can use it for our induction later. *)
-  from attr obtain \<sigma>' where
-    attr_step_rtranclp: "tangle_attractor_step\<^sup>*\<^sup>* (A,Map.empty) (X,\<sigma>')" and
-    attr_step_result: "\<not>Domainp tangle_attractor_step (X,\<sigma>')"
-    unfolding player_tangle_attractor_def by auto
-
-  (** By our definition of a parity game, there must be successors to v. Furthermore, because we
-      have the assumption that there are no successors outside of X, all of them must be in X.
-      This also means that there exists at least one successor in X, which we will need for the case
-      that v belongs to the player. *)
-  from succ[OF v_in_V] have v_succ: "E `` {v} \<noteq> {}" .
-  with no_succs_outside_X v_in_V have all_succs_in_X: "\<forall>v'. (v,v') \<in> E \<longrightarrow> v' \<in> X" by blast
-  with v_succ have some_succ_in_X: "\<exists>v'. (v,v') \<in> E \<and> v' \<in> X" by blast
-
-  (** Now we have two cases: v belongs to the player, and v belongs to the opponent.
-      If v belongs to the player, and it has a successor in X, then it should be part of X by
-      the definition of our tangle attractor.
-      Likewise, if v belongs to the opponent, and all of its successors are in X, then it should
-      be part of X by the definition of the tangle attractor.
-      We have the assumption that v is not a part of X, so we have a contradiction, completing
-      our proof. *)
-  from v_in_V consider (v_player) "v \<in> V\<^sub>\<alpha>" | (v_opp) "v \<in> V\<^sub>\<beta>" by blast
-  thus "False"
-    using attr_step_rtranclp attr_step_result v_notin_X
-    apply cases
-    subgoal apply (induction rule: converse_rtranclp_induct)
-      using some_succ_in_X by (auto intro: tangle_attractor_step.player)
-    subgoal apply (induction rule: converse_rtranclp_induct)
-      using all_succs_in_X by (auto intro: tangle_attractor_step.opponent)
-    done
-qed
-
-(** An attracted region is a subset of the union of its target and V. This means that if the target
-    is in V, the attracted region is entirely in V. *)
-lemma player_tangle_attractor_ss: "player_tangle_attractor X \<sigma> \<Longrightarrow> X \<subseteq> A \<union> V"
   unfolding player_tangle_attractor_def
-  using tangle_attractor_step_rtranclp_ss by fastforce
-
-(** If A is part of V, then so is its tangle attracted region X *)
-lemma player_tangle_attractor_in_V:
-  "\<lbrakk>player_tangle_attractor X \<sigma>; A \<subseteq> V\<rbrakk> \<Longrightarrow> X \<subseteq> V"
-  using player_tangle_attractor_ss by blast
-
-(** If the target of the attractor is finite, so is the attracted region. *)
-lemma player_tangle_attractor_finite: "\<lbrakk>player_tangle_attractor X \<sigma>; finite A\<rbrakk> \<Longrightarrow> finite X"
-  using finite_subset[OF player_tangle_attractor_ss] by blast
+  using succ[of v] apply (cases "v\<in>V\<^sub>\<alpha>")
+  by (auto intro: tangle_attractor_step.intros)
 
 (** The (inverse) reflexive transitive closure of the tangle attractor step is a well-founded
     relation. *)
-lemma tangle_attractor_step_wf: "wfP (tangle_attractor_step\<inverse>\<inverse>)"
+lemma tangle_attractor_step_wf:
+  "wfP (tangle_attractor_step\<inverse>\<inverse>)"
   unfolding wfP_def
   apply (rule wf_subset[of "inv_image (finite_psubset) (\<lambda>(s,\<sigma>). V - s)"]; clarsimp)
   apply (erule tangle_attractor_step.cases)
@@ -1060,7 +1032,8 @@ lemma wf_rel_terminates: "wfP R\<inverse>\<inverse> \<Longrightarrow> \<exists>X
   done
 
 (** There always exists a tangle attractor. *)
-lemma player_tangle_attractor_exists: "\<exists>X \<sigma>. player_tangle_attractor X \<sigma>"
+lemma player_tangle_attractor_exists:
+  "\<exists>X \<sigma>. player_tangle_attractor X \<sigma>"
   using wf_rel_terminates[OF tangle_attractor_step_wf]
   unfolding player_tangle_attractor_def by simp
 end (** End of context with fixed A *)
@@ -1088,35 +1061,26 @@ fun tangle_attractor :: "player \<Rightarrow> 'v set set \<Rightarrow> 'v set \<
   "tangle_attractor EVEN T = P0.player_tangle_attractor {t\<in>T. tangle EVEN t}"
 | "tangle_attractor ODD T = P1.player_tangle_attractor {t\<in>T. tangle ODD t}"
 
-lemma tangle_attractor_exists:
-  assumes fin_T: "finite T"
-  shows "\<exists>X \<sigma>. tangle_attractor \<alpha> T A X \<sigma>"
-  using P0.player_tangle_attractor_exists P1.player_tangle_attractor_exists
-  by (cases \<alpha>; simp add: fin_T)
-
-lemma notin_tangle_attractor_succ:
-  assumes fin_T: "finite T"
-  shows "\<lbrakk>tangle_attractor \<alpha> T A X \<sigma>; v \<in> V; v \<notin> X\<rbrakk> \<Longrightarrow> E `` {v}-X \<noteq> {}"
-  using assms
-  using P0.notin_player_tangle_attractor_succ[of "{t\<in>T. tangle EVEN t}" A X \<sigma>]
-  using P1.notin_player_tangle_attractor_succ[of "{t\<in>T. tangle ODD t}" A X \<sigma>]
-  by (cases \<alpha>; simp)
-
-lemma target_in_tangle_attractor:
-  assumes fin_T: "finite T"
+theorem target_in_tangle_attractor:
+  assumes "finite T"
   shows "tangle_attractor \<alpha> T A X \<sigma> \<Longrightarrow> A \<subseteq> X"
-  using assms
   using P0.target_in_player_tangle_attractor[of "{t\<in>T. tangle EVEN t}" A X \<sigma>]
   using P1.target_in_player_tangle_attractor[of "{t\<in>T. tangle ODD t}" A X \<sigma>]
-  by (cases \<alpha>; simp)
+  by (cases \<alpha>; simp add: assms)
 
-lemma tangle_attractor_ss:
-  assumes fin_T: "finite T"
-  shows "tangle_attractor \<alpha> T A X \<sigma> \<Longrightarrow> X \<subseteq> A \<union> V"
-  using assms
-  using P0.player_tangle_attractor_ss[of "{t\<in>T. tangle EVEN t}" A X \<sigma>]
-  using P1.player_tangle_attractor_ss[of "{t\<in>T. tangle ODD t}" A X \<sigma>]
-  by (cases \<alpha>; simp)
+theorem tangle_attractor_in_V:
+  assumes "finite T"
+  shows "\<lbrakk>tangle_attractor \<alpha> T A X \<sigma>; A \<subseteq> V\<rbrakk> \<Longrightarrow> X \<subseteq> V"
+  using P0.player_tangle_attractor_in_V[of "{t\<in>T. tangle EVEN t}" A X \<sigma>]
+  using P1.player_tangle_attractor_in_V[of "{t\<in>T. tangle ODD t}" A X \<sigma>]
+  by (cases \<alpha>; auto simp: assms)
+
+theorem tangle_attractor_finite:
+  assumes "finite T"
+  shows "\<lbrakk>tangle_attractor \<alpha> T A X \<sigma>; finite A\<rbrakk> \<Longrightarrow> finite X"
+  using P0.player_tangle_attractor_finite[of "{t\<in>T. tangle EVEN t}" A X \<sigma>]
+  using P1.player_tangle_attractor_finite[of "{t\<in>T. tangle ODD t}" A X \<sigma>]
+  by (cases \<alpha>; simp add: assms)
 
 theorem tangle_attractor_strat:
   assumes "finite T"
@@ -1129,43 +1093,46 @@ theorem tangle_attractor_strat:
       \<longrightarrow> set (xs@ys) \<inter> A \<noteq> {} \<or> player_wins_list \<alpha> ys) \<and>
     (\<forall>x\<in>X. \<exists>y\<in>A. \<exists>xs. path (induced_subgraph \<sigma>) x xs y)"
   unfolding strategy_of_player_def
-  using assms
   using P0.player_tangle_attractor_strat[of "{t\<in>T. tangle EVEN t}" A X \<sigma>]
   using P1.player_tangle_attractor_strat[of "{t\<in>T. tangle ODD t}" A X \<sigma>]
-  by (cases \<alpha>; simp add: V\<^sub>1_def)
+  by (cases \<alpha>; simp add: assms V\<^sub>1_def)
+
+theorem tangle_attractor_exists:
+  assumes "finite T"
+  shows "\<exists>X \<sigma>. tangle_attractor \<alpha> T A X \<sigma>"
+  using P0.player_tangle_attractor_exists
+  using P1.player_tangle_attractor_exists
+  by (cases \<alpha>; simp add: assms)
 
 lemma tangle_attractor_strat_in_dom_A:
   assumes "finite T"
   shows "\<lbrakk>tangle_attractor \<alpha> T A X \<sigma>; x \<in> V_player \<alpha> \<inter> A; E `` {x} \<inter> X \<noteq> {}\<rbrakk> \<Longrightarrow> x \<in> dom \<sigma>"
-  using assms
   using P0.player_tangle_attractor_strat_in_dom_A[of "{t\<in>T. tangle EVEN t}" A X \<sigma>]
   using P1.player_tangle_attractor_strat_in_dom_A[of "{t\<in>T. tangle ODD t}" A X \<sigma>]
-  by (cases \<alpha>; simp)
+  by (cases \<alpha>; simp add: assms)
 
 lemma tangle_attractor_strat_in_dom_not_A:
   assumes "finite T"
   shows "\<lbrakk>tangle_attractor \<alpha> T A X \<sigma>; x \<in> V_player \<alpha> \<inter> (X-A)\<rbrakk> \<Longrightarrow> x \<in> dom \<sigma>"
-  using assms
   using P0.player_tangle_attractor_strat_in_dom_not_A[of "{t\<in>T. tangle EVEN t}" A X \<sigma>]
   using P1.player_tangle_attractor_strat_in_dom_not_A[of "{t\<in>T. tangle ODD t}" A X \<sigma>]
-  by (cases \<alpha>; simp)
+  by (cases \<alpha>; simp add: assms)
 
-lemma tangle_attractor_finite:
-  assumes fin_T: "finite T"
-  shows "tangle_attractor \<alpha> T A X \<sigma> \<Longrightarrow> finite A \<Longrightarrow> finite X"
-  using assms
-  using P0.player_tangle_attractor_finite[of "{t\<in>T. tangle EVEN t}" A X \<sigma>]
-  using P1.player_tangle_attractor_finite[of "{t\<in>T. tangle ODD t}" A X \<sigma>]
-  by (cases \<alpha>; simp)
+lemma notin_tangle_attractor_succ:
+  assumes "finite T"
+  shows "\<lbrakk>tangle_attractor \<alpha> T A X \<sigma>; v \<in> V; v \<notin> X\<rbrakk> \<Longrightarrow> E `` {v} - X \<noteq> {}"
+  using P0.notin_player_tangle_attractor_succ[of "{t\<in>T. tangle EVEN t}" A X \<sigma>]
+  using P1.notin_player_tangle_attractor_succ[of "{t\<in>T. tangle ODD t}" A X \<sigma>]
+  by (cases \<alpha>; simp add: assms)
 
 (** If you remove a tangle attractor from the game, the resulting graph is a valid subgame. *)
 lemma remove_tangle_attractor_subgame:
-  assumes fin_T: "finite T"
-  assumes tangle_attractor: "tangle_attractor \<alpha> T A X \<sigma>"
+  assumes "finite T"
+  assumes "tangle_attractor \<alpha> T A X \<sigma>"
   shows "valid_subgame (V-X)"
   apply simp
   apply (unfold_locales; clarsimp)
-  using notin_tangle_attractor_succ[OF fin_T tangle_attractor] E_in_V by blast
+  using notin_tangle_attractor_succ[OF assms] E_in_V by blast
 
 
 subsection \<open>\<alpha>-maximal regions\<close>
@@ -1176,10 +1143,8 @@ fun \<alpha>_max :: "player \<Rightarrow> 'v set set \<Rightarrow> 'v set \<Righ
 lemma tangle_attractor_is_\<alpha>_max:
   assumes "finite T"
   shows "tangle_attractor \<alpha> T A X \<sigma> \<Longrightarrow> \<alpha>_max \<alpha> T X"
-  using assms
   using P0.player_tangle_attractor_is_\<alpha>_max[of "{t\<in>T. tangle EVEN t}" A X \<sigma>]
   using P1.player_tangle_attractor_is_\<alpha>_max[of "{t\<in>T. tangle ODD t}" A X \<sigma>]
-  by (cases \<alpha>; simp)
+  by (cases \<alpha>; simp add: assms)
 end (** End of context paritygame *)
-
 end
