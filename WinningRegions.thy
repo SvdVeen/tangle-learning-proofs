@@ -275,7 +275,7 @@ lemma won_by_opponent_simps[simp]:
   "P1.won_by_opponent = P0.won_by_player"
   "P0.won_by_opponent = P1.won_by_player"
   unfolding P0.won_by_opponent_def P1.won_by_opponent_def
-  unfolding  P0.won_by_player_def P1.won_by_player_def
+  unfolding P0.won_by_player_def P1.won_by_player_def
   using V\<^sub>0_opposite_V\<^sub>1 by auto
 
 (** If a node is in a player's winning region, it is won by that player *)

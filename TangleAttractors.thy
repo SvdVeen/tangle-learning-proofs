@@ -63,7 +63,7 @@ lemma tangle_attractor_step_rtranclp_mono:
 lemma tangle_attractor_step_ss:
   "tangle_attractor_step (X,\<sigma>) (X',\<sigma>') \<Longrightarrow> X' \<subseteq> X \<union> V"
   apply (induction rule: tangle_attractor_step_induct)
-  subgoal using V\<^sub>\<alpha>_subset by auto
+  subgoal using V\<^sub>\<alpha>_in_V by auto
   subgoal by simp
   subgoal using tangles_T player_tangle_in_V by auto
   done
@@ -1016,7 +1016,7 @@ lemma tangle_attractor_step_wf:
   unfolding wfP_def
   apply (rule wf_subset[of "inv_image (finite_psubset) (\<lambda>(s,\<sigma>). V - s)"]; clarsimp)
   apply (erule tangle_attractor_step.cases)
-  subgoal using V\<^sub>\<alpha>_subset by blast
+  subgoal using V\<^sub>\<alpha>_in_V by blast
   subgoal by auto
   subgoal using player_tangle_in_V tangles_T by blast
   done

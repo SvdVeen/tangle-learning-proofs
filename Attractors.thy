@@ -20,7 +20,7 @@ lemma player_attractor_subset[simp]: "A \<subseteq> player_attractor A"
 (** Every node not part of the maximal attractor still has at least one successor. *)
 lemma notin_player_attractor_succ:
   "\<lbrakk>v\<in>V; v \<notin> player_attractor A\<rbrakk> \<Longrightarrow> E `` {v} - player_attractor A \<noteq> {}"
-  using player_attractor.simps succ V\<^sub>\<alpha>_subset by fast
+  using player_attractor.simps succ[of v] V\<^sub>\<alpha>_in_V by fast
 
 (** A player's attractor is maximal; no player nodes have a successor in the attractor. *)
 lemma player_attractor_max_player:
@@ -268,7 +268,7 @@ lemma player_attractor_eq_nodes_in_rank: "player_attractor A = \<Union>((nodes_i
 (** nodes_in_rank is a subset of all of the target set in V. *)
 lemma nodes_in_rank_ss: "nodes_in_rank A n \<subseteq> A \<union> V"
   apply (induction n)
-  using V\<^sub>\<alpha>_subset by auto
+  using V\<^sub>\<alpha>_in_V by auto
 
 (** If the target set is finite, so is nodes_in_rank. *)
 lemma nodes_in_rank_finite[simp, intro!]: "finite A \<Longrightarrow> finite (nodes_in_rank A n)"

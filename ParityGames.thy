@@ -59,11 +59,15 @@ locale player_paritygame = paritygame E V V\<^sub>0 pr
   for E :: "'v dgraph" and V V\<^sub>0 :: "'v set" and pr :: "'v \<Rightarrow> nat" +
   fixes V\<^sub>\<alpha> :: "'v set"
   fixes winningP :: "nat \<Rightarrow> bool"
-  assumes V\<^sub>\<alpha>_subset: "V\<^sub>\<alpha> \<subseteq> V"
+  assumes V\<^sub>\<alpha>_in_V: "V\<^sub>\<alpha> \<subseteq> V"
 begin
 (** Shorthand for the opponent's vertices. *)
 abbreviation (input) V\<^sub>\<beta> :: "'v set" where
   "V\<^sub>\<beta> \<equiv> V-V\<^sub>\<alpha>"
+
+(** V\<^sub>\<alpha> is the opposite of V\<^sub>\<beta> becuase it is V with V\<^sub>\<beta>. *)
+lemma V\<^sub>\<alpha>_opposite_V\<^sub>\<beta>: "V\<^sub>\<alpha> = V-V\<^sub>\<beta>"
+  using V\<^sub>\<alpha>_in_V by blast
 
 (** If the player owns a node, it has successors in any strategy of the player's nodes,
     and its successors in any strategy of the opponent's nodes are the same as its successors
@@ -72,7 +76,7 @@ lemma player_induced_succs:
   "\<lbrakk>v\<in>V\<^sub>\<alpha>; strategy_of V\<^sub>\<alpha> \<sigma>\<rbrakk> \<Longrightarrow> induced_subgraph \<sigma> `` {v} \<noteq> {}"
   "\<lbrakk>v\<in>V\<^sub>\<alpha>; strategy_of V\<^sub>\<beta> \<sigma>\<rbrakk> \<Longrightarrow> induced_subgraph \<sigma> `` {v} = E `` {v}"
   unfolding induced_subgraph_def E_of_strat_def strategy_of_def
-  subgoal using succ[of v] V\<^sub>\<alpha>_subset by (cases "v\<in>dom \<sigma>") blast+
+  subgoal using succ[of v] V\<^sub>\<alpha>_in_V by (cases "v\<in>dom \<sigma>") blast+
   subgoal by auto
   done
 
