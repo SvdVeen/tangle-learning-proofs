@@ -23,8 +23,8 @@ lemma subgame_V_player_subset:
   assumes "V' = V-S"
   assumes "V\<^sub>0' = V\<^sub>0-S"
   shows "paritygame.V_player V' V\<^sub>0' \<alpha> \<subseteq> V_player \<alpha>"
-  using assms arena.V\<^sub>1_def paritygame.axioms
-  apply (cases \<alpha>; simp add: paritygame.V_player.simps V\<^sub>1_def)
+  using assms
+  apply (cases \<alpha>; simp add: paritygame.V_player.simps)
   by fastforce
 
 lemma subgame_V_opponent_subset:
@@ -32,8 +32,8 @@ lemma subgame_V_opponent_subset:
   assumes V': "V' = V-S"
   assumes V\<^sub>0': "V\<^sub>0' = V\<^sub>0-S"
   shows "paritygame.V_opponent V' V\<^sub>0' \<alpha> \<subseteq> V_opponent \<alpha>"
-  using assms arena.V\<^sub>1_def paritygame.axioms
-  apply (cases \<alpha>; simp add: paritygame.V_opponent.simps V\<^sub>1_def)
+  using assms paritygame.axioms
+  apply (cases \<alpha>; simp add: paritygame.V_opponent.simps)
   by fastforce
 
 (** The strategy of a player in a subgame game is also a strategy of that player in the whole
@@ -82,7 +82,7 @@ proof -
     using subgame_strategy_of_V_player[OF subgame.paritygame_axioms _ V'_def V\<^sub>0'_def] by simp
 
   from \<sigma>_dom_subgame have \<sigma>_dom: "dom \<sigma> = V_player \<alpha> \<inter> W"
-    using V\<^sub>1_def subgame.V\<^sub>1_def V'_def V\<^sub>0'_def subgame.V_player.simps W_in_V'
+    using V'_def V\<^sub>0'_def subgame.V_player.simps W_in_V'
     by (cases \<alpha>) auto
 
   have \<sigma>_closed: "?G\<sigma> `` W \<subseteq> W"
@@ -109,11 +109,11 @@ proof -
       qed
 
       from w_opp \<sigma>_dom have "w \<notin> dom \<sigma>"
-        by (cases \<alpha>; simp add: V\<^sub>1_def)
+        by (cases \<alpha>; simp)
       from \<sigma>_closed_opp_subgame w_in_W subgame.ind_subgraph_notin_dom[OF edge_in_E' this]
            V'_def V\<^sub>0'_def W_in_V'
       have \<sigma>_closed_opp: "\<forall>w\<in>W. w \<in> V_opponent \<alpha> \<longrightarrow> E' `` {w} \<subseteq> W"
-        using V\<^sub>1_def subgame.V\<^sub>1_def subgame.V_opponent.simps
+        using subgame.V_opponent.simps
         by (cases \<alpha>) auto
 
       from \<sigma>_closed_opp edge_in_E' w_in_W w_opp show ?thesis by blast
@@ -122,7 +122,7 @@ proof -
 
   from \<sigma>_closed \<sigma>_dom have W_closed_opp: "E `` (W \<inter> V_opponent \<alpha>) \<subseteq> W"
     using ind_subgraph_notin_dom
-    by (cases \<alpha>; clarsimp simp add: V\<^sub>1_def) blast+
+    by (cases \<alpha>; simp) blast+
 
   have \<sigma>_winning: "\<forall>w\<in>W. \<forall>ys. reachable_cycle ?G\<sigma> w ys \<longrightarrow> player_wins_list \<alpha> ys"
   proof (rule ballI; rule allI; rule impI)
@@ -276,7 +276,7 @@ proof -
           have v_choice_strat: "strategy_of_player \<alpha> v_choice"
             unfolding v_choice_def strategy_of_player_def
             using strategy_of_overwrite
-            by (cases \<alpha>; simp add: V\<^sub>1_def)
+            by (cases \<alpha>; simp)
 
           (** The range of v_choice lies in V. *)
           from \<open>v\<in>V\<close> v_target_edge have v_choice_ran: "ran v_choice \<subseteq> V"
@@ -292,12 +292,12 @@ proof -
             unfolding strategy_of_player_def subgame.strategy_of_player_def
             unfolding strategy_of_def subgame.strategy_of_def
             unfolding E_of_strat_def
-            by (cases \<alpha>; simp add: V\<^sub>1_def subgame.V\<^sub>1_def) blast+
+            by (cases \<alpha>; simp) blast+
 
           (** The domain of \<tau> covers all \<alpha>-nodes in V, since the three domains collectively contain
               all of these nodes. *)
           moreover from \<sigma>_dom \<sigma>'_dom v_choice_dom have \<tau>_dom: "dom ?\<tau> = ?V\<^sub>\<alpha> \<inter> V"
-            apply (cases \<alpha>; cases "v\<in>?V\<^sub>\<alpha>"; simp add: V\<^sub>1_def subgame.V\<^sub>1_def)
+            apply (cases \<alpha>; cases "v\<in>?V\<^sub>\<alpha>"; simp)
             using V_comp V\<^sub>0_in_V by auto
 
           (** The range of \<tau> lies in V because all three ranges lie in V. *)
@@ -506,12 +506,12 @@ proof -
                 assume "y\<in>X\<^sub>\<alpha>"
                 (** This means the edge exists in V-B. *)
                 with \<open>x\<in>X\<^sub>\<beta>\<close> edge \<sigma>_dom X_comp have "(x,y) \<in> Restr E (V-B)"
-                  by (cases \<alpha>; simp add: V\<^sub>1_def subgame'.V\<^sub>1_def)
+                  by (cases \<alpha>; simp)
                 (** In V-B, all successors of \<alpha>-nodes in X\<^sub>\<beta> lie in X\<^sub>\<beta>.
                     Because X\<^sub>\<alpha> and X\<^sub>\<beta> are disjoint, we have a contradiction. *)
                 with \<open>x\<in>X\<^sub>\<beta>\<close> \<open>y\<in>X\<^sub>\<alpha>\<close> notin_dom \<sigma>_dom \<sigma>_closed X_disj
                 show False
-                  by (cases \<alpha>; simp add: V\<^sub>1_def subgame'.V\<^sub>1_def) blast+
+                  by (cases \<alpha>; simp) blast+
               qed
             qed
           } note X\<^sub>\<beta>_succ=this
@@ -541,7 +541,7 @@ proof -
           let ?G\<tau> = "induced_subgraph ?\<tau>"
           (** The domains of \<sigma> and \<sigma>' are disjoint, which is useful for future properties. *)
           from \<sigma>_dom \<sigma>'_dom have \<tau>_doms_disj: "dom \<sigma> \<inter> dom \<sigma>' = {}"
-            by (cases \<alpha>; auto simp: V\<^sub>1_def subgame'.V\<^sub>1_def)
+            by (cases \<alpha>; auto)
           note \<tau>_subgames = ind_subgraph_add_disjoint[OF this]
 
           (** \<sigma> and \<sigma>' are both valid strategies for \<beta>, so their combination is also valid. *)
@@ -552,7 +552,7 @@ proof -
 
           (** The two domains combined cover all \<beta>-nodes in X\<^sub>\<beta> \<union> B. *)
           moreover from \<sigma>_dom \<sigma>'_dom have \<tau>_dom: "dom ?\<tau> = ?V\<^sub>\<beta> \<inter> (X\<^sub>\<beta>\<union>B)"
-            by (cases \<alpha>; simp add: V\<^sub>1_def subgame'.V\<^sub>1_def) force+
+            by (cases \<alpha>; simp) force+
 
           (** The range of \<sigma> lies in X\<^sub>\<beta>, and the range of \<sigma>' lies in B, so the combined strategy
               has its range in the union of the two regions. *)
@@ -566,7 +566,7 @@ proof -
             using \<tau>_subgames(2) apply clarsimp
             subgoal for y x apply (cases "x \<in> dom ?\<tau>")
               subgoal using ind_subgraph_edge_dst[of x y \<sigma>'] by blast
-              subgoal apply (cases \<alpha>; clarsimp simp: V\<^sub>1_def)
+              subgoal apply (cases \<alpha>; clarsimp)
                 using ind_subgraph_edge_in_E[of x y ?\<tau>] by blast+
               done
             done

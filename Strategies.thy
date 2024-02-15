@@ -14,23 +14,14 @@ locale arena = finite_graph_V_succ +
 begin
 
 (** The odd player's nodes are all nodes in V that are not in V\<^sub>1 *)
-definition V\<^sub>1 where "V\<^sub>1 = V - V\<^sub>0"
-
-(** V\<^sub>1 is a subset of V *)
-lemma V\<^sub>1_in_V: "V\<^sub>1 \<subseteq> V"
-  unfolding V\<^sub>1_def using V\<^sub>0_in_V by blast
+abbreviation (input) V\<^sub>1 where "V\<^sub>1 \<equiv> V - V\<^sub>0"
 
 (** V\<^sub>0 is the opposite of V\<^sub>1 because it is V\<^sub>1 subtracted from V *)
 lemma V\<^sub>0_opposite_V\<^sub>1: "V\<^sub>0 = V - V\<^sub>1"
-  unfolding V\<^sub>1_def using V\<^sub>0_in_V by auto
-
-(** There is no overlap between the two players' nodes *)
-lemma players_disjoint: "V\<^sub>0 \<inter> V\<^sub>1 = {}"
-  unfolding V\<^sub>1_def by auto
+  using V\<^sub>0_in_V by blast
 
 (** If a node is in V\<^sub>0, it is not in V\<^sub>1 and vice versa *)
-lemma in_V\<^sub>1_notin_V\<^sub>0: "v\<in>V \<Longrightarrow> v\<notin>V\<^sub>0 \<longleftrightarrow> v\<in>V\<^sub>1"
-  unfolding V\<^sub>1_def by blast
+lemma in_V\<^sub>1_notin_V\<^sub>0: "v\<in>V \<Longrightarrow> v\<notin>V\<^sub>0 \<longleftrightarrow> v\<in>V\<^sub>1" by blast
 end (** End of locale arena *)
 
 section \<open>Strategies\<close>

@@ -262,9 +262,9 @@ proof (induction rule: search_step_induct)
           have "\<forall>x\<in>U. \<exists>y\<in>A. \<exists>xs. path (Restr ?G\<sigma>' U) x xs y"
           proof (rule ballI)
             fix x assume "x \<in> U"
-            show "\<exists>y\<in>A. \<exists>xs. path (Restr ?G\<sigma>' U) x xs y" sorry
+            show "\<exists>y\<in>A. \<exists>xs. path (Restr ?G\<sigma>' U) x xs y" oops
           qed
-          show ?thesis sorry
+          show ?thesis oops
         qed
         hence "pr_set U = pr_set R"
           unfolding step

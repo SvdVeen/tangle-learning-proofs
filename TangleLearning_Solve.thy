@@ -46,7 +46,7 @@ lemma valid_subgame_Un:
   apply clarsimp
   apply (unfold_locales; clarsimp)
   subgoal by blast
-  subgoal for v using succ[of v] sorry
+  subgoal for v using succ[of v] oops
   subgoal by blast
   done
 
@@ -67,7 +67,7 @@ lemma solve_terminates_on_empty_R: "\<not>Domainp solve_step (W\<^sub>0,W\<^sub>
 
 lemma tanglelearning_terminates:
   "\<exists>W\<^sub>0 W\<^sub>1 \<sigma>\<^sub>0 \<sigma>\<^sub>1. solve W\<^sub>0 W\<^sub>1 \<sigma>\<^sub>0 \<sigma>\<^sub>1"
-  sorry
+  oops
 
 (** TODO: Redefine winning_region to also take a strategy, so we can say that the two strategies
     are also winning strategies. *)
@@ -76,7 +76,7 @@ lemma tanglelearning_partially_correct:
     V = W\<^sub>0 \<union> W\<^sub>1 \<and> W\<^sub>0 \<inter> W\<^sub>1 = {} \<and>
     winning_region EVEN W\<^sub>0 \<and>
     winning_region ODD W\<^sub>1"
-  sorry
+  oops
 
 (** Tangle learning is correct: it both terminates and gives two winning regions and corresponding
     strategies. *)

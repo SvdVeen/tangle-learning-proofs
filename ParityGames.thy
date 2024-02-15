@@ -71,7 +71,7 @@ abbreviation (input) V\<^sub>\<beta> :: "'v set" where
 lemma player_induced_succs:
   "\<lbrakk>v\<in>V\<^sub>\<alpha>; strategy_of V\<^sub>\<alpha> \<sigma>\<rbrakk> \<Longrightarrow> induced_subgraph \<sigma> `` {v} \<noteq> {}"
   "\<lbrakk>v\<in>V\<^sub>\<alpha>; strategy_of V\<^sub>\<beta> \<sigma>\<rbrakk> \<Longrightarrow> induced_subgraph \<sigma> `` {v} = E `` {v}"
-  unfolding induced_subgraph_def E_of_strat_def strategy_of_def V\<^sub>1_def
+  unfolding induced_subgraph_def E_of_strat_def strategy_of_def
   subgoal using succ[of v] V\<^sub>\<alpha>_subset by (cases "v\<in>dom \<sigma>") blast+
   subgoal by auto
   done
@@ -82,7 +82,7 @@ lemma player_induced_succs:
 lemma opponent_induced_succs:
   "\<lbrakk>v\<in>V\<^sub>\<beta>; strategy_of V\<^sub>\<beta> \<sigma>\<rbrakk> \<Longrightarrow> induced_subgraph \<sigma> `` {v} \<noteq> {}"
   "\<lbrakk>v\<in>V\<^sub>\<beta>; strategy_of V\<^sub>\<alpha> \<sigma>\<rbrakk> \<Longrightarrow> induced_subgraph \<sigma> `` {v} = E `` {v}"
-  unfolding induced_subgraph_def E_of_strat_def strategy_of_def V\<^sub>1_def
+  unfolding induced_subgraph_def E_of_strat_def strategy_of_def
   subgoal using succ[of v] by (cases "v\<in>dom \<sigma>") auto
   subgoal by auto
   done
@@ -143,7 +143,7 @@ sublocale P0: player_paritygame E V V\<^sub>0 pr V\<^sub>0 even
 
 sublocale P1: player_paritygame E V V\<^sub>0 pr V\<^sub>1 odd
   apply unfold_locales
-  by (auto simp: V\<^sub>1_in_V)
+  by auto
 
 abbreviation player_wins_list :: "player \<Rightarrow> 'v list \<Rightarrow> bool" where
   "player_wins_list \<alpha> xs \<equiv> player_winningP \<alpha> (pr_list xs)"
@@ -168,10 +168,16 @@ fun V_player where
   "V_player EVEN = V\<^sub>0"
 | "V_player ODD = V\<^sub>1"
 
+lemma V_player_in_V: "V_player \<alpha> \<subseteq> V"
+  using V\<^sub>0_in_V by (cases \<alpha>; simp)
+
 (** Gives the vertices belonging to a player's opponent. *)
 fun V_opponent where
   "V_opponent EVEN = V\<^sub>1"
 | "V_opponent ODD = V\<^sub>0"
+
+lemma V_opponent_in_V: "V_opponent \<alpha> \<subseteq> V"
+  using V\<^sub>0_in_V by (cases \<alpha>; simp)
 
 lemma V_player_opponent: "V_player (opponent \<alpha>) = V_opponent \<alpha>"
   by (cases \<alpha>) auto
@@ -180,10 +186,10 @@ lemma V_opponent_opponent: "V_opponent (opponent \<alpha>) = V_player \<alpha>"
   by (cases \<alpha>) auto
 
 lemma V_player_opposite_V_opponent: "V_player \<alpha> = V - V_opponent \<alpha>"
-  using V\<^sub>0_opposite_V\<^sub>1 by (cases \<alpha>; simp add: V\<^sub>1_def)
+  using V\<^sub>0_in_V by (cases \<alpha>; simp) blast
 
 lemma V_opponent_opposite_V_player: "V_opponent \<alpha> = V - V_player \<alpha>"
-    using V\<^sub>0_opposite_V\<^sub>1 by (cases \<alpha>; simp add: V\<^sub>1_def)
+  using V\<^sub>0_in_V by (cases \<alpha>; simp) blast
 
 lemma v_notin_V_player_in_V_opponent: "v\<in>V \<Longrightarrow> v \<notin> V_player \<alpha> \<longleftrightarrow> v \<in> V_opponent \<alpha>"
   using V_player_opposite_V_opponent by auto
@@ -192,15 +198,13 @@ lemma restr_subgraph_V_player:
   assumes "paritygame (Restr E R) (V\<inter>R) (V\<^sub>0\<inter>R)"
   shows "paritygame.V_player (V\<inter>R) (V\<^sub>0\<inter>R) \<alpha> = V_player \<alpha> \<inter> R"
   using paritygame.V_player.simps[OF assms]
-  apply (cases \<alpha>; simp add: arena.V\<^sub>1_def[OF paritygame.axioms[OF assms]] V\<^sub>1_def)
-  by blast
+  by (cases \<alpha>; simp) blast
 
 lemma restr_subgraph_V_opponent:
   assumes "paritygame (Restr E R) (V\<inter>R) (V\<^sub>0\<inter>R)"
   shows "paritygame.V_opponent (V\<inter>R) (V\<^sub>0\<inter>R) \<alpha> = V_opponent \<alpha> \<inter> R"
   using paritygame.V_opponent.simps[OF assms]
-  apply (cases \<alpha>; simp add: arena.V\<^sub>1_def[OF paritygame.axioms[OF assms]] V\<^sub>1_def)
-  by blast
+  by (cases \<alpha>; simp) blast
 
 (** Checks that a strategy belongs to a specific player. *)
 definition strategy_of_player :: "player \<Rightarrow> 'v strat \<Rightarrow> bool" where
@@ -218,7 +222,8 @@ lemma closed_ind_subgraph_opp:
   unfolding strategy_of_player_def
   using P0.player_closed_ind_subgraph_opp
   using P1.player_closed_ind_subgraph_opp
-  using V\<^sub>0_opposite_V\<^sub>1 by (cases \<alpha>; simp add: V\<^sub>1_def)
+  apply (cases \<alpha>; simp)
+  using V_opponent.simps(2) V_opponent_opposite_V_player by auto
 
 lemma restr_subgraph_strategy_of_player:
   assumes "paritygame (Restr E R) (V\<inter>R) (V\<^sub>0\<inter>R)"

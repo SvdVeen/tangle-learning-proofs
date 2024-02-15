@@ -1095,7 +1095,7 @@ theorem tangle_attractor_strat:
   unfolding strategy_of_player_def
   using P0.player_tangle_attractor_strat[of "{t\<in>T. tangle EVEN t}" A X \<sigma>]
   using P1.player_tangle_attractor_strat[of "{t\<in>T. tangle ODD t}" A X \<sigma>]
-  by (cases \<alpha>; simp add: assms V\<^sub>1_def)
+  by (cases \<alpha>; simp add: assms)
 
 theorem tangle_attractor_exists:
   assumes "finite T"
@@ -1147,4 +1147,5 @@ lemma tangle_attractor_is_\<alpha>_max:
   using P1.player_tangle_attractor_is_\<alpha>_max[of "{t\<in>T. tangle ODD t}" A X \<sigma>]
   by (cases \<alpha>; simp add: assms)
 end (** End of context paritygame *)
+
 end

@@ -67,9 +67,7 @@ proof (intro ballI allI impI)
 			show "pr_list ys \<le> pr_set V" .
 		next
 			from A_in_ys A_def show "pr_set V \<le> pr_list ys"
-				unfolding pr_list_def
-				using Max_ge[OF finite_surj[OF fin_V image_mono[OF ys_in_V, of pr]]]
-				by fastforce
+				using pr_V_in_list[OF ys_in_V] by fastforce
 		qed
 
 		with winning_top_p show ?thesis by simp

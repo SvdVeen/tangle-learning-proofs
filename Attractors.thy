@@ -509,8 +509,9 @@ lemma attractor_max_player:
     one successor that is also not in the attractor. *)
 lemma attractor_max_opponent:
   "\<lbrakk>v \<in> V_opponent \<alpha>; v \<notin> attractor \<alpha> A\<rbrakk> \<Longrightarrow> \<exists>w \<in> E `` {v}. w \<notin> attractor \<alpha> A"
-  using P0.player_attractor_max_opponent P1.player_attractor_max_opponent V\<^sub>1_def V\<^sub>0_in_V
-  by (cases \<alpha>) auto
+  using P0.player_attractor_max_opponent
+  using P1.player_attractor_max_opponent
+  using V\<^sub>0_in_V by (cases \<alpha>) auto
 
 (** The player has a strategy that forces all plays in the attractor to move to the target. *)
 lemma attractor_attracts: "\<exists>\<sigma>. strategy_of (V_player \<alpha>) \<sigma> \<and>
@@ -522,7 +523,8 @@ lemma attractor_attracts: "\<exists>\<sigma>. strategy_of (V_player \<alpha>) \<
 (** We can extend a winning region with an attractor. *)
 lemma attractor_extends_winning_region:
   "winning_region \<alpha> W \<Longrightarrow> winning_region \<alpha> (attractor \<alpha> W)"
-  using P0.player_attractor_extends_winning_region P1.player_attractor_extends_winning_region
+  using P0.player_attractor_extends_winning_region
+  using P1.player_attractor_extends_winning_region
   by (cases \<alpha>; simp)
 
 lemma remove_attractor_subgame[simp]:
@@ -533,4 +535,5 @@ lemma remove_attractor_subgame[simp]:
 
 
 end (** End of context paritygame. *)
+
 end
