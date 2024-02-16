@@ -448,7 +448,7 @@ proof -
         (** Since removing an attractor from the game gives a valid subgame, the game V-B is a
             valid subgame. *)
         interpret subgame': paritygame "Restr E (V-B)" "V-B" "V\<^sub>0-B"
-          using attractor_subgame [OF B_def] by blast
+          using attractor_subgame[OF B_def] by blast
 
         (** By our IH, we once again have two winning region in V-B, X\<^sub>\<alpha> and X\<^sub>\<beta>. *)
         from \<open>B\<noteq>{}\<close> \<open>B\<subseteq>V\<close> have "V-B \<subset> V" by blast
@@ -609,18 +609,8 @@ proof -
                   closed in G[\<tau>]. This means the cycle exists in G[\<sigma>'], and is also reachable in
                   that subgame. Any such cycle in G[\<sigma>'] is won by \<beta>, so this one is too. *)
               case B_in_ys
-              have ys_in_B: "set ys \<subseteq> B" proof -
-                (** We get the version of our cycle that starts in B. *)
-                from B_in_ys obtain y' ys' where
-                  sets_eq: "set ys' = set ys" and
-                  y'_in_B: "y' \<in> B" and
-                  cycle_y': "cycle ?G\<tau> y' ys'"
-                  using cycle_intermediate_node[OF cycle] by blast
-                (** Because B is closed in G[\<tau>], the whole cycle is contained in B. *)
-                thus ?thesis
-                  using cycle_closed_set[OF _ \<tau>_closed_B] by blast
-              qed
-              with y_in_ys have "y \<in> B" by blast
+              from cycle_intersects_closed_region[OF cycle this \<tau>_closed_B] y_in_ys
+              have "y \<in> B" by blast
 
               (** Because the whole cycle is contained in B, it exists in G[\<sigma>'].
                   Furthermore, it is also reachable in that subgame. *)

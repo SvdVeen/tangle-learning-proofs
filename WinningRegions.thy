@@ -153,7 +153,7 @@ proof -
     unfolding \<tau>_def
     apply clarsimp
     subgoal for y x apply (cases "x \<in> V\<^sub>\<alpha>")
-      subgoal using ind_subgraph_add_notin_dom[of x y \<sigma>\<^sub>1 \<sigma>\<^sub>2] ind_subgraph_edge_dst by blast
+      subgoal using ind_subgraph_add_notin_dom[of x y \<sigma>\<^sub>1 \<sigma>\<^sub>2] ind_subgraph_edge_dst by force
       subgoal using ind_subgraph_edge_in_E by blast
       done
     done

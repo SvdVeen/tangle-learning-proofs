@@ -32,12 +32,21 @@ lemma pr_set_exists: "\<lbrakk>finite S; S\<noteq>{}\<rbrakk> \<Longrightarrow> 
 lemma pr_V_exists: "V \<noteq> {} \<Longrightarrow> \<exists>v\<in>V. pr v = pr_set V"
   using pr_set_exists by simp
 
+(** The top priority in a nonempty region in V is less than or equal to the top priority
+    in V. *)
+lemma pr_set_le_pr_set_V:
+  "\<lbrakk>S \<subseteq> V; S \<noteq> {}\<rbrakk> \<Longrightarrow> pr_set S \<le> pr_set V"
+  unfolding pr_set_def
+  using Max_mono[OF image_mono _ finite_imageI[OF fin_V]]
+  by blast
+
 (** The top priority in a nonempty list that is a subset of V is less than or equal to the top
     priority in V. *)
 lemma pr_list_le_pr_set_V:
   "\<lbrakk>set xs \<subseteq> V; xs \<noteq> []\<rbrakk> \<Longrightarrow> pr_list xs \<le> pr_set V"
-  unfolding pr_list_def pr_set_def
-  using image_mono Max_mono by auto
+  unfolding pr_list_def
+  using pr_set_le_pr_set_V
+  by simp
 
 (** If we have a node of the top priority in V in a list xs that is entirely in V, then the top
     priority in the list is equal to the top priority in V. *)
