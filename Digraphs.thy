@@ -458,21 +458,21 @@ lemma path_closed_V: "v\<in>V \<Longrightarrow> path E v xs v' \<Longrightarrow>
   using path_closed_dest[OF _ E_closed_V] by blast
 
 (** All nodes in a path are in V. *)
-lemma path_in_V: "\<lbrakk>v\<in>V; path E v xs v'\<rbrakk> \<Longrightarrow> set xs \<subseteq> V"
+lemma path_in_V: "path E v xs v' \<Longrightarrow> set xs \<subseteq> V"
   using path_in_E E_in_V by fastforce
 
 (** All nodes in a cycle are in V. *)
-lemma cycle_in_V: "\<lbrakk>v\<in>V; cycle E v xs\<rbrakk> \<Longrightarrow> set xs \<subseteq> V"
+lemma cycle_in_V: "cycle E v xs \<Longrightarrow> set xs \<subseteq> V"
   using cycle_in_E E_in_V by fastforce
 
-lemma reachable_cycle_in_V: "\<lbrakk>v\<in>V; reachable_cycle E v xs\<rbrakk> \<Longrightarrow> set xs \<subseteq> V"
+lemma reachable_cycle_in_V: "reachable_cycle E v xs \<Longrightarrow> set xs \<subseteq> V"
   using reachable_cycle_in_E E_in_V by fastforce
 
 (** All nodes in a lasso reachable from a node are in V. *)
-lemma lasso_in_V: "\<lbrakk>v\<in>V; lasso E v xs ys\<rbrakk> \<Longrightarrow> set xs \<subseteq> V \<and> set ys \<subseteq> V"
+lemma lasso_in_V: "lasso E v xs ys \<Longrightarrow> set xs \<subseteq> V \<and> set ys \<subseteq> V"
   using lasso_in_E E_in_V by fastforce
 
-lemma lasso'_in_V: "\<lbrakk>v\<in>V; lasso' E v xs\<rbrakk> \<Longrightarrow> set xs \<subseteq> V"
+lemma lasso'_in_V: "\<lbrakk>lasso' E v xs\<rbrakk> \<Longrightarrow> set xs \<subseteq> V"
   using lasso'_in_E E_in_V by fastforce
 end (** End of locale finite_graph_V *)
 
@@ -510,7 +510,7 @@ proof -
   (** Since this path must be in V, it cannot have entirely distinct nodes in it; there must be a
       repeated node in there. *)
   have "\<not>distinct xs" proof -
-    from xs have ss: "set xs \<subseteq> V" using path_in_V[OF \<open>x\<in>V\<close>] by fastforce
+    from xs have ss: "set xs \<subseteq> V" using path_in_V by fastforce
     from xs have len: "length xs > card V" by auto
     thus ?thesis using card_mono[OF fin_V ss] distinct_card[of xs] by fastforce
   qed

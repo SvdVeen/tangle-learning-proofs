@@ -397,7 +397,7 @@ proof -
               with y_in_ys have "y \<notin> A" by blast
               from A_notin_ys y_in_ys have
                 y_in_V': "y \<in> V-A" and ys_in_V': "set ys \<subseteq> V-A"
-                using cycle_in_V[OF \<open>y\<in>V\<close> ind_subgraph_cycle[OF cycle]]
+                using cycle_in_V[OF ind_subgraph_cycle[OF cycle]]
                 by fast+
 
               (** Because the cycle is contained entirely in V-A, it also exists in the subgame's
