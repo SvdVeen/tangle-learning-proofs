@@ -25,13 +25,13 @@ lemma strongly_connected_path:
 
 context finite_graph_V
 begin
+
 section\<open>Strongly Connected Graphs Restricted to a Region\<close>
 (** If a restricted graph is strongly connected, then every node in the
     region is reachable from  every other node in the region. *)
 lemma strongly_connected_restr_connected:
-  "\<lbrakk>R \<subseteq> V; strongly_connected (Restr E R) R\<rbrakk> \<Longrightarrow> \<forall>v\<in>R. \<forall>v'\<in>R. (v,v')\<in>(Restr E R)\<^sup>*"
+  "\<lbrakk>R \<subseteq> V; strongly_connected (Restr E R) R\<rbrakk> \<Longrightarrow> \<forall>v\<in>R. \<forall>v'\<in>R. (v, v') \<in> (Restr E R)\<^sup>*"
   unfolding strongly_connected_def by blast
-
 
 section \<open>Strongly Connected Components\<close>
 (** A component in a graph is strongly connected when the graph restricted to that component is
@@ -69,6 +69,103 @@ lemma finite_SCCs: "finite {R. SCC R}"
     other. *)
 lemma SCC_path: "SCC R \<Longrightarrow> \<forall>v\<in>R. \<forall>v'\<in>R. \<exists>vs. path (Restr E R) v vs v'"
   unfolding SCC_def using strongly_connected_path[of "Restr E R" R] by blast
+
+(** If there is a nonempty region in V that is strongly connected, then either it is an SCC itself,
+    or it is part of a larger SCC. *)
+lemma maximal_SCC_candidate:
+  assumes R_notempty: "R \<noteq> {}"
+  assumes R_in_V: "R \<subseteq> V"
+  assumes conn: "strongly_connected (Restr E R) R"
+  shows "\<exists>R'. R \<subseteq> R' \<and> SCC R'"
+proof -
+  (** We get the set of all nodes that are reachable from R. *)
+  define R' where "R' \<equiv> {x | x y. (x \<in> R \<or> y \<in> R) \<and> (x,y) \<in> E\<^sup>* \<and> (y,x) \<in> E\<^sup>*}"
+  (** This is clearly a nonempty subset of V, that may be equal to R. *)
+  have "R \<subseteq> R'" unfolding R'_def by blast
+  moreover from R_notempty have "R' \<noteq> {}" unfolding R'_def by blast
+  moreover from R_in_V have "R' \<subseteq> V" unfolding R'_def
+    using trancl_subset_Sigma_aux[OF _ E_in_V] by blast
+  (** R' is now strongly connected. *)
+  moreover have "strongly_connected (Restr E R') R'"
+  proof -
+    {
+      fix v v' assume "v \<in> R'" "v' \<in> R'"
+      (** Every node in R' is reachable from every other node in R' because of the way it was
+          defined. *)
+      from conn have R'_conn:
+        "\<forall>v \<in> R'. \<forall>v'\<in>R'. (v,v') \<in> E\<^sup>*"
+        unfolding strongly_connected_def R'_def
+        using rtrancl_trans[of _ _ E] path_inter[of E "R\<times>R"]
+        by (simp add: path_iff_rtrancl) metis
+      (** Therefore, our v and v' are reachable from one another. *)
+      with \<open>v\<in>R'\<close> \<open>v'\<in>R'\<close> have "(v,v')\<in>E\<^sup>*" "(v',v)\<in>E\<^sup>*"
+        by blast+
+      (** This means we can get a path between each, and we can append those two to get a path
+          from v to v. *)
+      then obtain xs ys where
+        path_xs: "path E v xs v'" and
+        path_ys: "path E v' ys v"
+        by (auto simp: path_iff_rtrancl)
+      hence path: "path E v (xs@ys) v" by auto
+      (** This path stays in R'. We prove this by contradiction. *)
+      have "set (xs@ys) \<subseteq> R'" proof (rule ccontr)
+        (** Because the path doesn't stay in R', there must exist a w in the path that is part of
+            V-R'. *)
+        assume "\<not>set (xs@ys) \<subseteq> R'"
+        with path obtain w where
+          "w \<in> set (xs@ys)" "w \<in> V-R'"
+          using path_in_V by blast
+        (** We can get a path from this node to v, and from v to this node.
+            This means the two are reachable from one another. *)
+        from path_intermediate_node[OF path this(1)]
+        obtain vs ws where
+          "path E v vs w" "path E w ws v" by blast
+        hence "(v,w) \<in> E\<^sup>*" "(w,v) \<in> E\<^sup>*"
+          by (auto simp: path_iff_rtrancl)
+        (** This would mean that adding w to R' would make another connected region. *)
+        with R'_conn \<open>v\<in>R'\<close> have
+          "\<forall>v\<in>insert w R'. \<forall>v'\<in>insert w R'. (v,v') \<in> E\<^sup>*"
+          by fastforce
+        (** But the way we defined R' means that w should already have been part of R' in that case.
+            This gives us a contradiction, showing that the path from v to v stays in R'. *)
+        with \<open>R\<noteq>{}\<close> \<open>w\<in>V-R'\<close> show False
+          using R'_def by blast
+      qed
+      (** Therefore, the path from v to v' stays in R', thus v is reachable from v' in the graph
+          restricted to R'. *)
+      hence "set xs \<subseteq> R'" by auto
+      from path_restr_V[OF path_xs this \<open>v'\<in>R'\<close>]
+      have "(v,v') \<in> (Restr E R')\<^sup>*"
+        by (auto simp: path_iff_rtrancl)
+    }
+    (** Now, because R' is not empty, and all nodes in R' are reachable in the restricted graph,
+        this restricted graph is strongly connected. *)
+    with \<open>R'\<noteq>{}\<close> show ?thesis
+      unfolding strongly_connected_def by simp
+  qed
+  (** Furthermore, there is no larger S containing R' that is also strongly connected.
+      We prove this by contradiction . *)
+  moreover have "\<nexists>S. R' \<subset> S \<and> strongly_connected (Restr E S) S"
+  proof
+    (** We obtain the S that contains R' and is strongly connected. *)
+    assume "\<exists>S. R' \<subset> S \<and> strongly_connected (Restr E S) S"
+    then obtain S where
+      "R' \<subset> S" "strongly_connected (Restr E S) S"
+      by blast
+    (** This means that all nodes in S are reachable from all other nodes in S. *)
+    hence "\<forall>v\<in>S. \<forall>v'\<in>S. (v,v') \<in> E\<^sup>*"
+      unfolding strongly_connected_def
+      apply (simp add: path_iff_rtrancl)
+      using path_inter(1) by meson
+    (** However, this is a contradiction, because they would have been part of R'. *)
+    with \<open>R'\<subset>S\<close> \<open>R \<noteq>{}\<close> show False
+      unfolding R'_def by blast
+  qed
+  (** Toghether, the former properties show that either R is an SCC, or there exists an R' which
+      contains R that is an SCC. *)
+  ultimately show ?thesis
+    unfolding SCC_def by blast
+qed
 
 
 section \<open>Bottom Strongly Connected Components\<close>
@@ -267,5 +364,58 @@ proof (rule ballI)
     unfolding cycle_def by blast
 qed
 end (** End of context finite_graph_V *)
+
+
+context finite_graph_V_succ
+begin
+
+(** In a nonempty graph without dead ends, there always exists an SCC. *)
+lemma SCC_ex:
+  assumes "V \<noteq> {}"
+  shows "\<exists>R. SCC R"
+proof -
+  (** We know there always exists a cycle in this graph. *)
+  from cycle_always_exists \<open>V\<noteq>{}\<close>
+  obtain y ys where
+    cycle: "cycle E y ys"
+    unfolding reachable_cycle_def
+    by blast
+
+  (** Cycles are nonempty paths. *)
+  from cycle have "set ys \<noteq> {}"
+    by fastforce
+  (** This cycle is also entirely contained in V. *)
+  moreover from cycle_in_V[OF cycle]
+  have "set ys \<subseteq> V" .
+  (** The cycle itself is strongly connected. *)
+  moreover from cycle have "strongly_connected (Restr E (set ys)) (set ys)"
+    unfolding strongly_connected_def cycle_def
+  proof (intro conjI ballI; simp)
+    fix v v'
+    assume v_in_ys: "v \<in> set ys"
+       and v'_in_ys: "v' \<in> set ys"
+    (** We can get a cycle from v' because it is part of ys. *)
+    then obtain ys' where
+      ys'_is_ys: "set ys' = set ys" and
+      cycle_v: "cycle E v ys'"
+      using cycle_intermediate_node[OF cycle] by auto
+    (** We can then get a path from v to v' because v' is part of this cycle. *)
+    from v'_in_ys cycle_v ys'_is_ys obtain vs where
+      "path E v vs v'" and
+      "set vs \<subseteq> set ys"
+      using path_intermediate_node[of E v ys' v v']
+      by (clarsimp simp: cycle_def) blast
+    (** Since this is entirely contained in the set of the original ys, v' is reachable from v
+        in the graph restricted to the nodes in ys. *)
+    from path_restr_V[OF this v'_in_ys]
+    show "(v,v') \<in> (Restr E (set ys))\<^sup>*"
+      using path_iff_rtrancl by fast
+  qed
+  (** By the former properties combined, we have a candidate for an SCC, which is either itself
+      an SCC, or part of a larger SCC. *)
+  ultimately show ?thesis
+    using maximal_SCC_candidate by blast
+qed
+end (** End of context finite_graph_V_succ *)
 
 end
