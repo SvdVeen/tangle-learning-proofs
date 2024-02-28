@@ -811,6 +811,10 @@ lemma add_A_target_A_notin_dom:
   unfolding induced_subgraph_def E_of_strat_def A_target_def
   using assms by (auto split: if_splits simp: map_add_Some_iff)
 
+lemma add_A_target_notin_step_Domainp:
+  "\<not>Domainp tangle_attractor_step (X,\<sigma>) \<Longrightarrow> \<not>Domainp tangle_attractor_step (X, \<sigma> ++ A_target X)"
+  by (auto simp: Domainp.simps tangle_attractor_step.simps)
+
 (** We finally get the definition for the attractor as a whole by taking the reflexive transitive
     closure of the steps starting from the target set with an empty strategy. We also limit it to
     only final results by saying it should not be in the domain of the relation; it cannot be
@@ -830,6 +834,11 @@ definition player_tangle_attractor :: "'v set \<Rightarrow> 'v strat \<Rightarro
 definition player_tangle_attractor :: "'v set \<Rightarrow> 'v strat \<Rightarrow> bool" where
   "player_tangle_attractor X \<sigma> \<equiv> \<exists>\<sigma>'. tangle_attractor_step\<^sup>*\<^sup>* (A,Map.empty) (X,\<sigma>') \<and>
     \<not>Domainp tangle_attractor_step (X,\<sigma>') \<and> \<sigma> = \<sigma>' ++ A_target X"
+
+lemma player_tangle_attractor_notin_step_Domainp:
+  "player_tangle_attractor X \<sigma> \<Longrightarrow> \<not>Domainp tangle_attractor_step (X, \<sigma>)"
+  unfolding player_tangle_attractor_def
+  using add_A_target_notin_step_Domainp by auto
 
 (** This auxiliary lemma is used to show that the invariant has been preserved for \<sigma>, and that
     \<sigma> is constructed from \<sigma>' and A_target. *)
@@ -1041,15 +1050,44 @@ end (** End of context with fixed A *)
 
 subsection \<open>\<alpha>-maximal Regions\<close>
 (** A region is \<alpha>-maximal if it equals its tangle attractor, i.e. TAttr(A) = A.
-    This definition is now clearly wrong - it needs changing! *)
+    We define it instead as a region that cannot be extended further, as this is easier
+    to define. *)
 definition player_\<alpha>_max :: "'v set \<Rightarrow> bool" where
   "player_\<alpha>_max A \<equiv> \<forall>\<sigma>. \<nexists>S'. tangle_attractor_step A (A,\<sigma>) S'"
+
+abbreviation "player_no_tattr_succs X \<equiv>
+  (\<nexists>x y. x \<in> V\<^sub>\<alpha> - X \<and> (x,y) \<in> E \<and> y \<in> X) \<and>
+  (\<nexists>x. x \<in> V\<^sub>\<beta>-X \<and> (\<forall>y. (x,y) \<in> E \<longrightarrow> y \<in> X)) \<and>
+  (\<nexists>t \<sigma>. t \<in> T \<and> t-X \<noteq> {} \<and> opponent_escapes t \<noteq> {} \<and> opponent_escapes t \<subseteq> X \<and>
+    player_tangle_strat t \<sigma>)"
+
+lemma player_\<alpha>_max_no_tattr_succs: "player_\<alpha>_max A \<longleftrightarrow> player_no_tattr_succs A"
+  unfolding player_\<alpha>_max_def
+  apply (rule iffI; clarsimp simp: tangle_attractor_step.simps)
+  by metis+
 
 (** A tangle_attracted region cannot be extended further, meaning it is \<alpha>-maximal. *)
 lemma player_tangle_attractor_is_\<alpha>_max:
   "player_tangle_attractor A X \<sigma> \<Longrightarrow> player_\<alpha>_max X"
   unfolding player_tangle_attractor_def player_\<alpha>_max_def
   by (auto simp: tangle_attractor_step.simps intro: tangle_attractor_step.intros)
+
+lemma player_\<alpha>_max_iff_player_tangle_attractor:
+  "player_\<alpha>_max A \<longleftrightarrow> (\<exists>\<sigma>. player_tangle_attractor A A \<sigma>)"
+  apply (rule iffI)
+  subgoal unfolding player_\<alpha>_max_def player_tangle_attractor_def by blast
+  subgoal using player_tangle_attractor_is_\<alpha>_max by blast
+  done
+
+(** The actual strategy given with the attractor to an \<alpha>-maximal region is A_target A.
+    We will not need this, but it explains the nature of the strategy. *)
+corollary player_\<alpha>_max_iff_player_tangle_attractor_A_target:
+  "player_\<alpha>_max A \<longleftrightarrow> player_tangle_attractor A A (A_target A A)"
+  apply (rule iffI)
+  subgoal unfolding player_\<alpha>_max_def player_tangle_attractor_def by auto
+  subgoal using player_tangle_attractor_is_\<alpha>_max by blast
+  done
+
 end (** End of context with fixed T *)
 end (** End of context player_paritygame *)
 
@@ -1140,11 +1178,31 @@ fun \<alpha>_max :: "player \<Rightarrow> 'v set set \<Rightarrow> 'v set \<Righ
   "\<alpha>_max EVEN T = P0.player_\<alpha>_max {t\<in>T. tangle EVEN t}"
 | "\<alpha>_max ODD T = P1.player_\<alpha>_max {t\<in>T. tangle ODD t}"
 
+abbreviation "no_tattr_succs \<alpha> T X \<equiv>
+  (\<nexists>x y. x \<in> V_player \<alpha> - X \<and> (x,y) \<in> E \<and> y \<in> X) \<and>
+  (\<nexists>x. x \<in> V_opponent \<alpha> - X \<and> (\<forall>y. (x,y) \<in> E \<longrightarrow> y \<in> X)) \<and>
+  (\<nexists>t \<sigma>. t \<in> T \<and> t-X \<noteq> {} \<and> escapes \<alpha> t \<noteq> {} \<and> escapes \<alpha> t \<subseteq> X \<and>
+    tangle_strat \<alpha> t \<sigma>)"
+
+lemma \<alpha>_max_no_tattr_succs:
+  assumes "finite T"
+  shows "\<alpha>_max \<alpha> T X \<longleftrightarrow> no_tattr_succs \<alpha> {t\<in>T. tangle \<alpha> t} X"
+  using P0.player_\<alpha>_max_no_tattr_succs[of "{t\<in>T. tangle EVEN t}" X]
+  using P1.player_\<alpha>_max_no_tattr_succs[of "{t\<in>T. tangle ODD t}" X]
+  using V\<^sub>0_opposite_V\<^sub>1 by (cases \<alpha>; simp add: assms)
+
 lemma tangle_attractor_is_\<alpha>_max:
   assumes "finite T"
   shows "tangle_attractor \<alpha> T A X \<sigma> \<Longrightarrow> \<alpha>_max \<alpha> T X"
   using P0.player_tangle_attractor_is_\<alpha>_max[of "{t\<in>T. tangle EVEN t}" A X \<sigma>]
   using P1.player_tangle_attractor_is_\<alpha>_max[of "{t\<in>T. tangle ODD t}" A X \<sigma>]
+  by (cases \<alpha>; simp add: assms)
+
+lemma \<alpha>_max_iff_tangle_attractor:
+  assumes "finite T"
+  shows "\<alpha>_max \<alpha> T A \<longleftrightarrow> (\<exists>\<sigma>. tangle_attractor \<alpha> T A A \<sigma>)"
+  using P0.player_\<alpha>_max_iff_player_tangle_attractor[of "{t\<in>T. tangle EVEN t}" A]
+  using P1.player_\<alpha>_max_iff_player_tangle_attractor[of "{t\<in>T. tangle ODD t}" A]
   by (cases \<alpha>; simp add: assms)
 end (** End of context paritygame *)
 
