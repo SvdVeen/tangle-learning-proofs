@@ -1,5 +1,5 @@
 theory TangleLearning_Search
-imports Main PredicateTermination TangleAttractors TangleLearning
+imports Main PredicateTermination TangleAttractors
 begin
 
 type_synonym 'a search_state = "'a set \<times> 'a set set"
@@ -98,6 +98,9 @@ lemma search_step_finite_Y:
   using paritygame.tangle_attractor_finite[OF _ fin_T]
   by force
 
+(*lemma Van_Dijk_2:
+  "\<lbrakk>search_step (R,Y) (R',Y')\<rbrakk> \<Longrightarrow> \<forall>"*)
+
 (** If our invariant holds for a state, a step of the search algorithm gives us a Y' with new tangles
     that were not included in T before. *)
 lemma search_step_tangles_Y:
@@ -106,6 +109,8 @@ lemma search_step_tangles_Y:
 proof (induction rule: search_step_induct)
   case (step R p \<alpha> A Z \<sigma> Ov Y' Y R')
   hence attr: "subgraph_tattr R \<alpha> T A Z \<sigma>" and
+    p_def: "p = pr_set R" and
+    \<alpha>_def: "\<alpha> = player_wins_pr p" and
     A_def: "A = {v \<in> R. pr v = p}" and
     Ov_def: "Ov = {v \<in> V_player \<alpha> \<inter> A. E `` {v} \<inter> Z \<noteq> {}}
       \<union> {v \<in> V_opponent \<alpha> \<inter> A. E `` {v} \<inter> R \<subseteq> Z}" and
@@ -120,7 +125,7 @@ proof (induction rule: search_step_induct)
   let ?G\<sigma> = "induced_subgraph \<sigma>"
   let ?G\<sigma>_V = "induced_subgraph_V \<sigma>"
 
-  from A_def \<open>R \<subseteq> V\<close>
+  from A_def \<open>R\<subseteq>V\<close>
     R_game.target_in_tangle_attractor[OF fin_T attr]
     R_game.tangle_attractor_in_V[OF fin_T attr]
   have "A \<subseteq> Z" and "Z \<subseteq> R" and "A \<subseteq> R" by auto
@@ -134,27 +139,66 @@ proof (induction rule: search_step_induct)
     \<sigma>_path_to_A:
       "\<forall>x\<in>Z. \<exists>y\<in>A. \<exists>xs. path (Restr ?G\<sigma> R) x xs y"
     unfolding restr_subgraph_V_player[OF R_valid_game]
-      restr_ind_subgraph[OF paritygame.axioms[OF R_valid_game]]
+    unfolding restr_ind_subgraph[OF paritygame.axioms[OF R_valid_game]]
     unfolding strategy_of_player_def strategy_of_def by auto
-  have all_games_in_Z_won:
-    "\<forall>v\<in>Z. \<forall>xs ys. lasso (Restr ?G\<sigma> Z) v xs ys
-      \<longrightarrow> player_wins_list \<alpha> ys"
-  proof -
-    from \<open>R\<subseteq>V\<close> step(2,3) have "player_winningP \<alpha> (pr_set (V \<inter> R))"
-      by (cases \<alpha>; simp add: player_wins_pr_def Int_absorb1 split: if_splits)
-    moreover from \<open>R\<subseteq>V\<close> step(2,4) have "A = {v \<in> V \<inter> R. pr v = pr_set (V \<inter> R)}"
-      by (simp add: Int_absorb1)
-    ultimately show ?thesis
-      using R_game.van_dijk_2[OF fin_T _ _ attr]
-      unfolding restr_subgraph_V_player[OF R_valid_game]
-        restr_ind_subgraph[OF paritygame.axioms[OF R_valid_game]]
-        Restr_subset[OF \<open>Z\<subseteq>R\<close>] by simp
-  qed
+
+  {
+    fix x xs ys
+    assume x_in_Z: "x \<in> Z"
+       and lasso: "lasso (Restr ?G\<sigma> Z) x xs ys"
+
+     from restr_V_lasso[OF lasso] have
+       ys_in_Z: "set ys \<subseteq> Z" and
+       lasso_\<sigma>: "lasso ?G\<sigma> x xs ys"
+       by blast+
+     with \<open>Z\<subseteq>R\<close> have ys_in_R: "set ys \<subseteq> R" by simp
+
+     from lasso_loop[OF lasso_\<sigma>] obtain y where
+       lasso_ys: "lasso ?G\<sigma> y [] ys" and
+       y_in_ys: "y \<in> set ys" and
+       ys_notempty: "ys \<noteq> []"
+       by fastforce
+     with ys_in_Z ys_in_R have
+       "y \<in> Z" "y \<in> R" by blast+
+
+    consider (A_in_ys) "set ys \<inter> A \<noteq> {}"
+           | (A_notin_ys) "set ys \<inter> A = {}" by blast
+    hence "player_wins_list \<alpha> ys" proof cases
+      case A_in_ys
+      have "pr_list ys = pr_set R"
+      proof (rule antisym)
+        from \<open>y\<in>R\<close> ys_in_R \<open>R\<subseteq>V\<close> \<open>ys\<noteq>[]\<close>
+        show "pr_list ys \<le> pr_set R"
+          using R_game.pr_list_le_pr_set_V
+          by (simp add: Int_absorb1)
+      next
+        from A_in_ys ys_in_R p_def A_def \<open>R\<subseteq>V\<close>
+        show "pr_set R \<le> pr_list ys"
+          using R_game.pr_V_in_list
+          by (auto simp: Int_absorb1)
+      qed
+
+      moreover from \<open>R\<subseteq>V\<close> p_def \<alpha>_def
+      have "player_winningP \<alpha> (pr_set (V \<inter> R))"
+        by (simp add: player_wins_pr_def Int_absorb1)
+
+      ultimately show ?thesis
+        by (simp add: Int_absorb1[OF \<open>R\<subseteq>V\<close>])
+    next
+
+      case A_notin_ys
+      with \<sigma>_forces_A_or_wins \<open>y\<in>Z\<close>
+      show ?thesis
+        using lasso_restr_V[OF lasso_ys _ ys_in_R]
+        by auto
+    qed
+  } note in_Z_won=this
 
   show ?case
   proof (rule ballI)
     fix U assume U_in_Y': "U \<in> Y'"
-    with Y'_def consider (old) "U \<in> Y" | (new) "U \<in> {S. bound_nt_bottom_SCC Z \<sigma> S}"
+    with Y'_def consider (old) "U \<in> Y"
+                       | (new) "U \<in> {S. bound_nt_bottom_SCC Z \<sigma> S}"
       by (auto split: if_splits)
     thus "\<exists>\<alpha>. tangle \<alpha> U" proof cases
       case old with tangles_Y show ?thesis by blast
@@ -235,7 +279,8 @@ proof (induction rule: search_step_induct)
 
           show \<sigma>'_dom: "dom \<sigma>' = U \<inter> V_player \<alpha>"
           proof
-            from \<sigma>_dom show "dom \<sigma>' \<subseteq> U \<inter> V_player \<alpha>" unfolding \<sigma>'_def by auto
+            from \<sigma>_dom show "dom \<sigma>' \<subseteq> U \<inter> V_player \<alpha>"
+              unfolding \<sigma>'_def by auto
           next
             {
               fix x assume assm: "x \<in> V_player \<alpha> \<inter> A \<inter> U"
@@ -244,14 +289,16 @@ proof (induction rule: search_step_induct)
                 using ind_subgraph \<sigma>'_U_succ_in_U by fast
               with assm \<open>U\<subseteq>Z\<close> have "x \<in> dom \<sigma>'"
                 using R_game.tangle_attractor_strat_in_dom_A[OF fin_T attr]
-                unfolding restr_subgraph_V_player[OF R_valid_game] \<sigma>'_def by auto
+                unfolding restr_subgraph_V_player[OF R_valid_game] \<sigma>'_def
+                by auto
             }
             moreover
             {
               fix x assume "x \<in> V_player \<alpha> \<inter> (U-A)"
               with \<open>U\<subseteq>Z\<close> \<open>Z\<subseteq>R\<close> have "x \<in> dom \<sigma>'"
                 using R_game.tangle_attractor_strat_in_dom_not_A[OF fin_T attr, of x]
-                unfolding restr_subgraph_V_player[OF R_valid_game] \<sigma>'_def by fastforce
+                unfolding restr_subgraph_V_player[OF R_valid_game] \<sigma>'_def
+                by fastforce
             }
             ultimately show "U \<inter> V_player \<alpha> \<subseteq> dom \<sigma>'" by blast
           qed
@@ -277,13 +324,183 @@ proof (induction rule: search_step_induct)
               "tangle_subgraph \<alpha> U \<sigma>' \<subseteq> Restr ?G\<sigma> Z"
               unfolding tangle_subgraph_is_restricted_ind_subgraph[OF \<open>U\<subseteq>V\<close> \<sigma>'_dom \<sigma>'_ran]
               unfolding restricted_strat_and_dom_subgraph_same_in_region[OF \<sigma>'_def] by blast
-            with \<open>U\<subseteq>Z\<close> all_games_in_Z_won show ?thesis
-              using subgraph_cycles_won_if_plays_won by presburger
+            from in_Z_won show ?thesis
+              using subsetD[OF \<open>U\<subseteq>Z\<close>] subgraph_path[OF tangle_subgraph_subset]
+              unfolding lasso_def cycle_def by blast
           qed
         qed
       qed
     qed
   qed
+qed
+
+lemma search_step_last:
+  "\<lbrakk>search_step (R,Y) (R',Y'); search_I (R,Y); R' = {}\<rbrakk> \<Longrightarrow> Y' \<noteq> {}"
+  unfolding search_I_def split
+proof (induction rule: search_step_induct)
+  case (step R p \<alpha> A Z \<sigma> Ov Y' Y R')
+
+  then interpret R_game: paritygame "Restr E R" "V\<inter>R" "V\<^sub>0\<inter>R"
+    by fast
+
+  from step have R_valid_game: "paritygame (Restr E R) (V\<inter>R) (V\<^sub>0\<inter>R)" by blast
+  from step have attr: "R_game.tangle_attractor \<alpha> T A Z \<sigma>" by simp
+
+  from step have "R \<subseteq> V" by blast
+
+  from step have "R = Z"
+    using R_game.tangle_attractor_in_V[OF fin_T] by blast
+  from step have "A \<subseteq> Z"
+    using R_game.target_in_tangle_attractor[OF fin_T] by blast
+
+  from step have "A \<noteq> {}"
+    using pr_set_exists by fastforce
+
+  from \<open>A\<subseteq>Z\<close> \<open>A\<noteq>{}\<close>
+  have A_succs_in_Z: "(E `` A) \<inter> Z \<subseteq> Z" "(E `` A) \<inter> Z \<noteq> {}"
+    using R_game.succ R_game.E_closed_V
+    unfolding Int_absorb1[OF \<open>R\<subseteq>V\<close>]
+    unfolding \<open>R=Z\<close>
+    by blast+
+
+
+  with \<open>R\<noteq>{}\<close> \<open>R\<subseteq>V\<close> \<open>A\<noteq>{}\<close> \<open>A\<subseteq>Z\<close>
+  have "Ov \<noteq> {}"
+    unfolding step(6) \<open>R=Z\<close>
+    by (cases \<alpha>; simp) blast+
+  with step have Y'_def:
+    "Y' = Y \<union> {U. bound_nt_bottom_SCC Z \<sigma> U}"
+    by auto
+
+  have "\<exists>U. bound_nt_bottom_SCC Z \<sigma> U"
+  proof -
+    from R_game.tangle_attractor_strat[OF fin_T attr] have
+      \<sigma>_strat: "strategy_of (V_player \<alpha>) \<sigma>" and
+      \<sigma>_ran: "ran \<sigma> \<subseteq> Z" and
+      \<sigma>_closed: "(Restr (induced_subgraph \<sigma>) Z) `` Z \<subseteq> Z"
+      unfolding restr_subgraph_V_player[OF R_valid_game]
+      unfolding restr_ind_subgraph[OF paritygame.axioms[OF R_valid_game]]
+      using restr_subgraph_strategy_of_player[OF R_valid_game]
+      by auto
+
+    then interpret \<sigma>_graph:
+      finite_graph_V_succ "induced_subgraph \<sigma>" "induced_subgraph_V \<sigma>"
+      unfolding strategy_of_def
+      apply unfold_locales
+      by (auto simp: finite_graph_V.E_in_V ind_subgraph_succ)
+
+    have \<sigma>_dom: "dom \<sigma> = V_player \<alpha> \<inter> Z"
+    proof
+      show "dom \<sigma> \<subseteq> V_player \<alpha> \<inter> Z"
+        using R_game.tangle_attractor_strat[OF fin_T attr]
+        unfolding restr_subgraph_V_player[OF R_valid_game] by simp
+    next
+      from \<open>R=Z\<close> \<open>R\<subseteq>V\<close> show "V_player \<alpha> \<inter> Z \<subseteq> dom \<sigma>"
+        using R_game.succ
+        using R_game.tangle_attractor_strat_in_dom_A[OF fin_T attr]
+        using R_game.tangle_attractor_strat_in_dom_not_A[OF fin_T attr]
+        unfolding restr_subgraph_V_player[OF R_valid_game]
+        by blast
+    qed
+
+    from \<sigma>_strat have "EV (E_of_strat \<sigma>) \<subseteq> induced_subgraph_V \<sigma>"
+      unfolding strategy_of_def induced_subgraph_V_def induced_subgraph_def E_of_strat_def
+      by auto
+
+    moreover have "dom \<sigma> \<subseteq> EV (E_of_strat \<sigma>)"
+      unfolding E_of_strat_def dom_def by force
+
+    ultimately have dom_in_V: "dom \<sigma> \<subseteq> induced_subgraph_V \<sigma>"
+      by auto
+
+    from \<open>R=Z\<close> R_game.tangle_attractor_strat[OF fin_T attr]
+    have \<sigma>_edges_in_Z: "E_of_strat \<sigma> \<subseteq> Restr E Z"
+      unfolding R_game.strategy_of_player_def R_game.strategy_of_def
+      by auto
+
+    from restr_ind_subgraph[OF paritygame.axioms[OF R_valid_game]]
+    have subgames_equal_in_Z: "R_game.induced_subgraph \<sigma> = Restr (induced_subgraph \<sigma>) Z"
+      by (simp add: \<open>R=Z\<close>)
+
+    have subgame_V_equal_in_Z:
+      "R_game.induced_subgraph_V \<sigma> = induced_subgraph_V \<sigma> \<inter> Z"
+    proof
+      show "R_game.induced_subgraph_V \<sigma> \<subseteq> induced_subgraph_V \<sigma> \<inter> Z"
+        unfolding R_game.induced_subgraph_V_def induced_subgraph_V_def
+        unfolding subgames_equal_in_Z by auto
+    next
+      show "induced_subgraph_V \<sigma> \<inter> Z \<subseteq> R_game.induced_subgraph_V \<sigma>"
+      proof
+        fix x assume x_in_\<sigma>_V_Int_Z: "x \<in> induced_subgraph_V \<sigma> \<inter> Z"
+        hence "x \<in> Z" by auto
+
+        consider (in_dom) "x \<in> dom \<sigma>" | (notin_dom) "x \<notin> dom \<sigma>" by blast
+        thus "x \<in> R_game.induced_subgraph_V \<sigma>" proof cases
+          case in_dom
+          with \<sigma>_ran obtain y where
+            "y \<in> Z" "(x,y) \<in> E_of_strat \<sigma>"
+            unfolding E_of_strat_def ran_def by blast
+          hence "(x,y) \<in> Restr (R_game.induced_subgraph \<sigma>) Z"
+            unfolding subgames_equal_in_Z induced_subgraph_def
+            using \<sigma>_edges_in_Z by blast
+          thus ?thesis
+            unfolding R_game.induced_subgraph_V_def by force
+        next
+          case notin_dom
+          from \<open>x\<in>Z\<close> \<open>R\<subseteq>V\<close> \<open>R=Z\<close> obtain y where
+            "(x,y) \<in> Restr E Z"
+            using R_game.succ[of x] by blast
+          with \<open>R=Z\<close> have "(x,y) \<in> Restr (R_game.induced_subgraph \<sigma>) Z"
+            using R_game.ind_subgraph_notin_dom[OF _ notin_dom] by blast
+          thus ?thesis
+            unfolding R_game.induced_subgraph_V_def by force
+        qed
+      qed
+    qed
+
+    interpret \<sigma>_graph_Z:
+      finite_graph_V_succ "Restr (induced_subgraph \<sigma>) Z" "induced_subgraph_V \<sigma> \<inter> Z"
+    proof (unfold_locales)
+      show "Restr (induced_subgraph \<sigma>) Z \<subseteq> (induced_subgraph_V \<sigma> \<inter> Z) \<times> (induced_subgraph_V \<sigma> \<inter> Z)"
+        using \<sigma>_graph.E_in_V by blast
+      show "finite (induced_subgraph_V \<sigma> \<inter> Z)" by blast
+      show "\<And>v. v \<in> induced_subgraph_V \<sigma> \<inter> Z \<Longrightarrow> Restr (induced_subgraph \<sigma>) Z `` {v} \<noteq> {}"
+        using \<open>R=Z\<close> R_game.ind_subgraph_succ \<sigma>_edges_in_Z
+        using subgame_V_equal_in_Z subgames_equal_in_Z by blast
+    qed
+
+    from \<open>R\<noteq>{}\<close> \<open>R\<subseteq>V\<close> \<open>R=Z\<close> have "Restr E Z `` Z \<noteq> {}"
+      using R_game.succ by blast
+
+
+    with \<sigma>_strat \<open>R\<subseteq>V\<close> \<open>R\<noteq>{}\<close> \<open>R=Z\<close>
+      have "induced_subgraph_V \<sigma> \<noteq> {}"
+      using ind_subgraph_V_notempty
+      using \<sigma>_edges_in_Z by auto
+
+    from \<open>R\<noteq>{}\<close> \<open>R\<subseteq>V\<close> \<open>R=Z\<close> \<sigma>_edges_in_Z
+    have "induced_subgraph_V \<sigma> \<inter> Z \<noteq> {}"
+      using R_game.ind_subgraph_V_notempty
+      using subgame_V_equal_in_Z
+      by fastforce
+    then obtain U where
+      SCC: "\<sigma>_graph_Z.SCC U"
+      using \<sigma>_graph_Z.SCC_ex by blast
+    with \<open>R=Z\<close> have "U \<subseteq> Z"
+      using \<sigma>_graph_Z.SCC_in_V by auto
+    with SCC \<open>R=Z\<close> have "\<sigma>_graph.SCC U"
+      unfolding \<sigma>_graph.SCC_def
+      unfolding \<sigma>_graph_Z.SCC_def
+      apply (safe; clarsimp simp: Int_absorb1 Int_assoc Times_Int_Times)
+      apply blast
+
+      sorry
+
+    show ?thesis sorry
+  qed
+
+  thus ?case
+    unfolding Y'_def by simp
 qed
 
 (** One step of the search algorithm preserves our invariant. *)
@@ -343,10 +560,8 @@ lemma search_step_wfP_I:
   "wfP (\<lambda>s' s. search_step s s' \<and> search_I s)"
   unfolding wfP_def
   apply (rule wf_subset[of "inv_image (finite_psubset) (\<lambda>(R,Y). R)"]; clarsimp)
-  subgoal for R' Y' R Y
-    using search_step_R_decreasing[of R Y R' Y']
-    unfolding search_I_def by fast
-  done
+  using search_step_R_decreasing
+  unfolding search_I_def by fast
 
 lemma search_step_final_empty_R:
   assumes I: "search_I (R,Y)"
@@ -358,18 +573,11 @@ proof (rule ccontr)
     unfolding search_I_def split by blast
   then interpret subgame: paritygame "Restr E R" "V\<inter>R" "V\<^sub>0\<inter>R"
     by blast
-  obtain p \<alpha> A Z \<sigma> Ov Y' R' where
-    "p = pr_set R" and
-    "\<alpha> = player_wins_pr p" and
-    "A = {v. v \<in> R \<and> pr v = p}" and
-    "subgraph_tattr R \<alpha> T A Z \<sigma>" and
-    "Ov = {v \<in> V_player \<alpha> \<inter> A. E `` {v} \<inter> Z \<noteq> {}}
-        \<union> {v \<in> V_opponent \<alpha> \<inter> A. E `` {v} \<inter> R \<subseteq> Z}" and
-    "Y' = (if Ov \<noteq> {} then Y \<union> {S. bound_nt_bottom_SCC Z \<sigma> S} else Y)" and
-    "R' = R-Z"
-    using subgame.tangle_attractor_exists[OF fin_T] by presburger
-  with \<open>R\<noteq>{}\<close> have "search_step (R,Y) (R',Y')"
-    using search_step.step[of R p \<alpha> A Z \<sigma> Ov Y' Y R'] by fast
+  from \<open>R\<noteq>{}\<close> obtain R' Y' where
+    "search_step (R,Y) (R',Y')"
+    using subgame.tangle_attractor_exists[OF fin_T]
+    using search_step.step[of R _ _ _ _ _ _ _ Y]
+    by clarsimp fastforce
   hence "Domainp search_step (R,Y)" by blast
   with final show False by blast
 qed

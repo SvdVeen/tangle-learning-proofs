@@ -161,21 +161,6 @@ sublocale P1: player_paritygame E V V\<^sub>0 pr V\<^sub>1 odd
 abbreviation player_wins_list :: "player \<Rightarrow> 'v list \<Rightarrow> bool" where
   "player_wins_list \<alpha> xs \<equiv> player_winningP \<alpha> (pr_list xs)"
 
-(** If we have a cycle in a subgraph of some other graph, and all plays in that graph are won
-    by a specific player, then this cycle forms part of a play in the larger graph, meaning it is
-    won by that player too. *)
-lemma subgraph_cycles_won_if_plays_won:
-  assumes G_subgraph: "G \<subseteq> G'"
-  assumes R_subset: "R \<subseteq> R'"
-  assumes plays_won_in_G': "\<forall>x\<in>R'. \<forall>xs ys. lasso G' x xs ys \<longrightarrow> player_wins_list \<alpha> ys"
-  shows "\<forall>y\<in>R. \<forall>ys. cycle G y ys \<longrightarrow> player_wins_list \<alpha> ys"
-proof (intro ballI allI impI)
-  fix y ys assume y_in_R: "y \<in> R" and cycle: "cycle G y ys"
-  hence "cycle G' y ys" using subgraph_cycle[OF G_subgraph] by blast
-  hence "lasso G' y [] ys" using cycle_iff_lasso by fast
-  with plays_won_in_G' y_in_R R_subset show "player_wins_list \<alpha> ys" by blast
-qed
-
 (** Gives the vertices belonging to a player. *)
 fun V_player where
   "V_player EVEN = V\<^sub>0"
