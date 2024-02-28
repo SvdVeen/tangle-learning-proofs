@@ -186,7 +186,7 @@ lemma ind_subgraph_lasso': "lasso' (induced_subgraph \<sigma>) v xs
 subsection \<open>Nodes in an Induced Subgraph\<close>
 (** The set of all nodes in an induced subgraph *)
 definition induced_subgraph_V :: "'v strat \<Rightarrow> 'v set" where
-  "induced_subgraph_V \<sigma> \<equiv> (fst ` induced_subgraph \<sigma> \<union> snd ` induced_subgraph \<sigma>)"
+  "induced_subgraph_V \<sigma> \<equiv> EV (induced_subgraph \<sigma>)"
 
 (** The nodes in an induced subgraph are a subset of V *)
 lemma ind_subgraph_V_in_V[simp]: "induced_subgraph_V \<sigma> \<subseteq> V"
@@ -197,6 +197,16 @@ lemma ind_subgraph_V_in_V[simp]: "induced_subgraph_V \<sigma> \<subseteq> V"
 lemma ind_subgraph_V_finite[simp]: "finite (induced_subgraph_V \<sigma>)"
   using finite_subset[OF ind_subgraph_V_in_V fin_V] by simp
 
+(** An induced subgraph has nodes so long as it is valid and V is not empty. *)
+lemma ind_subgraph_V_notempty:
+  "\<lbrakk>V \<noteq> {}; E_of_strat \<sigma> \<subseteq> E\<rbrakk> \<Longrightarrow> induced_subgraph_V \<sigma> \<noteq> {}"
+proof -
+  assume "V \<noteq> {}" "E_of_strat \<sigma> \<subseteq> E"
+  hence "E \<noteq> {}" using E_in_V succ by blast
+  with \<open>E_of_strat \<sigma>\<subseteq>E\<close> show "induced_subgraph_V \<sigma> \<noteq> {}"
+    unfolding induced_subgraph_V_def induced_subgraph_def E_of_strat_def
+    apply (cases "dom \<sigma> = {}") by (auto simp: dom_def)
+qed
 
 subsection \<open>Induced Subgraphs in Subarenas\<close>
 (** All nodes in an induced subgraph still have a successor *)
