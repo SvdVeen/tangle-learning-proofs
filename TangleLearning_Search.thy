@@ -10,13 +10,46 @@ context paritygame begin
     More, similar abbreviations for using concepts in a restricted subgame may be useful for
     legibility.*)
 
-abbreviation (input) bound_nt_bottom_SCC :: "'v set \<Rightarrow> 'v strat \<Rightarrow> 'v set \<Rightarrow> bool" where
-  "bound_nt_bottom_SCC Z \<sigma> S \<equiv> S \<subseteq> Z \<and>
-    finite_graph_V.nt_bottom_SCC (induced_subgraph \<sigma>) (induced_subgraph_V \<sigma>) S"
+abbreviation (input) bound_nt_bottom_SCC :: "'v set \<Rightarrow> 'v set \<Rightarrow> 'v strat \<Rightarrow> 'v set \<Rightarrow> bool" where
+  "bound_nt_bottom_SCC R Z \<sigma> S \<equiv> S \<subseteq> Z \<and>
+    finite_graph_V.nt_bottom_SCC (Restr (induced_subgraph \<sigma>) R) (induced_subgraph_V \<sigma> \<inter> R) S"
+
+definition subgraph_nt_bottom_SCC :: "'v set \<Rightarrow> 'v strat \<Rightarrow> 'v set \<Rightarrow> bool" where
+  "subgraph_nt_bottom_SCC R \<sigma> S \<equiv>
+    let
+      G\<sigma> = arena.induced_subgraph (Restr E R) \<sigma>; V\<sigma> = arena.induced_subgraph_V (Restr E R) \<sigma>
+    in
+      finite_graph_V.nt_bottom_SCC (Restr (induced_subgraph \<sigma>) R) (induced_subgraph_V \<sigma> \<inter> R) S"
 
 abbreviation (input) subgraph_tattr
   :: "'v set \<Rightarrow> player \<Rightarrow> 'v set set \<Rightarrow> 'v set \<Rightarrow> 'v set \<Rightarrow> 'v strat \<Rightarrow> bool" where
   "subgraph_tattr R \<alpha> T A Z \<sigma> \<equiv> paritygame.tangle_attractor (Restr E R) (V\<inter>R) (V\<^sub>0\<inter>R) pr \<alpha> T A Z \<sigma>"
+
+context
+  fixes R :: "'v set"
+  assumes valid_R: "valid_subgame R"
+begin
+
+interpretation subgame: paritygame "Restr E R" "V\<inter>R" "V\<^sub>0\<inter>R"
+  using valid_R by blast
+
+abbreviation (input) subgame_tattr where
+  "subgame_tattr \<equiv> subgame.tangle_attractor"
+
+context
+  fixes \<sigma> :: "'v strat"
+begin
+interpretation subgraph: finite_graph_V "subgame.induced_subgraph \<sigma>" "subgame.induced_subgraph_V \<sigma>"
+  by simp
+
+abbreviation (input) subgraph_strat_nt_bottom_SCC where
+  "subgraph_strat_nt_bottom_SCC \<equiv> subgraph.nt_bottom_SCC"
+end
+
+end
+
+lemma "subgame_tattr R \<alpha> T A Z \<sigma> \<equiv> subgraph_tattr R \<alpha> T A Z \<sigma>"
+  by auto
 
 context
   fixes T :: "'v set set"
@@ -33,7 +66,7 @@ inductive search_step :: "'v search_state \<Rightarrow> 'v search_state \<Righta
     A = {v. v \<in> R \<and> pr v = p};
     subgraph_tattr R \<alpha> T A Z \<sigma>;
     Ov = {v \<in> V_player \<alpha> \<inter> A. E `` {v} \<inter> Z \<noteq> {}} \<union> {v \<in> V_opponent \<alpha> \<inter> A. (E `` {v}) \<inter> R \<subseteq> Z};
-    Y' = (if Ov \<noteq> {} then Y \<union> {S. bound_nt_bottom_SCC Z \<sigma> S} else Y);
+    Y' = (if Ov \<noteq> {} then Y \<union> {S. bound_nt_bottom_SCC R Z \<sigma> S} else Y);
     R' = R-Z\<rbrakk> \<Longrightarrow> search_step (R,Y) (R',Y')"
 
 lemmas search_step_induct[consumes 1, case_names step] =
@@ -114,7 +147,7 @@ proof (induction rule: search_step_induct)
     A_def: "A = {v \<in> R. pr v = p}" and
     Ov_def: "Ov = {v \<in> V_player \<alpha> \<inter> A. E `` {v} \<inter> Z \<noteq> {}}
       \<union> {v \<in> V_opponent \<alpha> \<inter> A. E `` {v} \<inter> R \<subseteq> Z}" and
-    Y'_def: "Y' = (if Ov \<noteq> {} then Y \<union> {S. bound_nt_bottom_SCC Z \<sigma> S} else Y)" and
+    Y'_def: "Y' = (if Ov \<noteq> {} then Y \<union> {S. bound_nt_bottom_SCC R Z \<sigma> S} else Y)" and
     tangles_Y: "\<forall>U \<in> Y. \<exists>\<alpha>. tangle \<alpha> U" and
     R_in_V: "R \<subseteq> V" and
     R_valid_game: "paritygame (Restr E R) (V\<inter>R) (V\<^sub>0\<inter>R)"
@@ -198,21 +231,26 @@ proof (induction rule: search_step_induct)
   proof (rule ballI)
     fix U assume U_in_Y': "U \<in> Y'"
     with Y'_def consider (old) "U \<in> Y"
-                       | (new) "U \<in> {S. bound_nt_bottom_SCC Z \<sigma> S}"
+                       | (new) "U \<in> {S. bound_nt_bottom_SCC R Z \<sigma> S}"
       by (auto split: if_splits)
     thus "\<exists>\<alpha>. tangle \<alpha> U" proof cases
       case old with tangles_Y show ?thesis by blast
     next
       case new
-      interpret fin_graph_\<sigma>: finite_graph_V ?G\<sigma> ?G\<sigma>_V by simp
+      interpret fin_graph_\<sigma>: finite_graph_V "Restr ?G\<sigma> R" "?G\<sigma>_V \<inter> R"
+        unfolding induced_subgraph_V_def
+        apply (unfold_locales) by force+
 
+      from new have "U \<subseteq> Z" by simp
+      with \<open>Z\<subseteq>R\<close> have "U\<subseteq>R" by simp
       from new have fin_U: "finite U"
         using fin_graph_\<sigma>.nt_bottom_SCC_finite by simp
       from new have \<sigma>_connected:
         "strongly_connected (Restr ?G\<sigma> U) U"
         using fin_graph_\<sigma>.nt_bottom_SCC_strongly_connected
-        by simp
-      from new have \<sigma>_U_closed: "?G\<sigma> `` U \<subseteq> U"
+        using Int_absorb1[OF \<open>U\<subseteq>R\<close>] Int_assoc[of _ "R\<times>R" "U\<times>U"]
+        by (simp add: Times_Int_Times) fastforce
+      from new have \<sigma>_U_closed: "(Restr ?G\<sigma> R) `` U \<subseteq> U"
         using fin_graph_\<sigma>.nt_bottom_SCC_closed by simp
       from new have \<sigma>_U_succ_in_U: "\<forall>v\<in>U. \<exists>v'\<in>U. (v,v') \<in> ?G\<sigma>"
         using fin_graph_\<sigma>.nt_bottom_SCC_succ_in_SCC by blast
@@ -237,8 +275,7 @@ proof (induction rule: search_step_induct)
               fix x assume "x \<in> U"
               with \<sigma>_path_to_A \<open>U\<subseteq>Z\<close> obtain xs y where
                 y_in_A: "y \<in> A" and
-                path: "path ?G\<sigma> x xs y"
-                using path_inter(1)[of ?G\<sigma>] by blast
+                path: "path (Restr ?G\<sigma> R) x xs y" by blast
 
               from path_closed_dest[OF \<open>x\<in>U\<close> \<sigma>_U_closed path] y_in_A
               have "\<exists>x\<in>U. x \<in> A" by auto
@@ -339,52 +376,50 @@ lemma search_step_last:
   unfolding search_I_def split
 proof (induction rule: search_step_induct)
   case (step R p \<alpha> A Z \<sigma> Ov Y' Y R')
-
-  then interpret R_game: paritygame "Restr E R" "V\<inter>R" "V\<^sub>0\<inter>R"
-    by fast
+  let ?G\<sigma> = "induced_subgraph \<sigma>"
+  let ?V\<sigma> = "induced_subgraph_V \<sigma>"
 
   from step have R_valid_game: "paritygame (Restr E R) (V\<inter>R) (V\<^sub>0\<inter>R)" by blast
+  then interpret R_game: paritygame "Restr E R" "V\<inter>R" "V\<^sub>0\<inter>R" .
+
   from step have attr: "R_game.tangle_attractor \<alpha> T A Z \<sigma>" by simp
-
   from step have "R \<subseteq> V" by blast
-
   from step have "R = Z"
     using R_game.tangle_attractor_in_V[OF fin_T] by blast
   from step have "A \<subseteq> Z"
     using R_game.target_in_tangle_attractor[OF fin_T] by blast
-
   from step have "A \<noteq> {}"
     using pr_set_exists by fastforce
-
   from \<open>A\<subseteq>Z\<close> \<open>A\<noteq>{}\<close>
+
   have A_succs_in_Z: "(E `` A) \<inter> Z \<subseteq> Z" "(E `` A) \<inter> Z \<noteq> {}"
     using R_game.succ R_game.E_closed_V
     unfolding Int_absorb1[OF \<open>R\<subseteq>V\<close>]
     unfolding \<open>R=Z\<close>
     by blast+
 
-
   with \<open>R\<noteq>{}\<close> \<open>R\<subseteq>V\<close> \<open>A\<noteq>{}\<close> \<open>A\<subseteq>Z\<close>
   have "Ov \<noteq> {}"
     unfolding step(6) \<open>R=Z\<close>
     by (cases \<alpha>; simp) blast+
   with step have Y'_def:
-    "Y' = Y \<union> {U. bound_nt_bottom_SCC Z \<sigma> U}"
+    "Y' = Y \<union> {U. bound_nt_bottom_SCC R Z \<sigma> U}"
     by auto
 
-  have "\<exists>U. bound_nt_bottom_SCC Z \<sigma> U"
+  have "\<exists>U. bound_nt_bottom_SCC R Z \<sigma> U"
   proof -
-    from R_game.tangle_attractor_strat[OF fin_T attr] have
+    from \<open>R=Z\<close> R_game.tangle_attractor_strat[OF fin_T attr] have
       \<sigma>_strat: "strategy_of (V_player \<alpha>) \<sigma>" and
       \<sigma>_ran: "ran \<sigma> \<subseteq> Z" and
-      \<sigma>_closed: "(Restr (induced_subgraph \<sigma>) Z) `` Z \<subseteq> Z"
+      \<sigma>_closed: "(Restr ?G\<sigma> Z) `` Z \<subseteq> Z" and
+      \<sigma>_path_to_A: "\<forall>x\<in>Z. \<exists>y\<in>A. \<exists>xs. path (Restr ?G\<sigma> Z) x xs y"
       unfolding restr_subgraph_V_player[OF R_valid_game]
       unfolding restr_ind_subgraph[OF paritygame.axioms[OF R_valid_game]]
       using restr_subgraph_strategy_of_player[OF R_valid_game]
       by auto
 
     then interpret \<sigma>_graph:
-      finite_graph_V_succ "induced_subgraph \<sigma>" "induced_subgraph_V \<sigma>"
+      finite_graph_V_succ "?G\<sigma>" "?V\<sigma>"
       unfolding strategy_of_def
       apply unfold_locales
       by (auto simp: finite_graph_V.E_in_V ind_subgraph_succ)
@@ -403,14 +438,18 @@ proof (induction rule: search_step_induct)
         by blast
     qed
 
-    from \<sigma>_strat have "EV (E_of_strat \<sigma>) \<subseteq> induced_subgraph_V \<sigma>"
+    hence G\<sigma>_is_E_outside_Z: "Restr ?G\<sigma> (-Z) = Restr E (-Z)"
+      unfolding induced_subgraph_def E_of_strat_def
+      by blast
+
+    from \<sigma>_strat have "EV (E_of_strat \<sigma>) \<subseteq> ?V\<sigma>"
       unfolding strategy_of_def induced_subgraph_V_def induced_subgraph_def E_of_strat_def
       by auto
 
     moreover have "dom \<sigma> \<subseteq> EV (E_of_strat \<sigma>)"
       unfolding E_of_strat_def dom_def by force
 
-    ultimately have dom_in_V: "dom \<sigma> \<subseteq> induced_subgraph_V \<sigma>"
+    ultimately have dom_in_V: "dom \<sigma> \<subseteq> ?V\<sigma>"
       by auto
 
     from \<open>R=Z\<close> R_game.tangle_attractor_strat[OF fin_T attr]
@@ -419,19 +458,19 @@ proof (induction rule: search_step_induct)
       by auto
 
     from restr_ind_subgraph[OF paritygame.axioms[OF R_valid_game]]
-    have subgames_equal_in_Z: "R_game.induced_subgraph \<sigma> = Restr (induced_subgraph \<sigma>) Z"
+    have subgames_equal_in_Z: "R_game.induced_subgraph \<sigma> = Restr ?G\<sigma> Z"
       by (simp add: \<open>R=Z\<close>)
 
     have subgame_V_equal_in_Z:
-      "R_game.induced_subgraph_V \<sigma> = induced_subgraph_V \<sigma> \<inter> Z"
+      "R_game.induced_subgraph_V \<sigma> = ?V\<sigma> \<inter> Z"
     proof
-      show "R_game.induced_subgraph_V \<sigma> \<subseteq> induced_subgraph_V \<sigma> \<inter> Z"
+      show "R_game.induced_subgraph_V \<sigma> \<subseteq> ?V\<sigma> \<inter> Z"
         unfolding R_game.induced_subgraph_V_def induced_subgraph_V_def
         unfolding subgames_equal_in_Z by auto
     next
-      show "induced_subgraph_V \<sigma> \<inter> Z \<subseteq> R_game.induced_subgraph_V \<sigma>"
+      show "?V\<sigma> \<inter> Z \<subseteq> R_game.induced_subgraph_V \<sigma>"
       proof
-        fix x assume x_in_\<sigma>_V_Int_Z: "x \<in> induced_subgraph_V \<sigma> \<inter> Z"
+        fix x assume x_in_\<sigma>_V_Int_Z: "x \<in> ?V\<sigma> \<inter> Z"
         hence "x \<in> Z" by auto
 
         consider (in_dom) "x \<in> dom \<sigma>" | (notin_dom) "x \<notin> dom \<sigma>" by blast
@@ -459,27 +498,278 @@ proof (induction rule: search_step_induct)
     qed
 
     interpret \<sigma>_graph_Z:
-      finite_graph_V_succ "Restr (induced_subgraph \<sigma>) Z" "induced_subgraph_V \<sigma> \<inter> Z"
+      finite_graph_V_succ "Restr ?G\<sigma> Z" "?V\<sigma> \<inter> Z"
     proof (unfold_locales)
-      show "Restr (induced_subgraph \<sigma>) Z \<subseteq> (induced_subgraph_V \<sigma> \<inter> Z) \<times> (induced_subgraph_V \<sigma> \<inter> Z)"
+      show "Restr ?G\<sigma> Z \<subseteq> (?V\<sigma> \<inter> Z) \<times> (?V\<sigma> \<inter> Z)"
         using \<sigma>_graph.E_in_V by blast
-      show "finite (induced_subgraph_V \<sigma> \<inter> Z)" by blast
-      show "\<And>v. v \<in> induced_subgraph_V \<sigma> \<inter> Z \<Longrightarrow> Restr (induced_subgraph \<sigma>) Z `` {v} \<noteq> {}"
+      show "finite (?V\<sigma> \<inter> Z)" by blast
+      show "\<And>v. v \<in> ?V\<sigma> \<inter> Z \<Longrightarrow> Restr ?G\<sigma> Z `` {v} \<noteq> {}"
         using \<open>R=Z\<close> R_game.ind_subgraph_succ \<sigma>_edges_in_Z
         using subgame_V_equal_in_Z subgames_equal_in_Z by blast
     qed
 
+    from \<open>R=Z\<close> interpret \<sigma>_graph_R:
+      finite_graph_V_succ "Restr ?G\<sigma> R" "?V\<sigma> \<inter> R"
+      using \<sigma>_graph_Z.finite_graph_V_succ_axioms by blast
+    
+
     from \<open>R\<noteq>{}\<close> \<open>R\<subseteq>V\<close> \<open>R=Z\<close> have "Restr E Z `` Z \<noteq> {}"
       using R_game.succ by blast
 
+    from \<open>A\<noteq>{}\<close> obtain a where "a \<in> A" by blast
+    with \<open>A\<subseteq>Z\<close> \<open>R=Z\<close> have "a \<in> R" by blast
+    have "a \<in> induced_subgraph_V \<sigma> \<inter> Z"
+    proof -
+      consider (dom) "a \<in> dom \<sigma>" | (not_dom) "a \<notin> dom \<sigma>" by blast
+      thus ?thesis proof cases
+        case dom with \<open>A\<subseteq>Z\<close> \<open>a\<in>A\<close> dom_in_V
+        show ?thesis  by auto
+      next
+        case not_dom with \<open>a\<in>R\<close> show ?thesis
+          unfolding induced_subgraph_V_def
+          using ind_subgraph_notin_dom[OF _ not_dom]
+          using R_game.succ[of a]
+          apply (clarsimp simp add: Int_absorb1[OF \<open>R\<subseteq>V\<close>])
+          using image_iff \<open>R=Z\<close> by fastforce
+      qed
+    qed
+    from \<sigma>_graph_Z.cycle_always_exists[OF this]
+    obtain y ys where cycle: "cycle (Restr ?G\<sigma> Z) y ys"
+      unfolding reachable_cycle_def by blast
+    hence "set ys \<noteq> {}" by auto
+    have ys_conn: "strongly_connected (Restr (Restr ?G\<sigma> Z) (set ys)) (set ys)"
+      using cycle_strongly_connected[OF cycle] by blast
 
-    with \<sigma>_strat \<open>R\<subseteq>V\<close> \<open>R\<noteq>{}\<close> \<open>R=Z\<close>
-      have "induced_subgraph_V \<sigma> \<noteq> {}"
-      using ind_subgraph_V_notempty
-      using \<sigma>_edges_in_Z by auto
+    define U where
+      "U \<equiv> {x | x y. (x \<in> set ys \<or> y \<in> set ys) \<and> (x,y) \<in> (Restr ?G\<sigma> Z)\<^sup>* \<and> (y,x) \<in> (Restr ?G\<sigma> Z)\<^sup>*}"
+    have "bound_nt_bottom_SCC R Z \<sigma> U"
+      unfolding \<sigma>_graph_R.nt_bottom_SCC_def
+      unfolding \<sigma>_graph_R.bottom_SCC_def
+      unfolding \<sigma>_graph_R.SCC_def
+    proof (intro conjI)
+      from ys_conn have ys_in_U: "set ys \<subseteq> U"
+        unfolding strongly_connected_def U_def
+        by blast
+      with \<open>set ys\<noteq>{}\<close> have "U \<noteq> {}" by auto
+
+      show "U\<subseteq>Z"
+        unfolding U_def
+        using \<sigma>_graph_Z.cycle_in_V[OF cycle]
+        using Image_closed_trancl[OF \<sigma>_closed]
+        by blast
+      with \<open>R=Z\<close> have "U\<subseteq>R" by simp
+
+      from \<open>U\<subseteq>Z\<close> show "U \<subseteq> induced_subgraph_V \<sigma> \<inter> R"
+        unfolding U_def \<open>R=Z\<close>
+        using \<sigma>_graph_Z.cycle_in_V[OF cycle]
+        using \<sigma>_graph_Z.path_closed_V
+        by (simp add: path_iff_rtrancl) blast
+
+      show U_conn: "strongly_connected (Restr (Restr ?G\<sigma> R) U ) U"
+        unfolding strongly_connected_def Restr_subset[OF \<open>U\<subseteq>R\<close>]
+      proof (intro conjI)
+        from \<open>U\<noteq>{}\<close> show "U \<noteq> {}" by blast
+        show "Restr ?G\<sigma> U \<subseteq> U \<times> U" by simp
+        show "\<forall>v\<in>U. \<forall>v'\<in>U. (v, v') \<in> (Restr ?G\<sigma> U)\<^sup>*"
+        proof (intro ballI)
+          fix v v' assume "v \<in> U" "v' \<in> U"
+          from ys_conn have conn: "\<forall>v \<in> U. \<forall>v' \<in> U. (v,v') \<in> (Restr ?G\<sigma> Z)\<^sup>*"
+            unfolding strongly_connected_def U_def
+            using rtrancl_trans[of _ _ "Restr ?G\<sigma> Z"]
+            using path_inter(1)[of "Restr ?G\<sigma> Z"]
+            by (simp add: path_iff_rtrancl) metis
+          with \<open>v\<in>U\<close> \<open>v'\<in>U\<close> obtain xs ys where
+            path_xs: "path (Restr ?G\<sigma> Z) v xs v'" and
+            path_ys: "path (Restr ?G\<sigma> Z) v' ys v"
+            by (simp add: path_iff_rtrancl) blast
+          hence path: "path (Restr ?G\<sigma> Z) v (xs@ys) v" by auto
+          have "set (xs@ys) \<subseteq> U" proof (rule ccontr)
+            assume "\<not>set (xs@ys) \<subseteq> U"
+            with path obtain w where
+              "w \<in> set (xs@ys)" "w \<in> Z-U"
+              using \<sigma>_graph_Z.path_in_V by blast
+            from path_intermediate_node[OF path this(1)]
+            obtain vs ws where
+              "path (Restr ?G\<sigma> Z) v vs w" "path (Restr ?G\<sigma> Z) w ws v" by blast
+            hence "(v,w) \<in> (Restr ?G\<sigma> Z)\<^sup>*" "(w,v) \<in> (Restr ?G\<sigma> Z)\<^sup>*"
+              by (auto simp: path_iff_rtrancl)
+            with conn \<open>v\<in>U\<close> have
+              "\<forall>v\<in>insert w U. \<forall>v'\<in>insert w U. (v,v') \<in> (Restr ?G\<sigma> Z)\<^sup>*"
+              by force
+            with \<open>U\<noteq>{}\<close> \<open>w\<in>Z-U\<close> show False
+              using U_def by blast
+          qed
+          hence "set xs \<subseteq> U" by auto
+          from path_restr_V[OF path_xs this \<open>v'\<in>U\<close>] \<open>R=Z\<close>
+          show "(v,v') \<in> (Restr ?G\<sigma> U)\<^sup>*"
+            unfolding Restr_subset[OF \<open>U\<subseteq>Z\<close>]
+            by (auto simp: path_iff_rtrancl)
+        qed
+      qed
+
+      show maximal: "\<nexists>U'. U \<subset> U' \<and> strongly_connected (Restr (Restr ?G\<sigma> R) U') U'"
+      proof
+        assume "\<exists>U'. U \<subset> U' \<and> strongly_connected (Restr (Restr ?G\<sigma> R) U') U'"
+        then obtain U' where
+          "U \<subset> U'" and U'_conn: "strongly_connected (Restr (Restr ?G\<sigma> R) U') U'"
+          by blast
+        hence "\<forall>v\<in>U'. \<forall>v'\<in>U'. (v,v') \<in> (Restr ?G\<sigma> R)\<^sup>*"
+          unfolding strongly_connected_def
+          apply (simp add: path_iff_rtrancl)
+          using path_inter(1) by meson
+        with \<open>U\<subset>U'\<close> \<open>U\<noteq>{}\<close> show False
+          unfolding U_def \<open>R=Z\<close> by blast
+      qed
+
+      show U_closed_R: "Restr ?G\<sigma> R `` U \<subseteq> U"
+      proof clarsimp
+        fix x y
+        assume "x \<in> U" "x \<in> R" "y \<in> R"
+           and edge: "(x,y) \<in> induced_subgraph \<sigma>"
+
+        show "y \<in> U" sorry
+      qed
+
+      show "Restr (Restr ?G\<sigma> R) U \<noteq> {}"
+        unfolding Restr_subset[OF \<open>U\<subseteq>R\<close>, of ?G\<sigma>]
+      proof -
+        {
+          fix x assume "x \<in> U"
+          hence "\<exists>y \<in> U. (x,y) \<in> ?G\<sigma>"
+            sorry sorry
+        }
+        thus "Restr ?G\<sigma> U \<noteq> {}"
+          by (smt (verit, ccfv_threshold) SigmaI Sigma_empty1 maximal U_conn \<sigma>_graph_R.SCC_def \<sigma>_graph_R.SCC_notempty disjoint_iff empty_subsetI ex_in_conv)
+      qed
+    qed
+    thus ?thesis by blast
+  qed
+      
+
+    define U where
+      "U \<equiv> {x | x y. (x \<in> A \<or> y \<in> A) \<and> (x,y) \<in> (Restr ?G\<sigma> Z)\<^sup>* \<and> (y,x) \<in> (Restr ?G\<sigma> Z)\<^sup>*}"
+    with \<open>A\<noteq>{}\<close> have [simp]: "U\<noteq>{}" by blast
+    have "bound_nt_bottom_SCC Z \<sigma> U"
+      unfolding \<sigma>_graph.nt_bottom_SCC_def
+      unfolding \<sigma>_graph.bottom_SCC_def
+      unfolding \<sigma>_graph.SCC_def
+    proof (intro conjI)
+      from \<open>A\<subseteq>Z\<close> show "U \<subseteq> Z"
+        unfolding U_def
+        using Image_closed_trancl[OF \<sigma>_closed] by blast
+
+      show "U \<subseteq> induced_subgraph_V \<sigma>"
+      proof
+        fix x assume "x \<in> U"
+        consider (dom) "x \<in> dom \<sigma>" | (not_dom) "x \<notin> dom \<sigma>" by blast
+        thus "x \<in> induced_subgraph_V \<sigma>" proof cases
+          case dom with dom_in_V show ?thesis by auto
+        next
+          case not_dom
+          from \<open>x\<in>U\<close> \<open>U\<subseteq>Z\<close>have "x \<in> Z" by auto
+          with \<open>R\<subseteq>V\<close> \<open>R=Z\<close> obtain y where
+            "(x,y) \<in> Restr E Z"
+            using R_game.succ by blast
+          hence "(x,y) \<in> Restr ?G\<sigma> Z"
+            using ind_subgraph_notin_dom[OF _ not_dom]
+            by blast
+          thus ?thesis
+            unfolding induced_subgraph_V_def by force
+        qed
+      qed
+
+      show U_conn: "strongly_connected (Restr ?G\<sigma> U) U"
+      proof -
+        {
+          fix v v'
+          assume "v \<in> U" "v' \<in> U"
+          from ys_conn have U_conn: "\<forall>v\<in>U. \<forall>v'\<in>U. (v,v') \<in> (Restr ?G\<sigma> Z)\<^sup>*"
+            unfolding strongly_connected_def U_def
+            using rtrancl_trans[of _ _ "Restr ?G\<sigma> Z"]
+          proof (intro ballI)
+            fix v v' assume "v \<in> U" "v' \<in> U"
+            then show "(v,v') \<in> (Restr ?G\<sigma> Z)\<^sup>*"
+              unfolding U_def
+          qed
+          with \<open>v\<in>U\<close> \<open>v'\<in>U\<close>
+          have "(v,v') \<in> (Restr ?G\<sigma> Z)\<^sup>*" "(v',v) \<in> (Restr ?G\<sigma> Z)\<^sup>*"
+            by blast+
+          then obtain xs ys where
+            path_xs: "path (Restr ?G\<sigma> Z) v xs v'" and
+            path_ys: "path (Restr ?G\<sigma> Z) v' ys v"
+            by (auto simp: path_iff_rtrancl)
+          hence path: "path (Restr ?G\<sigma> Z) v (xs@ys) v" by auto
+          have "set (xs@ys) \<subseteq> U" proof (rule ccontr)
+            assume "\<not>set (xs@ys) \<subseteq> U"
+            with path \<open>R=Z\<close> obtain w where
+              "w \<in> set (xs@ys)" "w \<in> Z-U"
+              using \<sigma>_graph_Z.path_in_V by blast
+            from path_intermediate_node[OF path this(1)]
+            obtain vs ws where
+              "path (Restr ?G\<sigma> Z) v vs w" "path (Restr ?G\<sigma> Z) w ws v" by blast
+            hence "(v,w) \<in> (Restr ?G\<sigma> Z)\<^sup>*" "(w,v) \<in> (Restr ?G\<sigma> Z)\<^sup>*"
+              by (auto simp: path_iff_rtrancl)
+            with U_conn \<open>v\<in>U\<close> have
+              "\<forall>v\<in>insert w U. \<forall>v'\<in>insert w U. (v,v') \<in> (Restr ?G\<sigma> Z)\<^sup>*"
+              by force
+            with \<open>w\<in>Z-U\<close> show False
+              unfolding U_def by blast
+          qed
+          hence "set xs \<subseteq> U" by auto
+          from path_restr_V[OF path_xs this \<open>v'\<in>U\<close>]
+          have "(v,v') \<in> (Restr ?G\<sigma> U)\<^sup>*"
+            using Restr_subset[OF \<open>U\<subseteq>Z\<close>]
+            by (auto simp add: path_iff_rtrancl)
+        }
+        thus ?thesis
+          unfolding strongly_connected_def by auto
+      qed
+
+      show "\<nexists>U'. U \<subset> U' \<and> strongly_connected (Restr ?G\<sigma> U') U'"
+      proof
+        assume "\<exists>U'. U \<subset> U' \<and> strongly_connected (Restr ?G\<sigma> U') U'"
+        then obtain U' where
+          U'_def: "U \<subset> U'" "strongly_connected (Restr ?G\<sigma> U') U'"
+          by blast
+        have "U' \<subseteq> Z"
+        proof
+          fix y assume "y \<in> U'"
+          with U'_def obtain x where
+            "x \<in> U" "(x,y) \<in> (Restr ?G\<sigma> U')\<^sup>*"
+            unfolding strongly_connected_def
+            using \<open>U\<noteq>{}\<close> by blast
+          then obtain xs where
+            path: "path ?G\<sigma> x xs y"
+            using path_inter(1)[of ?G\<sigma> "U'\<times>U'"]
+            by (auto simp: path_iff_rtrancl)
+
+          show "y \<in> Z" sorry
+        qed
+        have "\<forall>v\<in>U'. \<forall>v'\<in>U'. (v,v') \<in> (Restr ?G\<sigma> Z)\<^sup>*"
+          sorry
+
+        with \<open>U\<subset>U'\<close> show False
+          unfolding U_def by blast
+      qed
+
+      show "?G\<sigma> `` U \<subseteq> U"
+      proof clarsimp
+        fix x y
+        assume edge: "(x,y) \<in> induced_subgraph \<sigma>"
+           and "x \<in> U"
+        show "y \<in> U" proof (rule ccontr)
+          assume "y \<notin> U"
+          show False
+        qed
+      
+      qed
+
+      show "Restr ?G\<sigma> U \<noteq> {}"
+        sorry
+    qed
 
     from \<open>R\<noteq>{}\<close> \<open>R\<subseteq>V\<close> \<open>R=Z\<close> \<sigma>_edges_in_Z
-    have "induced_subgraph_V \<sigma> \<inter> Z \<noteq> {}"
+    have "?V\<sigma> \<inter> Z \<noteq> {}"
       using R_game.ind_subgraph_V_notempty
       using subgame_V_equal_in_Z
       by fastforce
@@ -488,13 +778,81 @@ proof (induction rule: search_step_induct)
       using \<sigma>_graph_Z.SCC_ex by blast
     with \<open>R=Z\<close> have "U \<subseteq> Z"
       using \<sigma>_graph_Z.SCC_in_V by auto
-    with SCC \<open>R=Z\<close> have "\<sigma>_graph.SCC U"
+    
+    have "\<sigma>_graph.SCC U"
       unfolding \<sigma>_graph.SCC_def
-      unfolding \<sigma>_graph_Z.SCC_def
-      apply (safe; clarsimp simp: Int_absorb1 Int_assoc Times_Int_Times)
-      apply blast
+    proof (intro conjI)
+      from SCC show "U \<subseteq> ?V\<sigma>"
+        unfolding \<sigma>_graph_Z.SCC_def by blast
 
-      sorry
+      from SCC \<open>U\<subseteq>Z\<close> show conn_U: "strongly_connected (Restr ?G\<sigma> U) U"
+        unfolding \<sigma>_graph_Z.SCC_def
+        by (simp add: Int_absorb1 Int_assoc Times_Int_Times)
+
+      show "\<nexists>R'. U \<subset> R' \<and> strongly_connected (Restr ?G\<sigma> R') R'"
+      proof
+        assume "\<exists>R'. U \<subset> R' \<and> strongly_connected (Restr ?G\<sigma> R') R'"
+        then obtain U' where
+          U_in_U': "U \<subset> U'" and
+          conn_U': "strongly_connected (Restr ?G\<sigma> U') U'"
+          by auto
+
+        from SCC \<open>U\<subseteq>Z\<close> have no_larger_U': 
+            "\<nexists>R'. U \<subset> R' \<and> strongly_connected (Restr (Restr ?G\<sigma> Z) R') R'"
+          unfolding \<sigma>_graph_Z.SCC_def
+          by blast
+
+        have "\<forall>v\<in>U. \<forall>v'\<in>Z. (v,v') \<in> E\<^sup>* \<and> (v',v) \<in> E\<^sup>* \<longrightarrow> v' \<in> U"
+        proof (intro ballI impI; elim conjE; rule ccontr)
+          fix v v'
+          assume "v \<in> U" "v' \<in> Z" "v' \<notin> U"
+             and v_v': "(v,v') \<in> E\<^sup>*" and v'_v: "(v',v) \<in> E\<^sup>*"
+          let ?U'' = "insert v' U"
+          from \<open>v'\<in>Z\<close> \<open>U\<subseteq>Z\<close> have "?U'' \<subseteq> Z" by blast
+          from \<open>v'\<notin>U\<close> have "U \<subset> ?U''" by blast
+
+          have "strongly_connected (Restr ?G\<sigma> ?U'') ?U''"
+          proof -
+            {
+              fix x y assume "v \<in> ?U''" "v' \<in> ?U''"
+              from conn_U have conn_U'':
+                "\<forall>v\<in>?U''. \<forall>v'\<in>?U''. (v,v') \<in> (Restr E Z)\<^sup>*"
+                unfolding strongly_connected_def
+                using rtrancl_trans[of _ _ "Restr E Z"]
+                apply (auto simp add: path_iff_rtrancl)
+                subgoal by (meson path.simps(1))
+                sorry
+              
+            }
+          
+          qed
+
+          with \<open>U\<subset>?U''\<close> no_larger_U'
+          show False
+            using Int_absorb1[OF \<open>?U''\<subseteq>Z\<close>]
+            by (metis Int_assoc Times_Int_Times)
+        qed
+
+        from conn_U' have conn'_U: "\<forall>v\<in>U'. \<forall>v'\<in>U'. (v,v') \<in> E\<^sup>*"
+          unfolding strongly_connected_def
+          using rtrancl_mono[OF ind_subgraph[of \<sigma>]] rtrancl_mono[of "Restr ?G\<sigma> U'"]
+          by blast
+
+        have "U' \<subseteq> Z"
+        proof
+          fix x assume "x \<in> U'"
+          consider (in_U) "x \<in> U" | (notin_U) "x \<notin> U" by blast
+          thus "x \<in> Z" proof cases
+            case in_U with \<open>U\<subseteq>Z\<close> show ?thesis by blast
+          next
+            case notin_U
+            then show ?thesis sorry
+          qed
+        qed
+
+        show False sorry
+      qed
+    qed
 
     show ?thesis sorry
   qed

@@ -23,6 +23,39 @@ lemma strongly_connected_path:
   unfolding strongly_connected_def
   using rtrancl_is_path[of _ _ E] by simp
 
+(** If we restrict the graph to a cycle, we get a strongly connected graph. *)
+lemma cycle_strongly_connected:
+  "cycle E y ys \<Longrightarrow> strongly_connected (Restr E (set ys)) (set ys)"
+  unfolding strongly_connected_def
+proof (intro conjI)
+  assume cycle: "cycle E y ys"
+  (** Cycles are never empty *)
+  thus "set ys \<noteq> {}" by auto
+  (** This is trivially true for any restricted graph. *)
+  show "Restr E (set ys) \<subseteq> set ys \<times> set ys" by blast
+  (** Now, every node is reachable from each other node. *)
+  show "\<forall>v\<in>set ys. \<forall>v'\<in>set ys. (v,v') \<in> (Restr E (set ys))\<^sup>*"
+  proof (intro ballI)
+    fix v v'
+    assume v_in_ys: "v \<in> set ys"
+       and v'_in_ys: "v' \<in> set ys"
+    (** We can get a cycle from v. *)
+    then obtain ys' where
+      "set ys' = set ys" "cycle E v ys'"
+      using cycle_intermediate_node[OF cycle] by auto
+    (** Because v' is part of ys, there is now a path from v to v'. *)
+    with v'_in_ys obtain vs where
+      "path E v vs v'" "set vs \<subseteq> set ys"
+      using path_intermediate_node[of E v ys' v v']
+      by (clarsimp simp: cycle_def) blast
+    (** Since this path is part of the cycle, it exists in the graph
+        restricted to the cycle. *)
+    from path_restr_V[OF this v'_in_ys]
+    show "(v,v') \<in> (Restr E (set ys))\<^sup>*"
+      using path_iff_rtrancl by fast
+  qed
+qed
+
 context finite_graph_V
 begin
 
@@ -167,6 +200,18 @@ proof -
     unfolding SCC_def by blast
 qed
 
+lemma all_v_in_SCC:
+  assumes v_in_V: "v \<in> V"
+  shows "\<exists>R. v \<in> R \<and> SCC R"
+  apply (rule ccontr)
+  using assms maximal_SCC_candidate[of "{v}"]
+  unfolding strongly_connected_def by blast
+
+lemma SCC_ex:
+  assumes "V \<noteq> {}"
+  shows "\<exists>R. SCC R"
+  using assms all_v_in_SCC
+  by blast
 
 section \<open>Bottom Strongly Connected Components\<close>
 (** A bottom SCC is a strongly connected component where there exist no edges from the SCC to the
@@ -208,6 +253,11 @@ lemma bottom_SCC_closed: "bottom_SCC R \<Longrightarrow> E `` R \<subseteq> R"
 lemma finite_bottom_SCCs:
   "finite {R. bottom_SCC R}"
   using finite_subset[OF Collect_mono finite_SCCs] bottom_SCC_is_SCC by blast
+
+(** The set of all bottom SCCs is a subset of the set of all SCCs. *)
+lemma bottom_SCCs_subset_SCCs:
+  "{R. bottom_SCC R} \<subseteq> {R. SCC R}"
+  unfolding bottom_SCC_def by blast
 
 (** For every pair of nodes in a strongly connected component, there exists a path from one to the
     other. *)
@@ -265,6 +315,18 @@ lemma nt_bottom_SCC_closed: "nt_bottom_SCC R \<Longrightarrow> E `` R \<subseteq
 lemma finite_nt_bottom_SCCs:
   "finite {R. nt_bottom_SCC R}"
   using finite_subset[OF Collect_mono finite_bottom_SCCs] nt_bottom_SCC_is_bottom_SCC by blast
+
+(** The set of all nontrivial bottom SCCs is a subset of the set of all bottom SCCs. *)
+lemma nt_bottom_SCCs_subset_bottom_SCCs:
+  "{R. nt_bottom_SCC R} \<subseteq> {R. bottom_SCC R}"
+  unfolding nt_bottom_SCC_def by blast
+
+(** The set of all nontrivial bottom SCCs is a subset of the set of all SCCs. *)
+lemma nt_bottom_SCCs_subset_SCCs:
+  "{R. nt_bottom_SCC R} \<subseteq> {R. SCC R}"
+  using nt_bottom_SCCs_subset_bottom_SCCs
+  using bottom_SCCs_subset_SCCs
+  by blast
 
 (** For every pair of nodes in a non-trivial bottom SCC, there exists a path from one node to the
     other. *)
@@ -369,10 +431,10 @@ end (** End of context finite_graph_V *)
 context finite_graph_V_succ
 begin
 
-(** In a nonempty graph without dead ends, there always exists an SCC. *)
-lemma SCC_ex:
+(** In a nonempty graph without dead ends, there always exists a nontrivial SCC. *)
+lemma nt_SCC_ex:
   assumes "V \<noteq> {}"
-  shows "\<exists>R. SCC R"
+  shows "\<exists>R. (Restr E R) \<noteq> {} \<and> SCC R"
 proof -
   (** We know there always exists a cycle in this graph. *)
   from cycle_always_exists \<open>V\<noteq>{}\<close>
@@ -380,7 +442,6 @@ proof -
     cycle: "cycle E y ys"
     unfolding reachable_cycle_def
     by blast
-
   (** Cycles are nonempty paths. *)
   from cycle have "set ys \<noteq> {}"
     by fastforce
@@ -389,33 +450,53 @@ proof -
   have "set ys \<subseteq> V" .
   (** The cycle itself is strongly connected. *)
   moreover from cycle have "strongly_connected (Restr E (set ys)) (set ys)"
-    unfolding strongly_connected_def cycle_def
-  proof (intro conjI ballI; simp)
-    fix v v'
-    assume v_in_ys: "v \<in> set ys"
-       and v'_in_ys: "v' \<in> set ys"
-    (** We can get a cycle from v' because it is part of ys. *)
-    then obtain ys' where
-      ys'_is_ys: "set ys' = set ys" and
-      cycle_v: "cycle E v ys'"
-      using cycle_intermediate_node[OF cycle] by auto
-    (** We can then get a path from v to v' because v' is part of this cycle. *)
-    from v'_in_ys cycle_v ys'_is_ys obtain vs where
-      "path E v vs v'" and
-      "set vs \<subseteq> set ys"
-      using path_intermediate_node[of E v ys' v v']
-      by (clarsimp simp: cycle_def) blast
-    (** Since this is entirely contained in the set of the original ys, v' is reachable from v
-        in the graph restricted to the nodes in ys. *)
-    from path_restr_V[OF this v'_in_ys]
-    show "(v,v') \<in> (Restr E (set ys))\<^sup>*"
-      using path_iff_rtrancl by fast
-  qed
+    using cycle_strongly_connected by fast
+
+  moreover from \<open>set ys \<noteq> {}\<close>  have "Restr E (set ys) \<noteq> {}"
+    using subgraph_cycle[of "Restr E (set ys)" _ y ys] restr_V_cycle[of E] cycle_restr_V[OF cycle]
+    by (metis empty_subsetI subset_empty subset_refl)
+
   (** By the former properties combined, we have a candidate for an SCC, which is either itself
-      an SCC, or part of a larger SCC. *)
+      an SCC, or part of a larger SCC. It is also nontrivial. *)
   ultimately show ?thesis
-    using maximal_SCC_candidate by blast
+    using maximal_SCC_candidate[of "set ys"] by blast
 qed
+
+lemma nt_bottom_SCC_ex:
+  assumes v_notempty: "V \<noteq> {}"
+  shows "\<exists>R. nt_bottom_SCC R"
+proof -
+  define S where "S \<equiv> {R. SCC R}"
+  have S_SCCs: "\<forall>R\<in>S. SCC R" by (simp add: S_def)
+  have S_notempty: "S \<noteq> {}"
+    using SCC_ex[OF \<open>V\<noteq>{}\<close>] by (simp add: S_def)
+  have fin_S: "finite S"
+    using finite_SCCs by (simp add: S_def)
+  thus ?thesis using S_notempty S_SCCs
+  proof (induction rule: finite_psubset_induct)
+    case (psubset S')
+    then obtain R where
+      "R\<in>S'" "SCC R" by fast
+    define S'' where "S'' = S' - {R}"
+    have "finite S''"
+      using psubset S''_def by blast
+    consider (S''_empty) "S'' = {}" | (S''_notempty) "S'' \<noteq> {}" by blast
+    thus ?case proof cases
+      case S''_empty
+      hence "R = V" sorry
+      show ?thesis
+        apply (rule exI[where x=R])
+        unfolding nt_bottom_SCC_def bottom_SCC_def sorry
+    next
+      case S''_notempty
+      then show ?thesis
+        using psubset.IH[of S'']
+        unfolding S''_def
+        using \<open>R \<in> S'\<close> psubset.prems(2) by auto
+    qed (** Workshop this! *)
+  qed
+qed
+
 end (** End of context finite_graph_V_succ *)
 
 end
