@@ -61,7 +61,13 @@ begin
 
 section\<open>Strongly Connected Graphs Restricted to a Region\<close>
 (** If a restricted graph is strongly connected, then every node in the
-    region is reachable from  every other node in the region. *)
+    region is reachable from every other node in the region. *)
+lemma strongly_connected_connected:
+  "\<lbrakk>R \<subseteq> V; strongly_connected (Restr E R) R\<rbrakk> \<Longrightarrow> \<forall>v\<in>R. \<forall>v'\<in>R. (v, v') \<in> E\<^sup>*"
+  unfolding strongly_connected_def
+  apply (simp add: path_iff_rtrancl)
+  using path_inter(1) by metis
+
 lemma strongly_connected_restr_connected:
   "\<lbrakk>R \<subseteq> V; strongly_connected (Restr E R) R\<rbrakk> \<Longrightarrow> \<forall>v\<in>R. \<forall>v'\<in>R. (v, v') \<in> (Restr E R)\<^sup>*"
   unfolding strongly_connected_def by blast
@@ -94,9 +100,11 @@ lemma SCC_strongly_connected: "SCC R \<Longrightarrow> strongly_connected (Restr
 lemma SCC_maximal: "SCC R \<Longrightarrow> \<nexists>R'. R \<subset> R' \<and> strongly_connected (Restr E R') R'"
   unfolding SCC_def by blast
 
-(** There are a finite number of SCCs in every graph. *)
-lemma finite_SCCs: "finite {R. SCC R}"
-  unfolding SCC_def by fast
+lemma SCC_maximal': "SCC R \<Longrightarrow> \<nexists>R'. R \<subset> R' \<and> SCC R'"
+  using SCC_in_V SCC_strongly_connected
+  using strongly_connected_connected
+  using SCC_maximal[of R]
+  by metis
 
 (** For every pair of nodes in a strongly connected component, there exists a path from one to the
     other. *)
@@ -200,6 +208,7 @@ proof -
     unfolding SCC_def by blast
 qed
 
+(** All nodes in V are part of an SCC. *)
 lemma all_v_in_SCC:
   assumes v_in_V: "v \<in> V"
   shows "\<exists>R. v \<in> R \<and> SCC R"
@@ -207,11 +216,29 @@ lemma all_v_in_SCC:
   using assms maximal_SCC_candidate[of "{v}"]
   unfolding strongly_connected_def by blast
 
+(** There alway exists an SCC if the graph is not empty. *)
 lemma SCC_ex:
   assumes "V \<noteq> {}"
   shows "\<exists>R. SCC R"
   using assms all_v_in_SCC
   by blast
+
+(** Thet set of all SCCs. *)
+definition SCCs :: "'v set set" where
+  "SCCs \<equiv> {R. SCC R}"
+
+(** The set of SCCs is not empty if the graph is not empty. *)
+lemma SCCs_notempty:
+  assumes "V\<noteq>{}"
+  shows "SCCs \<noteq> {}"
+  using SCC_ex[OF assms]
+  unfolding SCCs_def
+  by simp
+
+(** There are a finite number of SCCs in every graph. *)
+lemma finite_SCCs[simp]: "finite SCCs"
+  unfolding SCCs_def SCC_def by fast
+
 
 section \<open>Bottom Strongly Connected Components\<close>
 (** A bottom SCC is a strongly connected component where there exist no edges from the SCC to the
@@ -249,20 +276,26 @@ lemma bottom_SCC_maximal:
 lemma bottom_SCC_closed: "bottom_SCC R \<Longrightarrow> E `` R \<subseteq> R"
   unfolding bottom_SCC_def by simp
 
-(** There are a finite number of bottom SCCs in the graph. *)
-lemma finite_bottom_SCCs:
-  "finite {R. bottom_SCC R}"
-  using finite_subset[OF Collect_mono finite_SCCs] bottom_SCC_is_SCC by blast
-
-(** The set of all bottom SCCs is a subset of the set of all SCCs. *)
-lemma bottom_SCCs_subset_SCCs:
-  "{R. bottom_SCC R} \<subseteq> {R. SCC R}"
-  unfolding bottom_SCC_def by blast
-
 (** For every pair of nodes in a strongly connected component, there exists a path from one to the
     other. *)
 lemma bottom_SCC_path: "bottom_SCC R \<Longrightarrow> \<forall>v\<in>R. \<forall>v'\<in>R. \<exists>vs. path (Restr E R) v vs v'"
   using SCC_path[OF bottom_SCC_is_SCC] by blast
+
+(** The set of all bottom SCCs. *)
+definition bottom_SCCs :: "'v set set" where
+  "bottom_SCCs \<equiv> {R. bottom_SCC R}"
+
+(** The set of all bottom SCCs is a subset of the set of all SCCs. *)
+lemma bottom_SCCs_subset_SCCs:
+  "bottom_SCCs \<subseteq> SCCs"
+  unfolding bottom_SCCs_def SCCs_def
+  using bottom_SCC_is_SCC by blast
+
+(** There are a finite number of bottom SCCs in the graph. *)
+lemma finite_bottom_SCCs[simp]:
+  "finite bottom_SCCs"
+  using finite_subset[OF bottom_SCCs_subset_SCCs]
+  by simp
 
 
 section \<open>Non-trivial Bottom SCCs\<close>
@@ -310,23 +343,6 @@ lemma nt_bottom_SCC_nontrivial: "(v,v) \<notin> E \<Longrightarrow> \<not>nt_bot
 (** A non-trivial bottom SCC is closed. *)
 lemma nt_bottom_SCC_closed: "nt_bottom_SCC R \<Longrightarrow> E `` R \<subseteq> R"
   using bottom_SCC_closed[OF nt_bottom_SCC_is_bottom_SCC] .
-
-(** There are a finite number of non-trivial bottom SCCs in the graph. *)
-lemma finite_nt_bottom_SCCs:
-  "finite {R. nt_bottom_SCC R}"
-  using finite_subset[OF Collect_mono finite_bottom_SCCs] nt_bottom_SCC_is_bottom_SCC by blast
-
-(** The set of all nontrivial bottom SCCs is a subset of the set of all bottom SCCs. *)
-lemma nt_bottom_SCCs_subset_bottom_SCCs:
-  "{R. nt_bottom_SCC R} \<subseteq> {R. bottom_SCC R}"
-  unfolding nt_bottom_SCC_def by blast
-
-(** The set of all nontrivial bottom SCCs is a subset of the set of all SCCs. *)
-lemma nt_bottom_SCCs_subset_SCCs:
-  "{R. nt_bottom_SCC R} \<subseteq> {R. SCC R}"
-  using nt_bottom_SCCs_subset_bottom_SCCs
-  using bottom_SCCs_subset_SCCs
-  by blast
 
 (** For every pair of nodes in a non-trivial bottom SCC, there exists a path from one node to the
     other. *)
@@ -425,11 +441,297 @@ proof (rule ballI)
   with vs1_notempty vs2_notempty show "\<exists>ys. cycle (Restr E R) v ys"
     unfolding cycle_def by blast
 qed
+
+(** The set of all nontrivial bottom SCCs. *)
+definition nt_bottom_SCCs :: "'v set set" where
+  "nt_bottom_SCCs \<equiv> {R. nt_bottom_SCC R}"
+
+(** The set of all nontrivial bottom SCCs is a subset of the set of all bottom SCCs. *)
+lemma nt_bottom_SCCs_subset_bottom_SCCs:
+  "nt_bottom_SCCs \<subseteq> bottom_SCCs"
+  unfolding nt_bottom_SCCs_def bottom_SCCs_def
+  using nt_bottom_SCC_is_bottom_SCC by blast
+
+(** The set of all nontrivial bottom SCCs is a subset of the set of all SCCs. *)
+lemma nt_bottom_SCCs_subset_SCCs:
+  "nt_bottom_SCCs \<subseteq> SCCs"
+  using nt_bottom_SCCs_subset_bottom_SCCs
+  using bottom_SCCs_subset_SCCs
+  by blast
+
+(** There are a finite number of non-trivial bottom SCCs in the graph. *)
+lemma finite_nt_bottom_SCCs[simp]:
+  "finite nt_bottom_SCCs"
+  using finite_subset[OF nt_bottom_SCCs_subset_SCCs]
+  by simp
+
+
+(** We will use the concept of a condensation to prove the existence of bottom SCCs. *)
+section \<open>Condensations\<close>
+(** The condensation of a graph is a graph of the contractions of each SCC.
+    Each SCC is collapsed to a single node, and the edges are those between the SCCs.
+    There are no self loops. *)
+definition condensation :: "'v set dgraph" where
+  "condensation \<equiv>
+    {(R,R') | R R' x y. R \<noteq> R' \<and> R \<in> SCCs \<and> R' \<in> SCCs \<and> x \<in> R \<and> y \<in> R' \<and> (x,y) \<in> E}"
+
+lemma condensation_no_self_loops[simp]:
+  "(R,R) \<notin> condensation"
+  unfolding condensation_def by blast
+
+(** If a region is a subset of another, then a node reachable in the graph restricted to the small
+    region is also reachable in the graph restricted to the larger region. *)
+lemma Restr_subgraph_aux:
+  "\<lbrakk>R \<subseteq> R'; (x,y) \<in> (Restr E R)\<^sup>*\<rbrakk> \<Longrightarrow> (x,y) \<in> (Restr E R')\<^sup>*"
+  using Restr_subset[of R R'] rtrancl_mono[of "Restr E R" "Restr E R'"]
+  by blast
+
+(** A condensation is a finite graph with all SCCs as its nodes. *)
+lemma condensation_finite_graph_V:
+  "finite_graph_V condensation SCCs"
+  by (unfold_locales) (auto simp: condensation_def)
+
+(** If an edge exists in the condensation, then there exists an edge between the two SCCs, and they
+    are not the same. This holds in both directions. *)
+lemma edge_in_condensation_iff:
+  "(R,R') \<in> condensation \<longleftrightarrow> R \<noteq> R' \<and> SCC R \<and> SCC R' \<and> (\<exists>x\<in>R. \<exists>y\<in>R'. (x,y) \<in> E)"
+  unfolding condensation_def SCCs_def by auto
+
+(** If there exists an edge between two SCCs in the condensation, then every node in the latter SCC
+    is reachable from every node in the former SCC. *)
+lemma condensation_edge_reachable:
+  "(R,R') \<in> condensation \<Longrightarrow> \<forall>x\<in>R. \<forall>y\<in>R'. (x,y) \<in> (Restr E (R\<union>R'))\<^sup>*"
+proof (intro ballI)
+  fix x y assume "x \<in> R" "y \<in> R'" and c_edge: "(R,R') \<in> condensation"
+  then obtain v w where
+    "SCC R" "SCC R'" "v \<in> R" "w \<in> R'" and edge_vw: "(v,w) \<in> (Restr E (R\<union>R'))"
+    using edge_in_condensation_iff by auto
+  from \<open>SCC R\<close> \<open>x\<in>R\<close> \<open>v\<in>R\<close> have reach_xv: "(x,v) \<in> (Restr E (R\<union>R'))\<^sup>*"
+    using SCC_strongly_connected SCC_in_V
+    using strongly_connected_restr_connected[of R]
+    using Restr_subgraph_aux[of R "R\<union>R'"] by auto
+  from \<open>SCC R'\<close> \<open>w\<in>R'\<close> \<open>y\<in>R'\<close> have reach_wy: "(w,y) \<in> (Restr E (R\<union>R'))\<^sup>*"
+    using SCC_strongly_connected SCC_in_V
+    using strongly_connected_restr_connected[of R']
+    using Restr_subgraph_aux[of R' "R\<union>R'"] by auto
+  from reach_xv edge_vw reach_wy show "(x,y) \<in> (Restr E (R\<union>R'))\<^sup>*"
+    using rtrancl_trans[of _ _ "Restr E (R\<union>R')"] by blast
+qed
+
+(** All nodes in a path in the condensation are SCCs in the whole graph. *)
+lemma condensation_path_SCCs:
+  "\<lbrakk>path condensation R rs R'; SCC R\<rbrakk> \<Longrightarrow> (\<forall>r\<in>set rs. SCC r) \<and> SCC R'"
+  using finite_graph_V.path_in_V[OF condensation_finite_graph_V]
+  using finite_graph_V.path_closed_V[OF condensation_finite_graph_V]
+  unfolding SCCs_def by blast
+
+(** From all nodes in the SCC at the start of a path in the condensation, all nodes in the SCCs in
+    the path can be reached within the graph restricted to those SCCs. *)
+lemma condensation_path_reachable:
+  "\<lbrakk>path condensation R rs R'; SCC R\<rbrakk>
+    \<Longrightarrow> \<forall>x\<in>R. \<forall>y\<in>\<Union>(set rs) \<union> R'. (x,y) \<in> (Restr E (\<Union>(set rs) \<union> R'))\<^sup>*"
+proof (induction rs arbitrary: R)
+  case Nil thus ?case
+    using SCC_strongly_connected SCC_in_V
+    by (simp add: strongly_connected_restr_connected)
+next
+  case (Cons r rs)
+  from \<open>SCC R\<close> have "R \<in> SCCs"
+    unfolding SCCs_def by blast
+  from Cons have subset_1: "R \<subseteq> (\<Union>(set (r#rs)) \<union> R')"
+    using origin_in_path by auto
+
+  from Cons obtain r' where
+    path: "path condensation r' rs R'" and
+    cons_edge: "(R,r')\<in>condensation"
+    by auto
+
+  with subset_1 have subset_2: "R\<union>r' \<subseteq> (\<Union>(set (r#rs)) \<union> R')"
+    using origin_in_path by fastforce
+  have subset_3: "(\<Union> (set rs) \<union> R') \<subseteq> (\<Union>(set (r#rs)) \<union> R')"
+    by (simp add: Un_assoc)
+
+
+  from cons_edge have r'_reach: "\<forall>x\<in>R. \<forall>y\<in>r'. (x, y) \<in> (Restr E (\<Union>(set (r#rs)) \<union> R'))\<^sup>*"
+    using condensation_edge_reachable
+    using Restr_subgraph_aux[OF subset_2] by blast
+
+  moreover from cons_edge have path': "path condensation R [R] r'" by auto
+  from condensation_path_SCCs[OF this \<open>SCC R\<close>]
+  have "SCC r'" unfolding SCCs_def by simp
+  from Cons.IH[OF path this]
+  have r'_reaches: "\<forall>x\<in>r'. \<forall>y\<in>\<Union> (set rs) \<union> R'. (x, y) \<in> (Restr E (\<Union>(set (r#rs)) \<union> R'))\<^sup>*"
+    using Restr_subgraph_aux[OF subset_3] by blast
+
+  show ?case
+  proof (intro ballI)
+    fix x y assume "x \<in> R" "y \<in> \<Union>(set (r#rs)) \<union> R'"
+    with Cons have "y \<in> \<Union>(set (R#rs)) \<union> R'" by auto
+    then consider (in_R) "y \<in> R" | (in_rs_R') "y \<in> \<Union>(set rs) \<union> R'" by fastforce
+    thus "(x,y) \<in> (Restr E (\<Union> (set (r # rs)) \<union> R'))\<^sup>*" proof cases
+      case in_R with \<open>x\<in>R\<close> \<open>SCC R\<close> show ?thesis
+        using SCC_strongly_connected SCC_in_V
+        using strongly_connected_restr_connected
+        using Restr_subgraph_aux[OF subset_1]
+        by simp
+    next
+      case in_rs_R'
+      from \<open>SCC r'\<close> obtain z where "z \<in> r'" by force
+      with \<open>x\<in>R\<close> r'_reach have "(x,z) \<in> (Restr E (\<Union>(set (r#rs)) \<union> R'))\<^sup>*" by blast
+      moreover from \<open>z\<in>r'\<close> in_rs_R' r'_reaches
+      have "(z,y) \<in> (Restr E (\<Union>(set (r#rs)) \<union> R'))\<^sup>*" by blast
+      ultimately  show ?thesis by simp
+    qed
+  qed
+qed
+
+lemma condensation_loop_notempty:
+  "\<lbrakk>path condensation R rs R; rs \<noteq> []\<rbrakk> \<Longrightarrow> \<exists>R'. R'\<noteq>R \<and> R' \<in> set rs"
+  using origin_in_path edge_in_condensation_iff
+  by (induction rs; fastforce)
+
+lemma condensation_loop_SCCs:
+  "\<lbrakk>path condensation R rs R; rs \<noteq> []\<rbrakk> \<Longrightarrow> \<forall>r \<in> set rs. SCC r"
+  apply (induction rs; clarsimp)
+  using edge_in_condensation_iff condensation_path_SCCs by metis
+
+lemma condensation_loop_reachable:
+  "\<lbrakk>path condensation R rs R; rs \<noteq> []\<rbrakk>
+    \<Longrightarrow> \<forall>x\<in>\<Union>(set rs). \<forall>y\<in>\<Union>(set rs). (x,y) \<in> (Restr E (\<Union>(set rs)))\<^sup>*"
+proof (intro ballI)
+  fix x y
+  assume x_UN: "x \<in> \<Union>(set rs)" and y_UN: "y \<in> \<Union> (set rs)"
+     and path: "path condensation R rs R" and "rs \<noteq> []"
+
+  from condensation_loop_SCCs[OF this(3,4)] have rs_SCCs: "\<forall>r \<in> set rs. SCC r" .
+
+  from x_UN obtain S where "x \<in> S" and S_in_rs: "S \<in> set rs" by blast
+  with rs_SCCs have "SCC S" by blast
+  from y_UN obtain S' where "y \<in> S'" and S'_in_rs: "S' \<in> set rs" by blast
+  with rs_SCCs have "SCC S'" by blast
+
+  from loop_intermediate_node[OF path S_in_rs] obtain rs' where
+    "set rs' = set rs" and "path condensation S rs' S" by blast
+
+  with path_intermediate_node[OF this(2)] S'_in_rs obtain rs'' where
+    "set rs'' \<subseteq> set rs" and rs''_path: "path condensation S rs'' S'"
+    by (metis Un_upper1 set_append)
+  with S'_in_rs have "(\<Union> (set rs'') \<union> S') \<subseteq> \<Union>(set rs)" by blast
+
+  with condensation_path_reachable[OF rs''_path \<open>SCC S\<close>] \<open>x \<in> S\<close> \<open>y \<in> S'\<close>
+  show "(x, y) \<in> (Restr E (\<Union> (set rs)))\<^sup>*"
+    using Restr_subgraph_aux by blast
+qed
+
+lemma condensation_no_cycles:
+  assumes "SCC R"
+  shows "\<not>cycle condensation R rs"
+proof
+  assume cycle: "cycle condensation R rs"
+  hence path: "path condensation R rs R" and "rs \<noteq> []"
+    unfolding cycle_def by auto
+  then obtain R' where R': "R \<noteq> R'" "R' \<in> set rs"
+    using condensation_loop_notempty[of R] by blast
+  with condensation_path_SCCs[OF path \<open>SCC R\<close>]
+  have "SCC R'" by blast
+
+  from \<open>SCC R\<close> \<open>SCC R'\<close> have not_empty:
+    "R \<noteq> {}" "R' \<noteq> {}" by auto
+
+  from \<open>SCC R\<close> \<open>SCC R'\<close> have no_subsets:
+    "\<not>R \<subset> R'" "\<not>R' \<subset> R"
+    using SCC_maximal' by auto
+
+  define S where "S \<equiv> \<Union>(set rs)"
+  have "R \<subset> S"
+  proof (rule psubsetI)
+    show "R \<subseteq> S"
+      using origin_in_cycle[OF cycle]
+      unfolding S_def by blast
+    from R' have "R' \<subseteq> S"
+      unfolding S_def by blast
+    with no_subsets not_empty \<open>R\<noteq>R'\<close> show "R \<noteq> S"
+      unfolding S_def by auto
+  qed
+
+  moreover from not_empty \<open>R' \<in> set rs\<close> have "strongly_connected (Restr E S) S"
+    using condensation_loop_reachable[OF path \<open>rs\<noteq>[]\<close>]
+    unfolding strongly_connected_def S_def by blast
+
+  ultimately show False
+    using SCC_maximal[OF \<open>SCC R\<close>] by simp
+qed
+
+(** In a finite graph, there always exists a bottom SCC. *)
+lemma bottom_SCC_ex:
+  assumes v_notempty: "V \<noteq> {}"
+  shows "\<exists>R. bottom_SCC R"
+proof (rule ccontr)
+  assume no_bottom_SCC: "\<nexists>R. bottom_SCC R"
+  (** Because there are no bottom SCCs, every SCC must have an edge to a different SCC. *)
+  have SCC_succ: "\<forall>R. SCC R \<longrightarrow> (\<exists>R'. R'\<noteq>R \<and> SCC R' \<and> (\<exists>x\<in>R. \<exists>y\<in>R'. (x,y) \<in> E))"
+  proof -
+    (** Every SCC must have an edge leaving it. *)
+    from no_bottom_SCC have "\<forall>R. SCC R \<longrightarrow> (\<exists>x\<in>R. \<exists>y. y \<notin> R \<and> (x,y) \<in> E)"
+      unfolding bottom_SCC_def by blast
+    (** Every SCC must have an edge to an SCC. *)
+    moreover from no_bottom_SCC have "\<forall>R. SCC R \<longrightarrow> (\<exists>R'. SCC R' \<and> (\<exists>x\<in>R. \<exists>y\<in>R'. (x,y) \<in> E))"
+      unfolding bottom_SCC_def
+      using all_v_in_SCC E_in_V by blast
+    (** Therefore, every SCC must have an edge to a different SCC. *)
+    ultimately show ?thesis
+      using all_v_in_SCC in_mono[OF E_closed_V] by fast
+  qed
+  (** This would mean that every SCC has a successor in the condensation. *)
+  hence "\<forall>R\<in>SCCs. condensation `` {R} \<noteq> {}"
+    unfolding SCCs_def
+    using edge_in_condensation_iff by blast
+  (** This makes the condensation a finite graph without dead ends. *)
+  then interpret cond_V_succ: finite_graph_V_succ condensation SCCs
+    by (unfold_locales) (auto simp: condensation_def)
+  (** Since there exists an SCC, there now exists a cycle in the condensation.
+      The condensation should not contain any cycles, so this is a contradiction. *)
+  from SCC_ex[OF \<open>V\<noteq>{}\<close>] cond_V_succ.cycle_always_exists
+  show False
+    using condensation_no_cycles condensation_path_SCCs
+    unfolding reachable_cycle_def SCCs_def
+    by blast
+qed
+
 end (** End of context finite_graph_V *)
 
 
 context finite_graph_V_succ
 begin
+(** In a graph where every node has a successor, every bottom SCC must be nontrivial. *)
+lemma bottom_SCC_is_nontrivial:
+  "bottom_SCC R \<longleftrightarrow> nt_bottom_SCC R"
+proof
+  (** R is a bottom SCC. *)
+  assume bottom_SCC: "bottom_SCC R"
+  (** There must exist at least one edge in R. *)
+  moreover have "Restr E R \<noteq> {}"
+  proof -
+    {
+      (** Every x in R is part of V. *)
+      fix x assume "x \<in> R"
+      with bottom_SCC have "x \<in> V"
+        using bottom_SCC_in_V by blast
+      (** Every node in V must have a successor, and R is closed because it is a
+          bottom SCC, so every node in R must have a successor in R. *)
+      from bottom_SCC \<open>x\<in>R\<close> have "\<exists>y. (x,y) \<in> E \<and> y \<in> R"
+        unfolding bottom_SCC_def
+        using succ[OF \<open>x\<in>V\<close>] by blast
+    }
+    (** Since R is not empty, this means the SCC contains at least one edge. *)
+    moreover from bottom_SCC have "R \<noteq> {}" by auto
+    ultimately show ?thesis by blast
+  qed
+  (** Therefore, this bottom SCC is nontrivial by its definition, proving one direction. *)
+  ultimately show "nt_bottom_SCC R"
+    by (simp add: nt_bottom_SCC_def)
+(** Every nontrivial bottom SCC is always bottom by definition, proving the other direction. *)
+qed (simp add: nt_bottom_SCC_def)
 
 (** In a nonempty graph without dead ends, there always exists a nontrivial SCC. *)
 lemma nt_SCC_ex:
@@ -462,40 +764,12 @@ proof -
     using maximal_SCC_candidate[of "set ys"] by blast
 qed
 
+(** There always exists a nontrivial bottom SCC in a finite graph without dead ends. *)
 lemma nt_bottom_SCC_ex:
   assumes v_notempty: "V \<noteq> {}"
   shows "\<exists>R. nt_bottom_SCC R"
-proof -
-  define S where "S \<equiv> {R. SCC R}"
-  have S_SCCs: "\<forall>R\<in>S. SCC R" by (simp add: S_def)
-  have S_notempty: "S \<noteq> {}"
-    using SCC_ex[OF \<open>V\<noteq>{}\<close>] by (simp add: S_def)
-  have fin_S: "finite S"
-    using finite_SCCs by (simp add: S_def)
-  thus ?thesis using S_notempty S_SCCs
-  proof (induction rule: finite_psubset_induct)
-    case (psubset S')
-    then obtain R where
-      "R\<in>S'" "SCC R" by fast
-    define S'' where "S'' = S' - {R}"
-    have "finite S''"
-      using psubset S''_def by blast
-    consider (S''_empty) "S'' = {}" | (S''_notempty) "S'' \<noteq> {}" by blast
-    thus ?case proof cases
-      case S''_empty
-      hence "R = V" sorry
-      show ?thesis
-        apply (rule exI[where x=R])
-        unfolding nt_bottom_SCC_def bottom_SCC_def sorry
-    next
-      case S''_notempty
-      then show ?thesis
-        using psubset.IH[of S'']
-        unfolding S''_def
-        using \<open>R \<in> S'\<close> psubset.prems(2) by auto
-    qed (** Workshop this! *)
-  qed
-qed
+  using bottom_SCC_ex[OF \<open>V\<noteq>{}\<close>] bottom_SCC_is_nontrivial
+  by simp
 
 end (** End of context finite_graph_V_succ *)
 
