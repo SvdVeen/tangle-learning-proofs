@@ -1,8 +1,15 @@
 theory PredicateTermination
   imports Main
 begin
-(** This theory focuses on defining termination for predicate relations.
-    We define an inductive that identifies whether a predicate terminates from some state. *)
+(**
+  Authors:
+    - Suzanne van der Veen
+    - Peter Lammich
+    - Tom van Dijk
+
+  This theory focuses on defining termination for predicate relations.
+  We give an inductive definition that identifies whether a predicate terminates from some state.
+*)
 chapter \<open>Predicate Termination\<close>
 (** This inductive definition shows that a predicate relation terminates from some state
     if all successor states in the relation terminate. *)
@@ -23,6 +30,7 @@ lemma trm_final_state:
   apply (simp add: Domainp.simps)
   using converse_rtranclp_into_rtranclp[of r] by blast
 
+section \<open>Well-Founded Predicates\<close>
 (** A well-founded predicate relation terminates from any state. *)
 lemma wfP_terminates:
   "wfP r\<inverse>\<inverse> \<Longrightarrow> trm r a"
