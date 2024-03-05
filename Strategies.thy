@@ -250,6 +250,51 @@ lemma restr_ind_subgraph:
   unfolding arena.induced_subgraph_def[OF assms] induced_subgraph_def
   by auto
 
+lemma restr_ind_subgraph_V:
+  assumes subarena: "arena (Restr E R) (V\<inter>R) (V\<^sub>0\<inter>R)"
+  assumes strat: "strategy_of V\<^sub>\<alpha> \<sigma>"
+  assumes ran: "ran \<sigma> \<subseteq> R"
+  assumes R_in_V: "R \<subseteq> V"
+  shows "arena.induced_subgraph_V (Restr E R) \<sigma> = induced_subgraph_V \<sigma> \<inter> R"
+proof -
+  let ?G\<sigma> = "induced_subgraph \<sigma>"
+  let ?V\<sigma> = "induced_subgraph_V \<sigma>"
+  interpret subgraph: arena "Restr E R" "V\<inter>R" "V\<^sub>0\<inter>R" by fact
+  from restr_ind_subgraph[OF subarena] have subgraph_eq:
+    "subgraph.induced_subgraph \<sigma> = Restr ?G\<sigma> R" .
+
+  show ?thesis
+    unfolding subgraph.induced_subgraph_V_def
+    unfolding induced_subgraph_V_def
+    unfolding subgraph_eq
+  proof
+    show "EV (Restr ?G\<sigma> R) \<subseteq> EV ?G\<sigma> \<inter> R" by auto
+    show "EV ?G\<sigma> \<inter> R \<subseteq> EV (Restr ?G\<sigma> R)" proof
+      fix x assume "x \<in> EV ?G\<sigma> \<inter> R"
+      hence "x \<in> EV ?G\<sigma>" "x \<in> R" by auto
+      consider (dom) "x \<in> dom \<sigma>" | (not_dom) "x \<notin> dom \<sigma>" by blast
+      thus "x \<in> EV (Restr ?G\<sigma> R)" proof cases
+        case dom with ran obtain y where
+          "y \<in> R" "(x,y) \<in> E_of_strat \<sigma>"
+          using ranI[of \<sigma>] edge_in_E_of_strat by fast
+        with strat \<open>x\<in>R\<close> have "(x,y) \<in> Restr ?G\<sigma> R"
+          unfolding induced_subgraph_def
+          using strategy_of_in_E by blast
+        thus ?thesis by force
+      next
+        case not_dom
+        from \<open>x\<in>R\<close> \<open>R\<subseteq>V\<close> obtain y where
+          "(x,y) \<in> Restr E R"
+          using subgraph.succ[of x] by blast
+        hence "(x,y) \<in> Restr ?G\<sigma> R"
+          using subgraph.ind_subgraph_notin_dom[OF _ not_dom]
+          by (simp add: subgraph_eq)
+        then show ?thesis by force
+      qed
+    qed
+  qed
+qed
+
 subsubsection \<open>Restricted Strategies\<close>
 lemma restricted_strat_subgraph_same_in_region:
   assumes "\<sigma>' = \<sigma> |` R"

@@ -223,7 +223,7 @@ lemma closed_ind_subgraph_opp:
   apply (cases \<alpha>; simp)
   using V_opponent.simps(2) V_opponent_opposite_V_player by auto
 
-lemma restr_subgraph_strategy_of_player:
+lemma restr_subgraph_strat_of_player:
   assumes "paritygame (Restr E R) (V\<inter>R) (V\<^sub>0\<inter>R)"
   shows "paritygame.strategy_of_player (Restr E R) (V\<inter>R) (V\<^sub>0\<inter>R) \<alpha> \<sigma>
     \<Longrightarrow> strategy_of (V_player \<alpha>) \<sigma>"
