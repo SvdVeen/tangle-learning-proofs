@@ -38,7 +38,7 @@ where step:
     A = {v. v \<in> R \<and> pr v = p};
     subgraph_tattr R \<alpha> T A Z \<sigma>;
     Ov = {v \<in> V_player \<alpha> \<inter> A. E `` {v} \<inter> Z = {}}
-       \<union> {v \<in> V_opponent \<alpha> \<inter> A. E `` {v} \<inter> R \<subseteq> (V-Z)};
+       \<union> {v \<in> V_opponent \<alpha> \<inter> A. \<not>E `` {v} \<inter> R \<subseteq> Z};
     Y' = (if Ov = {} then Y \<union> {S. bound_nt_bottom_SCC R Z \<sigma> S} else Y);
     R' = R-Z\<rbrakk> \<Longrightarrow> search_step (R,Y) (R',Y')"
 
