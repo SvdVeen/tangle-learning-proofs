@@ -1,6 +1,9 @@
 theory StrongConnectivity
   imports Main Digraphs
 begin
+(** This theory focuses on strongly connected graphs and strongly connected components. *)
+chapter \<open>Strong Connectivity\<close>
+
 section \<open>Strongly Connected Graphs\<close>
 (** A non-empty graph E with vertices V is strongly connected if for all pairs of vertices in the
     graph, there exists a path from one to the other and vice-versa.
@@ -470,11 +473,12 @@ lemma finite_nt_bottom_SCCs[simp]:
 section \<open>Condensations\<close>
 (** The condensation of a graph is a graph of the contractions of each SCC.
     Each SCC is collapsed to a single node, and the edges are those between the SCCs.
-    There are no self loops. *)
+    There are no self loops. If they did, then every SCC would have one, which is not useful.*)
 definition condensation :: "'v set dgraph" where
   "condensation \<equiv>
     {(R,R') | R R' x y. R \<noteq> R' \<and> R \<in> SCCs \<and> R' \<in> SCCs \<and> x \<in> R \<and> y \<in> R' \<and> (x,y) \<in> E}"
 
+(** By their definition, condensations do not contain self loops. *)
 lemma condensation_no_self_loops[simp]:
   "(R,R) \<notin> condensation"
   unfolding condensation_def by blast
@@ -499,21 +503,27 @@ lemma edge_in_condensation_iff:
 
 (** If there exists an edge between two SCCs in the condensation, then every node in the latter SCC
     is reachable from every node in the former SCC. *)
-lemma condensation_edge_reachable:
+lemma condensation_edge_restr_reachable:
   "(R,R') \<in> condensation \<Longrightarrow> \<forall>x\<in>R. \<forall>y\<in>R'. (x,y) \<in> (Restr E (R\<union>R'))\<^sup>*"
 proof (intro ballI)
   fix x y assume "x \<in> R" "y \<in> R'" and c_edge: "(R,R') \<in> condensation"
+  (** We get the edge between the two SCCs. *)
   then obtain v w where
     "SCC R" "SCC R'" "v \<in> R" "w \<in> R'" and edge_vw: "(v,w) \<in> (Restr E (R\<union>R'))"
     using edge_in_condensation_iff by auto
+  (** We know we can reach v from our x in R, and this is also reachable if we restrict
+      the whole graph to only our two SCCs. *)
   from \<open>SCC R\<close> \<open>x\<in>R\<close> \<open>v\<in>R\<close> have reach_xv: "(x,v) \<in> (Restr E (R\<union>R'))\<^sup>*"
     using SCC_strongly_connected SCC_in_V
     using strongly_connected_restr_connected[of R]
     using Restr_subgraph_aux[of R "R\<union>R'"] by auto
+  (** The same holds for our y in R', which can be reached from w. *)
   from \<open>SCC R'\<close> \<open>w\<in>R'\<close> \<open>y\<in>R'\<close> have reach_wy: "(w,y) \<in> (Restr E (R\<union>R'))\<^sup>*"
     using SCC_strongly_connected SCC_in_V
     using strongly_connected_restr_connected[of R']
     using Restr_subgraph_aux[of R' "R\<union>R'"] by auto
+  (** Now, we can reach v from x, w, from v, and y from w, all in the graph restricted to our
+      SCCs. *)
   from reach_xv edge_vw reach_wy show "(x,y) \<in> (Restr E (R\<union>R'))\<^sup>*"
     using rtrancl_trans[of _ _ "Restr E (R\<union>R')"] by blast
 qed
@@ -527,141 +537,198 @@ lemma condensation_path_SCCs:
 
 (** From all nodes in the SCC at the start of a path in the condensation, all nodes in the SCCs in
     the path can be reached within the graph restricted to those SCCs. *)
-lemma condensation_path_reachable:
+lemma condensation_path_restr_reachable:
   "\<lbrakk>path condensation R rs R'; SCC R\<rbrakk>
     \<Longrightarrow> \<forall>x\<in>R. \<forall>y\<in>\<Union>(set rs) \<union> R'. (x,y) \<in> (Restr E (\<Union>(set rs) \<union> R'))\<^sup>*"
 proof (induction rs arbitrary: R)
+  (** In the Nil case, we only have to reason about the initial R.
+      Clearly this SCC is stronly connected, so all nodes in it are reachable from it. *)
   case Nil thus ?case
     using SCC_strongly_connected SCC_in_V
     by (simp add: strongly_connected_restr_connected)
 next
+  (** In the cons case, we know R is one of the SCCs, and that it is a subset
+      of the union of all SCCs in the path and R'. *)
   case (Cons r rs)
   from \<open>SCC R\<close> have "R \<in> SCCs"
     unfolding SCCs_def by blast
   from Cons have subset_1: "R \<subseteq> (\<Union>(set (r#rs)) \<union> R')"
     using origin_in_path by auto
-
+  (** Now, we know there is a path from some r' over rs to R'. *)
   from Cons obtain r' where
     path: "path condensation r' rs R'" and
     cons_edge: "(R,r')\<in>condensation"
     by auto
-
+  (** We see that the union of this and R are part of the union of all SCCs
+      in the path and R'. *)
   with subset_1 have subset_2: "R\<union>r' \<subseteq> (\<Union>(set (r#rs)) \<union> R')"
     using origin_in_path by fastforce
+  (** Furthermore, the union of all SCCs in the path except r and R' is part of the
+      union of all SCCs in the pth and R'. *)
   have subset_3: "(\<Union> (set rs) \<union> R') \<subseteq> (\<Union>(set (r#rs)) \<union> R')"
     by (simp add: Un_assoc)
-
-
-  from cons_edge have r'_reach: "\<forall>x\<in>R. \<forall>y\<in>r'. (x, y) \<in> (Restr E (\<Union>(set (r#rs)) \<union> R'))\<^sup>*"
-    using condensation_edge_reachable
+  (** We know that all y in r' are reachable from all x in R, restricting the graph
+      to the union of all SCCs in the path and R'. *)
+  from cons_edge have r'_reach:
+    "\<forall>x\<in>R. \<forall>y\<in>r'. (x, y) \<in> (Restr E (\<Union>(set (r#rs)) \<union> R'))\<^sup>*"
+    using condensation_edge_restr_reachable
     using Restr_subgraph_aux[OF subset_2] by blast
-
-  moreover from cons_edge have path': "path condensation R [R] r'" by auto
+  (** Also, we know that R alone forms a path from R to r' in the condensation. *)
+  from cons_edge have "path condensation R [R] r'" by auto
+  (** This shows that r' is an SCC, since all elements of a path in the
+      condensation are SCCs. *)
   from condensation_path_SCCs[OF this \<open>SCC R\<close>]
   have "SCC r'" unfolding SCCs_def by simp
-  from Cons.IH[OF path this]
-  have r'_reaches: "\<forall>x\<in>r'. \<forall>y\<in>\<Union> (set rs) \<union> R'. (x, y) \<in> (Restr E (\<Union>(set (r#rs)) \<union> R'))\<^sup>*"
+  (** By our induction hypothesis, we know that every y in the union of all SCCs
+      in rs and R' can be reached from r'. *)
+  from Cons.IH[OF path this] have r'_reaches:
+    "\<forall>x\<in>r'. \<forall>y\<in>\<Union> (set rs) \<union> R'. (x, y) \<in> (Restr E (\<Union>(set (r#rs)) \<union> R'))\<^sup>*"
     using Restr_subgraph_aux[OF subset_3] by blast
 
   show ?case
   proof (intro ballI)
     fix x y assume "x \<in> R" "y \<in> \<Union>(set (r#rs)) \<union> R'"
-    with Cons have "y \<in> \<Union>(set (R#rs)) \<union> R'" by auto
+    (** Because r#rs forms a path from r, this means r is equal to R. *)
+    with Cons(2) have "y \<in> \<Union>(set (R#rs)) \<union> R'" by auto
+    (** Now, we can see y is either part of R, or it is part of the remainder of
+        the SCCs in the path or R'. *)
     then consider (in_R) "y \<in> R" | (in_rs_R') "y \<in> \<Union>(set rs) \<union> R'" by fastforce
     thus "(x,y) \<in> (Restr E (\<Union> (set (r # rs)) \<union> R'))\<^sup>*" proof cases
+      (** If y is part of R, then we have the same reasoning as the Nil case.
+          R is an SCC, so y is reachable from any node in R, even if we restrict
+          the graph to the SCCs in our path. *)
       case in_R with \<open>x\<in>R\<close> \<open>SCC R\<close> show ?thesis
         using SCC_strongly_connected SCC_in_V
         using strongly_connected_restr_connected
         using Restr_subgraph_aux[OF subset_1]
         by simp
     next
+      (** If y is part of the rest of the path, then we get a z in r'. *)
       case in_rs_R'
       from \<open>SCC r'\<close> obtain z where "z \<in> r'" by force
-      with \<open>x\<in>R\<close> r'_reach have "(x,z) \<in> (Restr E (\<Union>(set (r#rs)) \<union> R'))\<^sup>*" by blast
+      (** This z is reachable from x, even if we restrict the graph to
+          all SCCs in our path. *)
+      with \<open>x\<in>R\<close> r'_reach have
+        "(x,z) \<in> (Restr E (\<Union>(set (r#rs)) \<union> R'))\<^sup>*" by blast
+      (** Also, we showed that any node in the remainder can be reached
+          from any node in r', so y can be reached from z, even in the
+          restricted graph. *)
       moreover from \<open>z\<in>r'\<close> in_rs_R' r'_reaches
       have "(z,y) \<in> (Restr E (\<Union>(set (r#rs)) \<union> R'))\<^sup>*" by blast
-      ultimately  show ?thesis by simp
+      (** Now, we can reach y from x via z in the restricted graph. *)
+      ultimately show ?thesis by simp
     qed
   qed
 qed
 
+(** If we have a loop in the condensation, then this loop is non-empty.
+    This holds because there are no self loops in the condensation. *)
 lemma condensation_loop_notempty:
   "\<lbrakk>path condensation R rs R; rs \<noteq> []\<rbrakk> \<Longrightarrow> \<exists>R'. R'\<noteq>R \<and> R' \<in> set rs"
-  using origin_in_path edge_in_condensation_iff
-  by (induction rs; fastforce)
+  using origin_in_path[of condensation _ _ R] edge_in_condensation_iff[of R R]
+  by (induction rs) fastforce+
 
+(** All nodes in a loop in the condensation are SCCs. *)
 lemma condensation_loop_SCCs:
   "\<lbrakk>path condensation R rs R; rs \<noteq> []\<rbrakk> \<Longrightarrow> \<forall>r \<in> set rs. SCC r"
   apply (induction rs; clarsimp)
   using edge_in_condensation_iff condensation_path_SCCs by metis
 
-lemma condensation_loop_reachable:
+(** All nodes in an SCC in a loop in the condensation are reachable from
+    all other nodes in any SCC in that loop. *)
+lemma condensation_loop_restr_reachable:
   "\<lbrakk>path condensation R rs R; rs \<noteq> []\<rbrakk>
     \<Longrightarrow> \<forall>x\<in>\<Union>(set rs). \<forall>y\<in>\<Union>(set rs). (x,y) \<in> (Restr E (\<Union>(set rs)))\<^sup>*"
 proof (intro ballI)
   fix x y
-  assume x_UN: "x \<in> \<Union>(set rs)" and y_UN: "y \<in> \<Union> (set rs)"
+  assume x_UN: "x \<in> \<Union>(set rs)" and y_UN: "y \<in> \<Union>(set rs)"
      and path: "path condensation R rs R" and "rs \<noteq> []"
-
-  from condensation_loop_SCCs[OF this(3,4)] have rs_SCCs: "\<forall>r \<in> set rs. SCC r" .
-
+  (** All nodes in the loop are SCCs. *)
+  from condensation_loop_SCCs[OF path \<open>rs\<noteq>[]\<close>]
+  have rs_SCCs: "\<forall>r \<in> set rs. SCC r" .
+  (** We get the SCC x is part of and the SCC y is part of. *)
   from x_UN obtain S where "x \<in> S" and S_in_rs: "S \<in> set rs" by blast
   with rs_SCCs have "SCC S" by blast
   from y_UN obtain S' where "y \<in> S'" and S'_in_rs: "S' \<in> set rs" by blast
   with rs_SCCs have "SCC S'" by blast
-
+  (** now, we can get a path from S to itself. *)
   from loop_intermediate_node[OF path S_in_rs] obtain rs' where
-    "set rs' = set rs" and "path condensation S rs' S" by blast
-
-  with path_intermediate_node[OF this(2)] S'_in_rs obtain rs'' where
+    "set rs' = set rs" "path condensation S rs' S" by blast
+  (** Within this path, we can get the path from  S to S', because
+      S' is part of the path from S to S. *)
+  with path_intermediate_node S'_in_rs obtain rs'' where
     "set rs'' \<subseteq> set rs" and rs''_path: "path condensation S rs'' S'"
     by (metis Un_upper1 set_append)
-  with S'_in_rs have "(\<Union> (set rs'') \<union> S') \<subseteq> \<Union>(set rs)" by blast
-
-  with condensation_path_reachable[OF rs''_path \<open>SCC S\<close>] \<open>x \<in> S\<close> \<open>y \<in> S'\<close>
-  show "(x, y) \<in> (Restr E (\<Union> (set rs)))\<^sup>*"
+  (** The union of this path and S' are a subset of the union of the
+      original rs. *)
+  with S'_in_rs have "(\<Union>(set rs'') \<union> S') \<subseteq> \<Union>(set rs)" by blast
+  (** By our earlier lemma, this means y must be reachable from x
+      in the graph restricted to the SCCs inour path. *)
+  with condensation_path_restr_reachable[OF rs''_path \<open>SCC S\<close>] \<open>x \<in> S\<close> \<open>y \<in> S'\<close>
+  show "(x, y) \<in> (Restr E (\<Union>(set rs)))\<^sup>*"
     using Restr_subgraph_aux by blast
 qed
 
+corollary condensation_loop_reachable:
+  "\<lbrakk>path condensation R rs R; rs \<noteq> []\<rbrakk>
+    \<Longrightarrow> \<forall>x\<in>\<Union>(set rs). \<forall>y\<in>\<Union>(set rs). (x,y) \<in> E\<^sup>*"
+  using condensation_loop_restr_reachable
+  by (metis Int_Un_eq(3) in_rtrancl_UnI)
+
+(** The condensation of a graph cannot contain any cycles. *)
 lemma condensation_no_cycles:
-  assumes "SCC R"
   shows "\<not>cycle condensation R rs"
 proof
+  (** We do a proof by contradiction: if we have a cycle from R,
+      then we have a nonempty path from R to R. *)
   assume cycle: "cycle condensation R rs"
   hence path: "path condensation R rs R" and "rs \<noteq> []"
     unfolding cycle_def by auto
+  (** We know there must exist another SCC R' in this cycle. *)
   then obtain R' where R': "R \<noteq> R'" "R' \<in> set rs"
     using condensation_loop_notempty[of R] by blast
-  with condensation_path_SCCs[OF path \<open>SCC R\<close>]
-  have "SCC R'" by blast
-
+  (** Both are SCCs because they are part of the cycle. *)
+  with cycle condensation_loop_SCCs
+  have "SCC R" "SCC R'"
+    using origin_in_cycle
+    unfolding cycle_def by fast+
+  (** This means neither of the two is empty, as SCCs are not empty. *)
   from \<open>SCC R\<close> \<open>SCC R'\<close> have not_empty:
     "R \<noteq> {}" "R' \<noteq> {}" by auto
-
+  (**Also, neither is a strict subset of the other, as SCCs are maximal. *)
   from \<open>SCC R\<close> \<open>SCC R'\<close> have no_subsets:
     "\<not>R \<subset> R'" "\<not>R' \<subset> R"
     using SCC_maximal' by auto
-
+  (** Now we take the union of all SCCs in the cycle.
+      We will show that this would be another strongly connected region. *)
   define S where "S \<equiv> \<Union>(set rs)"
+  (** R is now a strict subset of S. *)
   have "R \<subset> S"
   proof (rule psubsetI)
+    (** Since R is part of the cycle, it is a subset of S. *)
     show "R \<subseteq> S"
       using origin_in_cycle[OF cycle]
       unfolding S_def by blast
+    (** R' is also a subset of S, as it is part of the cycle. *)
     from R' have "R' \<subseteq> S"
       unfolding S_def by blast
+    (** Since neither is empty, and neither is a strict subset
+        of the other, R is not equal to S. *)
     with no_subsets not_empty \<open>R\<noteq>R'\<close> show "R \<noteq> S"
       unfolding S_def by auto
   qed
-
+  (** Because this is a loop, the whole S is stronly connected. *)
   moreover from not_empty \<open>R' \<in> set rs\<close> have "strongly_connected (Restr E S) S"
-    using condensation_loop_reachable[OF path \<open>rs\<noteq>[]\<close>]
+    using condensation_loop_restr_reachable[OF path \<open>rs\<noteq>[]\<close>]
     unfolding strongly_connected_def S_def by blast
-
+  (** Now, we have an S of which R is a strict subset, and which is strongly
+      connected. This contradicts the fact that R should be maximal, as it is
+      an SCC, completing our proof. *)
   ultimately show False
     using SCC_maximal[OF \<open>SCC R\<close>] by simp
 qed
 
+section \<open>Existence Of Bottom SCCs\<close>
 (** In a finite graph, there always exists a bottom SCC. *)
 lemma bottom_SCC_ex:
   assumes v_notempty: "V \<noteq> {}"
@@ -693,11 +760,9 @@ proof (rule ccontr)
       The condensation should not contain any cycles, so this is a contradiction. *)
   from SCC_ex[OF \<open>V\<noteq>{}\<close>] cond_V_succ.cycle_always_exists
   show False
-    using condensation_no_cycles condensation_path_SCCs
     unfolding reachable_cycle_def SCCs_def
-    by blast
+    using condensation_no_cycles by blast
 qed
-
 end (** End of context finite_graph_V *)
 
 
@@ -733,44 +798,12 @@ proof
 (** Every nontrivial bottom SCC is always bottom by definition, proving the other direction. *)
 qed (simp add: nt_bottom_SCC_def)
 
-(** In a nonempty graph without dead ends, there always exists a nontrivial SCC. *)
-lemma nt_SCC_ex:
-  assumes "V \<noteq> {}"
-  shows "\<exists>R. (Restr E R) \<noteq> {} \<and> SCC R"
-proof -
-  (** We know there always exists a cycle in this graph. *)
-  from cycle_always_exists \<open>V\<noteq>{}\<close>
-  obtain y ys where
-    cycle: "cycle E y ys"
-    unfolding reachable_cycle_def
-    by blast
-  (** Cycles are nonempty paths. *)
-  from cycle have "set ys \<noteq> {}"
-    by fastforce
-  (** This cycle is also entirely contained in V. *)
-  moreover from cycle_in_V[OF cycle]
-  have "set ys \<subseteq> V" .
-  (** The cycle itself is strongly connected. *)
-  moreover from cycle have "strongly_connected (Restr E (set ys)) (set ys)"
-    using cycle_strongly_connected by fast
-
-  moreover from \<open>set ys \<noteq> {}\<close>  have "Restr E (set ys) \<noteq> {}"
-    using subgraph_cycle[of "Restr E (set ys)" _ y ys] restr_V_cycle[of E] cycle_restr_V[OF cycle]
-    by (metis empty_subsetI subset_empty subset_refl)
-
-  (** By the former properties combined, we have a candidate for an SCC, which is either itself
-      an SCC, or part of a larger SCC. It is also nontrivial. *)
-  ultimately show ?thesis
-    using maximal_SCC_candidate[of "set ys"] by blast
-qed
-
 (** There always exists a nontrivial bottom SCC in a finite graph without dead ends. *)
 lemma nt_bottom_SCC_ex:
-  assumes v_notempty: "V \<noteq> {}"
+  assumes "V \<noteq> {}"
   shows "\<exists>R. nt_bottom_SCC R"
   using bottom_SCC_ex[OF \<open>V\<noteq>{}\<close>] bottom_SCC_is_nontrivial
   by simp
-
 end (** End of context finite_graph_V_succ *)
 
 end
