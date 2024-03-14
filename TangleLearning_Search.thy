@@ -140,11 +140,9 @@ proof (intro ballI allI impI)
   (** We need only the loop ys, so we take the y it starts from. *)
   from lasso_loop[OF lasso_\<sigma>] obtain y where
     lasso_ys: "lasso ?G\<sigma> y [] ys" and
-    "y \<in> set ys" "ys \<noteq> []"
-    by fastforce
-  (** This y lies in both Z and R. *)
-  with ys_in_Z ys_in_R have
-    "y\<in>Z" "y\<in>R" by blast+
+    "y \<in> set ys" "ys \<noteq> []" by fastforce
+  (** This y lies in Z. *)
+  with ys_in_Z have "y \<in> Z" by blast
   (** Now either ys intersects with A, or it does not. *)
   consider (A_notin_ys) "set ys \<inter> A = {}"
          | (A_in_ys) "set ys \<inter> A \<noteq> {}" by blast
@@ -159,32 +157,15 @@ proof (intro ballI allI impI)
   next
     (** If A is part of ys, the highest priority in it must be p. *)
     case A_in_ys
-    have "pr_list ys = pr_set R"
-    proof (rule antisym)
-      (** p is the top priority in R, so any cycle in R
-          must have its highest priority less than or
-          equal to p. *)
-      from ys_in_R \<open>R\<subseteq>V\<close> \<open>ys\<noteq>[]\<close>
-      show "pr_list ys \<le> pr_set R"
-        using R_game.pr_list_le_pr_set_V
-        by (simp add: Int_absorb1)
-    next
-      (** We know a node with priority p is part of ys,
-          so it must be less than or equal to the highest
-          priority in the list. *)
-      from A_in_ys ys_in_R p_def A_def \<open>R\<subseteq>V\<close>
-      show "pr_set R \<le> pr_list ys"
-        using R_game.pr_V_in_list
-        by (auto simp: Int_absorb1)
-    qed
+    with ys_in_R \<open>R\<subseteq>V\<close> have "pr_list ys = p"
+      using R_game.pr_V_in_list
+      by (auto simp: A_def p_def Int_absorb1)
     (** We know that \<alpha> wins p. *)
-    moreover from \<open>R\<subseteq>V\<close> p_def \<alpha>_def
-    have "player_winningP \<alpha> (pr_set (V \<inter> R))"
-      by (simp add: player_wins_pr_def Int_absorb1)
+    moreover have "player_winningP \<alpha> p"
+      by (auto simp: \<alpha>_def player_wins_pr_def)
     (** We know that the highest priority in ys is p,
         and we know p is won by \<alpha>, proving our thesis. *)
-    ultimately show ?thesis
-      by (simp add: Int_absorb1[OF \<open>R\<subseteq>V\<close>])
+    ultimately show ?thesis by simp
   qed
 qed
 
@@ -496,6 +477,7 @@ proof (induction rule: search_step_induct)
   from step interpret R_game:
     paritygame "Restr E R" "V\<inter>R" "V\<^sub>0\<inter>R" by fast
 
+
   let ?G\<sigma> = "induced_subgraph \<sigma>"
   let ?V\<sigma> = "induced_subgraph_V \<sigma>"
 
@@ -503,13 +485,14 @@ proof (induction rule: search_step_induct)
     unfolding induced_subgraph_V_def
     by (unfold_locales) force+
 
+  have Y_new: "\<forall>U\<in>Y. U \<notin> T" sorry (** Making this work without changing the invariant. *)
   show ?case proof (rule ballI; rule ccontr; simp)
     fix U assume "U \<in> Y'" "U \<in> T"
     with step(7) consider (old) "U \<in> Y"
                         | (new) "U \<in> {S. bound_nt_bottom_SCC R Z \<sigma> S}"
       by (auto split: if_splits)
     thus False proof cases
-      case old with step \<open>U\<in>T\<close> show ?thesis oops
+      case old with Y_new \<open>U\<in>T\<close> show ?thesis by blast
     next
       case new
       hence SCC: "bound_nt_bottom_SCC R Z \<sigma> U" and "U\<subseteq>Z" by blast+
