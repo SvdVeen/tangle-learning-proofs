@@ -169,142 +169,125 @@ proof (intro ballI allI impI)
   qed
 qed
 
-(** If our invariant holds for a state, a step of the search algorithm gives us a Y' that contains
-    tangles. *)
+(** If our invariant holds for a state, a step of the search algorithm gives us a Y'
+    that contains tangles. *)
 lemma search_step_tangles_Y:
   "\<lbrakk>search_step (R,Y) (R',Y'); search_I (R,Y)\<rbrakk> \<Longrightarrow> \<forall>U \<in> Y'. \<exists>\<alpha>. tangle \<alpha> U"
   unfolding search_I_def split
 proof (induction rule: search_step_induct)
   case (step R p \<alpha> A Z \<sigma> Ov Y' Y R')
-  (** We name these properties to make them easier to access in the proof. *)
-  hence attr: "subgraph_tattr R \<alpha> T A Z \<sigma>" and
-    p_def: "p = pr_set R" and
-    \<alpha>_def: "\<alpha> = player_wins_pr p" and
-    A_def: "A = {v \<in> R. pr v = p}" and
-    Y'_def: "Y' = (if Ov = {} then Y \<union> {S. bound_nt_bottom_SCC R Z \<sigma> S} else Y)" and
-    tangles_Y: "\<forall>U \<in> Y. \<exists>\<alpha>. tangle \<alpha> U" and
-    R_in_V: "R \<subseteq> V"
-    by auto
   (** R is a parity game, and we will use its lemmas in the proof. *)
-  from step interpret R_game:
+  then interpret R_game:
     paritygame "Restr E R" "V\<inter>R" "V\<^sub>0\<inter>R" by blast
   (** Shorthand for the subgame of \<sigma> and its vertices. *)
   let ?G\<sigma> = "induced_subgraph \<sigma>"
   let ?V\<sigma> = "induced_subgraph_V \<sigma>"
   (** We will use these to simplify some properties:
       - V_player in R is equal to V_player restricted to R.
-      - The induced subgraph of \<sigma> in R is equal to itself in the whole graph restricted to R. *)
-  have R_game_V_player_eq:
-    "R_game.V_player \<alpha> = V_player \<alpha> \<inter> R"
+      - The induced subgraph of \<sigma> in R is equal to itself in the whole graph
+        restricted to R. *)
+  have R_game_V_player_eq: "R_game.V_player \<alpha> = V_player \<alpha> \<inter> R"
     using restr_subgraph_V_player[OF R_game.paritygame_axioms] .
-  have R_game_G\<sigma>_eq:
-    "R_game.induced_subgraph \<sigma> = Restr ?G\<sigma> R"
+  have R_game_G\<sigma>_eq: "R_game.induced_subgraph \<sigma> = Restr ?G\<sigma> R"
     using restr_ind_subgraph[OF R_game.arena_axioms] .
-  (** Since A is part of a tangle attractor, which is part of R,
-      A is part of Z, and R, and V. *)
-  from A_def \<open>R\<subseteq>V\<close>
-    R_game.target_in_tangle_attractor[OF fin_T attr]
-    R_game.tangle_attractor_in_V[OF fin_T attr]
-  have "A \<subseteq> Z" and "Z \<subseteq> R" and "A \<subseteq> R" by auto
+  (** We name these properties to make them easier to access in the proof. *)
+  from step have
+    p_def: "p = pr_set R" and
+    \<alpha>_def: "\<alpha> = player_wins_pr p" and
+    A_def: "A = {v \<in> R. pr v = p}" and
+    attr: "R_game.tangle_attractor \<alpha> T A Z \<sigma>" and
+    Y'_def: "Y' = (if Ov = {} then Y \<union> {S. bound_nt_bottom_SCC R Z \<sigma> S} else Y)" and
+    tangles_Y: "\<forall>U \<in> Y. \<exists>\<alpha>. tangle \<alpha> U" and
+    R_in_V: "R \<subseteq> V"
+    by auto
+  (** Since A is part of a tangle attractor Z, which is part of R,
+      A is part of Z and R. *)
+  from A_def \<open>R\<subseteq>V\<close> have "A \<subseteq> Z" "Z \<subseteq> R" "A \<subseteq> R"
+    using R_game.target_in_tangle_attractor[OF fin_T attr]
+    using R_game.tangle_attractor_in_V[OF fin_T attr]
+    by auto
   (** Because Z is an attractor with strategy \<sigma>, \<sigma> is a strategy of the player in Z,
       its domain contains \<alpha>-nodes in Z, and there exists a path to A in the subgame of \<sigma>
       within R. *)
-  with \<open>R\<subseteq>V\<close> R_game.player_strat_in_E
-    R_game.tangle_attractor_strat[OF fin_T attr] have
-    \<sigma>_strat: "strategy_of (V_player \<alpha> \<inter> Z) \<sigma>" and
-    \<sigma>_dom: "dom \<sigma> \<subseteq> V_player \<alpha> \<inter> Z" and
-    \<sigma>_path_to_A:
-      "\<forall>x\<in>Z. \<exists>y\<in>A. \<exists>xs. path (Restr ?G\<sigma> R) x xs y"
+  have \<sigma>_strat: "strategy_of (V_player \<alpha> \<inter> Z) \<sigma>"
+   and \<sigma>_dom: "dom \<sigma> \<subseteq> V_player \<alpha> \<inter> Z"
+   and \<sigma>_path_to_A: "\<forall>x\<in>Z. \<exists>y\<in>A. \<exists>xs. path (Restr ?G\<sigma> R) x xs y"
+    using R_game.player_strat_in_E
+    using R_game.tangle_attractor_strat[OF fin_T attr]
     unfolding R_game_V_player_eq R_game_G\<sigma>_eq
-    unfolding strategy_of_player_def strategy_of_def by auto
+    unfolding strategy_of_player_def strategy_of_def
+    by force+
   (** Per our previous lemma, all plays that stay in Z are won under \<sigma>. *)
-  from \<open>R\<subseteq>V\<close> R_game.paritygame_axioms p_def \<alpha>_def A_def attr have in_Z_won:
+  from step have in_Z_won:
     "\<forall>x\<in>Z. \<forall>xs ys. lasso (Restr ?G\<sigma> Z) x xs ys \<longrightarrow> player_wins_list \<alpha> ys"
     using search_step_games_in_Z_won by auto
   (** Now, we show that all U in Y' are tangles. *)
   show ?case proof (rule ballI)
-    fix U assume U_in_Y': "U \<in> Y'"
+    fix U assume "U \<in> Y'"
     (** Distinguish between a U from Y and a U from Y'-Y. *)
-    with Y'_def consider (old) "U \<in> Y"
-                       | (new) "U \<in> {S. bound_nt_bottom_SCC R Z \<sigma> S}"
+    with Y'_def consider
+      (existing_U) "U \<in> Y" | (new_U) "U \<in> {S. bound_nt_bottom_SCC R Z \<sigma> S}"
       by (auto split: if_splits)
     thus "\<exists>\<alpha>. tangle \<alpha> U" proof cases
       (** If U was part of Y, it is a tangle because the invariant holds for (R,Y). *)
-      case old with tangles_Y show ?thesis by blast
+      case existing_U with tangles_Y show ?thesis by blast
     next
-      case new
+      case new_U
       (** We will need lemmas from the finite graph that is the subgame of \<sigma> in R. *)
-      interpret fin_graph_\<sigma>: finite_graph_V "Restr ?G\<sigma> R" "?V\<sigma> \<inter> R"
+      interpret \<sigma>_graph: finite_graph_V "Restr ?G\<sigma> R" "?V\<sigma> \<inter> R"
         unfolding induced_subgraph_V_def
-        by (unfold_locales) force+
+        by unfold_locales force+
       (** U is part of Z because it is a bottom SCC within Z,
           and it is part of R because Z is part of R. *)
-      from new have "U \<subseteq> Z" by simp
-      with \<open>Z\<subseteq>R\<close> have "U \<subseteq> R" by simp
+      from new_U \<open>Z\<subseteq>R\<close> have "U \<subseteq> Z" "U \<subseteq> R" by auto
       (** Because it is an SCC, it is finite. *)
-      from new have fin_U: "finite U"
-        using fin_graph_\<sigma>.nt_bottom_SCC_finite by simp
-      (** Because U is a bottom SCC, it is strongly connected.
-          We need to use some lemmas about intersections to translate. *)
-      from new have \<sigma>_connected:
+      from new_U have fin_U: "finite U"
+        using \<sigma>_graph.nt_bottom_SCC_finite by simp
+      (** Because U is a bottom SCC, it is strongly connected. *)
+      from new_U have \<sigma>_U_connected:
         "strongly_connected (Restr ?G\<sigma> U) U"
-        using fin_graph_\<sigma>.nt_bottom_SCC_strongly_connected
+        using \<sigma>_graph.nt_bottom_SCC_strongly_connected
         using Int_absorb1[OF \<open>U\<subseteq>R\<close>] Int_assoc[of _ "R\<times>R" "U\<times>U"]
         by (simp add: Times_Int_Times) fastforce
       (** U is closed because it is a bottom SCC. *)
-      from new have \<sigma>_U_closed: "(Restr ?G\<sigma> R) `` U \<subseteq> U"
-        using fin_graph_\<sigma>.nt_bottom_SCC_closed by simp
+      from new_U have \<sigma>_U_closed: "(Restr ?G\<sigma> R) `` U \<subseteq> U"
+        using \<sigma>_graph.nt_bottom_SCC_closed by simp
       (** All nodes in U have a successor in U because it is nontrivial and a bottom SCC. *)
-      from new have \<sigma>_U_succ_in_U: "\<forall>v\<in>U. \<exists>v'\<in>U. (v,v') \<in> ?G\<sigma>"
-        using fin_graph_\<sigma>.nt_bottom_SCC_succ_in_SCC by blast
+      from new_U have \<sigma>_U_succ_in_U: "\<forall>v\<in>U. \<exists>v'\<in>U. (v,v') \<in> ?G\<sigma>"
+        using \<sigma>_graph.nt_bottom_SCC_succ_in_SCC by blast
       (** Now, we shot that U is a tangle for \<alpha>. *)
       show ?thesis
         unfolding tangle_iff
       proof (rule exI[where x=\<alpha>]; intro conjI)
         (** U is nonempty because it is an SCC. *)
-        from new show "U \<noteq> {}"
-          using fin_graph_\<sigma>.nt_bottom_SCC_notempty by blast
+        from new_U show "U \<noteq> {}"
+          using \<sigma>_graph.nt_bottom_SCC_notempty by blast
         (** U is part of R, and R is part of V, so U is part of V. *)
         from \<open>U\<subseteq>R\<close> \<open>R\<subseteq>V\<close> show "U \<subseteq> V" by blast
         (** We will show that \<alpha> wins the top priority in U. *)
         show "player_winningP \<alpha> (pr_set U)" proof -
-          (** We show U intersects with A by contradiction. *)
-          have "U \<inter> A \<noteq> {}" proof (rule ccontr; simp)
-            assume "U \<inter> A = {}"
-            moreover
-            {
-              (** If we have an x in U, we can get a path from it to a y in A. *)
-              fix x assume "x \<in> U"
-              with \<sigma>_path_to_A \<open>U\<subseteq>Z\<close> obtain xs y where
-                "y \<in> A" "path (Restr ?G\<sigma> R) x xs y" by blast
-              (** Since \<sigma> is closed in U, this y is also part of U. *)
-              with path_closed_dest[OF \<open>x\<in>U\<close> \<sigma>_U_closed]
-              have "\<exists>x\<in>U. x \<in> A" by auto
-            }
-            (** Because there exists a y in U and A, and U is not empty,
-                we have a contradiction: U does intersect with A. *)
-            ultimately show False
-              using \<open>U\<noteq>{}\<close> by blast
-          qed
+          (** First, we show that U and A intersect.
+              U is not empty, so we can get an x in U.
+              From this x, there exists a path to a node in A.
+              Because U is closed in G\<sigma>, this node in A is also in U.
+              Therefore, U must intersect with A. *)
+          from \<open>U\<noteq>{}\<close> \<open>U\<subseteq>Z\<close> \<sigma>_path_to_A have "U \<inter> A \<noteq> {}"
+            using path_closed_dest[OF _ \<sigma>_U_closed] by blast
           (** Because it contains A, which is all nodes of the highest priority in R,
-              the highest priority in U is the highest priority in R. *)
-          with \<open>U\<subseteq>R\<close> \<open>U\<subseteq>V\<close> have "pr_set U = pr_set R"
+              the highest priority in U is p. *)
+          with \<open>U\<subseteq>R\<close> have "pr_set U = p"
             using pr_le_pr_set[OF fin_U] R_game.pr_set_le_pr_set_V[OF _ \<open>U\<noteq>{}\<close>]
             by (simp add: A_def p_def Int_absorb1[OF \<open>R\<subseteq>V\<close>]) force
-          (** Since \<alpha> wins this priority, \<alpha> wins the highest priority in U. *)
-          thus ?thesis
-            unfolding \<alpha>_def p_def
-            by (simp add: player_wins_pr_def)
+          (** Since \<alpha> wins p, \<alpha> wins the highest priority in U. *)
+          thus ?thesis by (simp add: \<alpha>_def player_wins_pr_def)
         qed
         (** We define a \<sigma>' that covers U. This will be our tangle strategy. *)
         define \<sigma>' where "\<sigma>' = \<sigma> |` U"
         let ?G\<sigma>' = "induced_subgraph \<sigma>'"
-        let ?V\<sigma>' = "induced_subgraph_V \<sigma>'"
         have \<sigma>'_le_\<sigma>: "\<sigma>' \<subseteq>\<^sub>m \<sigma>" by (auto simp: \<sigma>'_def map_le_def)
         (** The graph of \<sigma> in U is equal to the graph of \<sigma>' in U. *)
         from restricted_strat_subgraph_same_in_region[OF \<sigma>'_def]
-        have graphs_equal_in_U:
-          "Restr ?G\<sigma> U = Restr ?G\<sigma>' U" .
+        have graphs_equal_in_U: "Restr ?G\<sigma> U = Restr ?G\<sigma>' U" .
         (** Therefore, all nodes in U have a successor in U. *)
         with \<sigma>_U_succ_in_U have \<sigma>'_U_succ_in_U:
           "\<forall>v\<in>U. \<exists>v'\<in>U. (v, v') \<in> ?G\<sigma>'" by blast
@@ -313,17 +296,16 @@ proof (induction rule: search_step_induct)
           unfolding tangle_strat_iff Let_def
         proof (rule exI[where x=\<sigma>']; intro conjI)
           (** \<sigma>' is a strategy for the player. *)
-          show \<sigma>'_strat: "strategy_of (V_player \<alpha>) \<sigma>'"
+          from \<sigma>_strat show \<sigma>'_strat: "strategy_of (V_player \<alpha>) \<sigma>'"
             using strat_le_E_of_strat[OF \<sigma>'_le_\<sigma>]
-            using \<sigma>'_def \<sigma>_strat strategy_of_def by force
+            by (auto simp: \<sigma>'_def strategy_of_def)
           (** The domain of \<sigma>' covers all \<alpha>-nodes in U. *)
-          show \<sigma>'_dom: "dom \<sigma>' = U \<inter> V_player \<alpha>"
-          proof
+          show \<sigma>'_dom: "dom \<sigma>' = U \<inter> V_player \<alpha>" proof
             (** The original domain of \<sigma> was a subset of \<alpha>-nodes in Z.
                 \<sigma>' restricts it to U, which makes it a subset of
                 \<alpha>-nodes in U. *)
             from \<sigma>_dom show "dom \<sigma>' \<subseteq> U \<inter> V_player \<alpha>"
-              unfolding \<sigma>'_def by auto
+              by (auto simp: \<sigma>'_def)
           next
             {
               (** If we have a \<alpha>-node in A, it has a successor in U. *)
@@ -334,7 +316,7 @@ proof (induction rule: search_step_induct)
                   Hence, it is also part of the domain of \<sigma>'. *)
               with assm \<open>U\<subseteq>Z\<close> have "x \<in> dom \<sigma>'"
                 using R_game.tangle_attractor_strat_in_dom_A[OF fin_T attr]
-                unfolding R_game_V_player_eq \<sigma>'_def by auto
+                by (auto simp: R_game_V_player_eq \<sigma>'_def)
             }
             moreover
             {
@@ -344,7 +326,7 @@ proof (induction rule: search_step_induct)
               fix x assume "x \<in> V_player \<alpha> \<inter> (U-A)"
               with \<open>U\<subseteq>Z\<close> \<open>Z\<subseteq>R\<close> have "x \<in> dom \<sigma>'"
                 using R_game.tangle_attractor_strat_in_dom_not_A[OF fin_T attr]
-                unfolding R_game_V_player_eq \<sigma>'_def by fastforce
+                by (auto simp: R_game_V_player_eq \<sigma>'_def)
             }
             (** Because both of these cases are part of the domain of \<sigma>',
                 the domain is only \<alpha>-nodes in U. *)
@@ -357,8 +339,7 @@ proof (induction rule: search_step_induct)
             unfolding \<sigma>'_def by fastforce
           (** \<sigma> is strongly connected, so the tangle subgraph of \<sigma>' is also strongly
               connected. *)
-          from \<sigma>_connected show \<sigma>'_conn:
-            "strongly_connected (tangle_subgraph \<alpha> U \<sigma>') U"
+          from \<sigma>_U_connected show "strongly_connected (tangle_subgraph \<alpha> U \<sigma>') U"
             unfolding tangle_subgraph_is_restricted_ind_subgraph[OF \<open>U\<subseteq>V\<close> \<sigma>'_dom \<sigma>'_ran]
             by (simp add: graphs_equal_in_U)
           (** We show that all cycles in the tangle subgraph of U and \<sigma>' are won
@@ -375,7 +356,7 @@ proof (induction rule: search_step_induct)
             (** This means all cycles in the tangle subgraph also exist in
                 the subgraph of \<sigma> in Z. These are lassos, so they are won by \<alpha>. *)
             from in_Z_won show ?thesis
-              using subsetD[OF \<open>U\<subseteq>Z\<close>] subgraph_path[OF tangle_subgraph_subset]
+              using subgraph_path[OF tangle_subgraph_subset] subsetD[OF \<open>U\<subseteq>Z\<close>]
               unfolding lasso_def cycle_def by blast
           qed
         qed
@@ -488,8 +469,8 @@ proof (induction rule: search_step_induct)
   have Y_new: "\<forall>U\<in>Y. U \<notin> T" sorry (** Making this work without changing the invariant. *)
   show ?case proof (rule ballI; rule ccontr; simp)
     fix U assume "U \<in> Y'" "U \<in> T"
-    with step(7) consider (old) "U \<in> Y"
-                        | (new) "U \<in> {S. bound_nt_bottom_SCC R Z \<sigma> S}"
+    with step(7) consider
+      (old) "U \<in> Y" | (new) "U \<in> {S. bound_nt_bottom_SCC R Z \<sigma> S}"
       by (auto split: if_splits)
     thus False proof cases
       case old with Y_new \<open>U\<in>T\<close> show ?thesis by blast
@@ -663,6 +644,7 @@ theorem search_correct:
 
 
 section \<open>Termination\<close>
+(** R is strictly decreasing at every step of search. *)
 lemma search_step_R_decreasing:
   "\<lbrakk>search_step (R,Y) (R',Y'); valid_subgame R\<rbrakk> \<Longrightarrow> R' \<subset> R"
   apply (induction rule: search_step_induct)
@@ -672,32 +654,41 @@ lemma search_step_R_decreasing:
     by blast
   done
 
+(** If our invariant holds for a state (R,Y), but no further steps can be
+    taken from it, then R is non-empty. *)
 lemma search_step_final_empty_R:
   assumes I: "search_I (R,Y)"
   assumes final: "\<not>Domainp search_step (R,Y)"
   shows "R = {}"
 proof (rule ccontr)
   assume "R \<noteq> {}"
-  with I have "valid_subgame R"
+  (** By the invariant, R is a balid subgame. *)
+  from I interpret subgame:
+    paritygame "Restr E R" "V\<inter>R" "V\<^sub>0\<inter>R"
     unfolding search_I_def split by blast
-  then interpret subgame: paritygame "Restr E R" "V\<inter>R" "V\<^sub>0\<inter>R"
-    by blast
+  (** Because R is not empty, another step can be taken. *)
   from \<open>R\<noteq>{}\<close> obtain R' Y' where
     "search_step (R,Y) (R',Y')"
     using subgame.tangle_attractor_exists[OF fin_T]
     using search_step.step[of R _ _ _ _ _ _ _ Y]
     by clarsimp fastforce
+  (** This means the state (R,Y) lies in the domain of the
+      step, which is a contradiction with our assumptions. *)
   hence "Domainp search_step (R,Y)" by blast
   with final show False by blast
 qed
 
+(** If our invariant holds at every step, then our step relation
+    is well-founded. *)
 lemma search_step_wfP_I:
   "wfP (\<lambda>s' s. search_step s s' \<and> search_I s)"
   unfolding wfP_def
-  apply (rule wf_subset[of "inv_image (finite_psubset) (\<lambda>(R,Y). R)"]; clarsimp)
-  using search_step_R_decreasing
-  unfolding search_I_def by fast
+  apply (rule wf_subset[of "inv_image (finite_psubset) (\<lambda>(R,Y). R)"])
+  using search_step_R_decreasing by (auto simp: search_I_def)
 
+(** Since the invariant holds initially, and it is preserved
+    at each step, search_step terminates for the initial state
+    (R,{}). *)
 lemma search_step_terminates:
   assumes "valid_subgame R"
   shows "trm search_step (R,{})"
@@ -707,11 +698,14 @@ lemma search_step_terminates:
   using search_step_wfP_I
   unfolding search_I_def split by blast+
 
+(** Because our step terminates, and because the final step
+    always has an empty R, there always exists a resulting Y
+    for any initial R. *)
 lemma search_step_exists:
   assumes "valid_subgame R"
   shows "\<exists>Y. search R Y"
-  using trm_final_state[OF search_step_terminates[OF assms]]
   using search_I_base[OF assms]
+  using trm_final_state[OF search_step_terminates[OF assms]]
   using search_step_final_empty_R[OF search_step_rtranclp_preserves_I]
   unfolding search_def by fast
 end (** End of context with fixed T. *)
