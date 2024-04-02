@@ -280,10 +280,10 @@ fun tangle_strat :: "player \<Rightarrow> 'v set \<Rightarrow> 'v strat \<Righta
     properties. *)
 lemma tangle_strat_iff:
   "tangle_strat \<alpha> U \<sigma> \<longleftrightarrow> strategy_of (V_player \<alpha>) \<sigma> \<and> dom \<sigma> = U \<inter> V_player \<alpha> \<and> ran \<sigma> \<subseteq> U \<and>
-   (let E' = tangle_subgraph \<alpha> U \<sigma> in (
+   (let E' = tangle_subgraph \<alpha> U \<sigma> in 
       strongly_connected E' U \<and>
       (\<forall>v \<in> U. \<forall>xs. cycle E' v xs \<longrightarrow> player_wins_list \<alpha> xs)
-   ))"
+   )"
   using P0.player_tangle_strat_def P1.player_tangle_strat_def
   by (cases \<alpha>; simp)
 
