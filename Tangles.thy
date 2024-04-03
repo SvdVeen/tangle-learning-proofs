@@ -1,6 +1,14 @@
 theory Tangles
 imports Main ParityGames WinningRegions StrongConnectivity
 begin
+(**
+  Authors:
+    - Suzanne van der Veen
+    - Peter Lammich
+    - Tom van Dijk
+
+  This theory focuses on tangles.
+*)
 chapter \<open>Tangles\<close>
 (** Van Dijk defines a p-tangle as follows:
       A p-tangle is a nonempty set of vertices U \<subseteq> V with p = pr(U),

@@ -1,8 +1,14 @@
 theory Digraphs
 imports Main
 begin
-(** This file contains general definitions for directed graphs, paths, lassos, and cycles. *)
+(**
+  Authors:
+    - Suzanne van der Veen
+    - Peter Lammich
+    - Tom van Dijk
 
+  This theory contains general definitions for directed graphs, paths, lassos, and cycles.
+*)
 chapter \<open>Directed Graphs\<close>
 type_synonym 'v dgraph = "'v rel"
 

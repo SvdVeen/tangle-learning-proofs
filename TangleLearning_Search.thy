@@ -1,7 +1,15 @@
 theory TangleLearning_Search
 imports Main PredicateTermination TangleAttractors
 begin
+(**
+  Authors:
+    - Suzanne van der Veen
+    - Peter Lammich
+    - Tom van Dijk
 
+  This theory focuses on the search algorithm.
+*)
+chapter \<open>The Search Algorithm\<close>
 type_synonym 'a search_state = "'a set \<times> 'a set set"
 
 context paritygame begin

@@ -1,8 +1,15 @@
 theory PositionalDeterminancy
 imports Main Attractors WinningRegions
 begin
+(**
+  Authors:
+    - Suzanne van der Veen
+    - Peter Lammich
+    - Tom van Dijk
 
-(** We use a proof for positional determinancy to check our definitions. *)
+  This theory contains a proof for positional determinancy of parity games.
+  We use this proof to check the correctness of our definitions for parity games.
+*)
 chapter \<open>Positional Determinancy\<close>
 section \<open>Auxiliary Lemmas\<close>
 context paritygame begin

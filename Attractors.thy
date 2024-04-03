@@ -1,7 +1,14 @@
 theory Attractors
   imports Main ParityGames WinningRegions
 begin
+(**
+  Authors:
+    - Suzanne van der Veen
+    - Peter Lammich
+    - Tom van Dijk
 
+  This theory contains definitions for attractors.
+*)
 chapter \<open>Attractors\<close>
 section \<open>Attractors for Arbitrary Players\<close>
 (** We first define attractors in the context player_paritygame so we can prove properties for any

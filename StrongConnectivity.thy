@@ -1,9 +1,15 @@
 theory StrongConnectivity
   imports Main Digraphs
 begin
-(** This theory focuses on strongly connected graphs and strongly connected components. *)
-chapter \<open>Strong Connectivity\<close>
+(**
+  Authors:
+    - Suzanne van der Veen
+    - Peter Lammich
+    - Tom van Dijk
 
+  This theory focuses on strongly connected graphs and strongly connected components.
+*)
+chapter \<open>Strong Connectivity\<close>
 section \<open>Strongly Connected Graphs\<close>
 (** A non-empty graph E with vertices V is strongly connected if for all pairs of vertices in the
     graph, there exists a path from one to the other and vice-versa.

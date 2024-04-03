@@ -1,6 +1,14 @@
 theory TangleAttractors
   imports Main Tangles
 begin
+(**
+  Authors:
+    - Suzanne van der Veen
+    - Peter Lammich
+    - Tom van Dijk
+
+  This theory focuses tangle attractors and \<alpha>-maximality.
+*)
 chapter \<open>Tangle Attractors\<close>
 section \<open>Tangle Attractors for Arbitrary Players\<close>
 context player_paritygame begin

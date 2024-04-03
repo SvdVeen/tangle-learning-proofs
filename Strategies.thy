@@ -1,9 +1,15 @@
 theory Strategies
   imports Main Digraphs
 begin
+(**
+  Authors:
+    - Suzanne van der Veen
+    - Peter Lammich
+    - Tom van Dijk
 
+  This theory contains general definitions for arenas, strategies, and induced subgames.
+*)
 chapter \<open>Arenas and Strategies\<close>
-
 section \<open>Arenas\<close>
 (** An arena is a finite directed graph without dead ends, along with sets of vertices that belong
     to either player. We can get by with only specifying the even player's nodes, and getting the

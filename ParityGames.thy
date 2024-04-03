@@ -1,6 +1,14 @@
 theory ParityGames
 imports Main Strategies
 begin
+(**
+  Authors:
+    - Suzanne van der Veen
+    - Peter Lammich
+    - Tom van Dijk
+
+  This theory contains definitions for parity games and players.
+*)
 chapter \<open>Parity Games\<close>
 section \<open>A General Parity Game\<close>
 (** We define a parity game as an arena with a priority function. *)

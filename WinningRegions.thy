@@ -1,6 +1,14 @@
 theory WinningRegions
 imports Main ParityGames
 begin
+(**
+  Authors:
+    - Suzanne van der Veen
+    - Peter Lammich
+    - Tom van Dijk
+
+  This theory focuses on winning regions, also known as dominions.
+*)
 chapter \<open>Winning Regions\<close>
 section \<open>Winning Regions for Arbitrary Players\<close>
 context player_paritygame begin

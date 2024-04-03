@@ -1,7 +1,14 @@
 theory TangleLearning_Solve
   imports Main ParityGames TangleAttractors TangleLearning_Search
 begin
+(**
+  Authors:
+    - Suzanne van der Veen
+    - Peter Lammich
+    - Tom van Dijk
 
+  This theory contains an incomplete formalisation of the Solve algorithm.
+*)
 type_synonym 'a solve_state =
   "'a set \<times> 'a set \<times> 'a strat \<times> 'a strat \<times> 'a set \<times> 'a set set"
 
